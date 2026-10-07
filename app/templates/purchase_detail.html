@@ -1,0 +1,199 @@
+{% extends "base.html" %}
+{% from "_whatsapp.html" import wa_button %}
+{% block title %}Factura de Compra #{{ invoice.invoice_id }}{% endblock %}
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2>📥 Factura de Compra #{{ invoice.invoice_id }}</h2>
+    <div class="d-flex gap-2">
+        <a href="{{ url_for('purchases.purchase_edit', invoice_id=invoice.invoice_id) }}" class="btn btn-warning btn-sm">✏️ Editar</a>
+        {% set wa_msg = "Factura de compra #" ~ invoice.invoice_id ~ " — " ~ invoice.supplier.name ~ "\nTotal: $" ~ "%.2f"|format(invoice.total_amount) ~ "\n\n" ~ request.url %}
+        {{ wa_button(invoice.supplier.phone, wa_msg, "Enviar por WhatsApp") }}
+        <a href="{{ url_for('purchases.purchases_list') }}" class="btn btn-secondary btn-sm">← Compras</a>
+        <form method="POST" action="{{ url_for('purchases.purchase_delete', invoice_id=invoice.invoice_id) }}" onsubmit="return confirm('¿Eliminar esta factura? El stock se revertirá según la bodega original.');">
+            <button type="submit" class="btn btn-outline-danger btn-sm">Eliminar</button>
+        </form>
+    </div>
+</div>
+
+{% if origen_order %}
+<div class="alert alert-info py-2">
+    <i class="bi bi-clipboard-check me-1"></i>
+    Esta compra proviene del <strong>Pedido a Proveedor {{ origen_order.codigo() }}</strong>.
+    <a href="{{ url_for('supplier_orders.order_detail', order_id=origen_order.order_id) }}" class="ms-2">Ver pedido</a>
+</div>
+{% endif %}
+
+<div class="row g-3 mb-4">
+    <div class="col-md-4">
+        <div class="card shadow-sm h-100">
+            <div class="card-body">
+                <h6 class="text-muted">Proveedor</h6>
+                <p class="mb-1 fw-bold">{{ invoice.supplier.name }}</p>
+                <p class="mb-0 small">RUC: {{ invoice.supplier.ruc or "—" }}</p>
+                <p class="mb-0 small">Plazo: {{ invoice.supplier.term_label() }}</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card shadow-sm h-100">
+            <div class="card-body">
+                <h6 class="text-muted">Documento</h6>
+                <p class="mb-1">N° Factura: <strong>{{ invoice.invoice_number or "—" }}</strong></p>
+                <p class="mb-1">Fecha: {{ invoice.invoice_date.strftime("%d/%m/%Y") }}</p>
+                <p class="mb-0">Condición:
+                    {% if invoice.payment_type == "credito" %}
+                        <span class="badge bg-info text-dark">Crédito</span>
+                        {% if invoice.due_date %}<span class="small">vence {{ invoice.due_date.strftime("%d/%m/%Y") }}</span>{% endif %}
+                    {% else %}
+                        <span class="badge bg-success">Contado</span>
+                    {% endif %}
+                </p>
+                <p class="mb-0 small text-muted">Registrado por: {{ invoice.registered_by_user.full_name }}</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card shadow-sm h-100">
+            <div class="card-body">
+                <h6 class="text-muted">Estado</h6>
+                {% set est = invoice.estado_actual() %}
+                {% if est == "pagado" %}
+                    <span class="badge bg-success fs-6">✓ Pagado</span>
+                {% elif est == "vencido" %}
+                    <span class="badge bg-danger fs-6">Vencido</span>
+                {% else %}
+                    <span class="badge bg-warning text-dark fs-6">Pendiente</span>
+                {% endif %}
+                <p class="mb-1 mt-2">Total: <strong>${{ "%.2f"|format(invoice.total_amount) }}</strong></p>
+                <p class="mb-1">Pagado: ${{ "%.2f"|format(invoice.pagado_total()) }}</p>
+                <p class="mb-0 fw-bold">Saldo: ${{ "%.2f"|format(invoice.saldo_pendiente()) }}</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if invoice.file_path %}
+<div class="mb-4">
+    <a href="{{ url_for('purchases.purchase_file', invoice_id=invoice.invoice_id) }}" target="_blank" class="btn btn-outline-primary">
+        📄 Ver documento de la factura (SRI)
+    </a>
+    {% set ext = invoice.file_path.lower() %}
+    {% if ext.endswith('.png') or ext.endswith('.jpg') or ext.endswith('.jpeg') or ext.endswith('.webp') or ext.endswith('.gif') %}
+    <div class="mt-3">
+        <div class="text-muted small mb-1">Imagen de la factura</div>
+        <img src="{{ url_for('purchases.purchase_file', invoice_id=invoice.invoice_id) }}" alt="Factura del proveedor"
+             style="max-width: 460px; width: 100%; border: 1px solid #dee2e6; border-radius: 8px;">
+    </div>
+    {% endif %}
+</div>
+{% endif %}
+
+<div class="row g-3">
+    <div class="col-lg-7">
+        <div class="card shadow-sm">
+            <div class="card-header bg-white fw-bold">Productos</div>
+            <div class="card-body p-0">
+                <table class="table table-hover mb-0">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>Producto</th>
+                            <th class="text-end">Cant.</th>
+                            <th class="text-end">Costo unit.</th>
+                            <th class="text-end">Subtotal</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for d in invoice.details %}
+                        <tr>
+                            <td>{{ d.product.name if d.product else "—" }}</td>
+                            <td class="text-end">{{ d.quantity }}</td>
+                            <td class="text-end">${{ "%.2f"|format(d.unit_cost) }}</td>
+                            <td class="text-end">${{ "%.2f"|format(d.subtotal) }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot>
+                        <tr class="table-light fw-bold">
+                            <td colspan="3" class="text-end">TOTAL</td>
+                            <td class="text-end">${{ "%.2f"|format(invoice.total_amount) }}</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-5">
+        <div class="card shadow-sm">
+            <div class="card-header bg-white fw-bold">💳 Pagos realizados</div>
+            <div class="card-body p-0">
+                {% if invoice.payments %}
+                <table class="table table-sm mb-0">
+                    <thead>
+                        <tr>
+                            <th>Fecha</th>
+                            <th class="text-end">Monto</th>
+                            <th>Método</th>
+                            <th class="text-end"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for p in invoice.payments %}
+                        <tr>
+                            <td>{{ p.payment_date.strftime("%d/%m/%Y %H:%M") }}</td>
+                            <td class="text-end">${{ "%.2f"|format(p.amount) }}</td>
+                            <td>{{ p.metodo_label() }}{% if p.receipt_number %} <small class="text-muted">#{{ p.receipt_number }}</small>{% endif %}</td>
+                            <td class="text-end">
+                                <form method="POST" action="{{ url_for('purchases.purchase_delete_payment', invoice_id=invoice.invoice_id, payment_id=p.payment_id) }}" onsubmit="return confirm('¿Eliminar este pago de ${{ "%.2f"|format(p.amount) }}? El saldo se recalculará.');" class="d-inline">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger" title="Eliminar pago">✕</button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                <p class="text-muted text-center py-3 mb-0">Sin pagos registrados todavía.</p>
+                {% endif %}
+            </div>
+        </div>
+
+        {% if invoice.saldo_pendiente() > 0.009 %}
+        <div class="card shadow-sm mt-3">
+            <div class="card-header bg-white fw-bold">Registrar pago</div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('purchases.purchase_add_payment', invoice_id=invoice.invoice_id) }}" class="row g-2">
+                    <div class="col-md-6">
+                        <label class="form-label small mb-1">Monto</label>
+                        <input type="number" step="0.01" min="0.01" max="{{ invoice.saldo_pendiente() }}" name="amount" class="form-control" required value="{{ invoice.saldo_pendiente() }}">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label small mb-1">Método</label>
+                        <select name="payment_method" class="form-select">
+                            <option value="efectivo">Efectivo</option>
+                            <option value="cheque">Cheque</option>
+                            <option value="transferencia">Transferencia</option>
+                            <option value="tarjeta">Tarjeta</option>
+                            <option value="otro">Otro</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label small mb-1">N° de comprobante</label>
+                        <input type="text" name="receipt_number" class="form-control">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label small mb-1">Nota</label>
+                        <input type="text" name="notes" class="form-control">
+                    </div>
+                    <div class="col-12 mt-2">
+                        <button type="submit" class="btn btn-success w-100">Registrar pago</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+{% endblock %}

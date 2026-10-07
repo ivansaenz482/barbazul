@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}Asistencia{% endblock %}
+{% block content %}
+
+<h2 class="mb-3"><i class="bi bi-calendar-check me-2 text-success"></i>Control de Asistencia</h2>
+
+<div class="card mb-4">
+    <div class="card-header bg-white"><h6 class="mb-0">Registrar asistencia</h6></div>
+    <div class="card-body">
+        <form method="POST" action="{{ url_for('hr.hr_asistencia_nueva') }}" class="row g-2 align-items-end">
+            <div class="col-md-3">
+                <label class="form-label small">Empleado *</label>
+                <select name="employee_id" class="form-select" required>
+                    <option value="">-- Selecciona --</option>
+                    {% for e in employees %}<option value="{{ e.employee_id }}">{{ e.name }}</option>{% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small">Fecha *</label>
+                <input type="date" name="date" class="form-control" value="{{ today }}" required>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small">Entrada</label>
+                <input type="time" name="check_in" class="form-control">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small">Salida</label>
+                <input type="time" name="check_out" class="form-control">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small">Nota</label>
+                <input type="text" name="notes" class="form-control">
+            </div>
+            <div class="col-md-1">
+                <button type="submit" class="btn btn-primary w-100">+</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<form method="GET" class="row g-2 mb-3">
+    <div class="col-md-4">
+        <select name="employee_id" class="form-select">
+            <option value="">Todos los empleados</option>
+            {% for e in employees %}<option value="{{ e.employee_id }}" {% if selected_employee == e.employee_id|string %}selected{% endif %}>{{ e.name }}</option>{% endfor %}
+        </select>
+    </div>
+    <div class="col-md-3"><input type="date" name="desde" class="form-control" value="{{ desde }}" placeholder="Desde"></div>
+    <div class="col-md-3"><input type="date" name="hasta" class="form-control" value="{{ hasta }}" placeholder="Hasta"></div>
+    <div class="col-md-2 d-flex gap-2">
+        <button class="btn btn-primary">Filtrar</button>
+        <a href="{{ url_for('hr.hr_asistencia') }}" class="btn btn-outline-secondary">✕</a>
+    </div>
+</form>
+
+<div class="table-responsive">
+    <table class="table table-hover bg-white align-middle">
+        <thead class="table-dark">
+            <tr><th>Fecha</th><th>Empleado</th><th>Entrada</th><th>Salida</th><th class="text-center">Horas</th><th>Nota</th><th></th></tr>
+        </thead>
+        <tbody>
+            {% for r in registros %}
+            <tr>
+                <td>{{ r.date.strftime("%d/%m/%Y") }}</td>
+                <td>{{ r.employee.name }}</td>
+                <td>{{ r.check_in.strftime("%H:%M") if r.check_in else "—" }}</td>
+                <td>{{ r.check_out.strftime("%H:%M") if r.check_out else "—" }}</td>
+                <td class="text-center">{{ r.horas() if r.horas() is not none else "—" }}</td>
+                <td class="small text-muted">{{ r.notes or "" }}</td>
+                <td class="text-end">
+                    <form method="POST" action="{{ url_for('hr.hr_asistencia_eliminar', reg_id=r.attendance_id) }}" class="d-inline" onsubmit="return confirm('¿Eliminar este registro?');">
+                        <button class="btn btn-sm btn-outline-danger">Eliminar</button>
+                    </form>
+                </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="7" class="text-center text-muted py-4">Sin registros de asistencia.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% endblock %}

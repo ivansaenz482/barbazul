@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+{% block title %}Reporte de Ganancias{% endblock %}
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-3 no-print">
+    <div>
+        <h2 class="mb-1"><i class="bi bi-graph-up-arrow me-2 text-success"></i>Reporte de Ganancias</h2>
+        <p class="text-muted mb-0">Ventas − costo de ventas − gastos = ganancia neta.</p>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="{{ url_for('reports.ganancias_reporte_excel', desde=datos.desde, hasta=datos.hasta) }}" class="btn btn-success">📊 Exportar Excel</a>
+        <button onclick="window.print()" class="btn btn-dark">🖨️ Imprimir</button>
+    </div>
+</div>
+
+<form method="GET" class="row g-2 mb-4 no-print bg-white p-3 rounded shadow-sm align-items-end">
+    <div class="col-md-4">
+        <label class="form-label small text-muted mb-1">Desde</label>
+        <input type="date" name="desde" class="form-control" value="{{ datos.desde }}">
+    </div>
+    <div class="col-md-4">
+        <label class="form-label small text-muted mb-1">Hasta</label>
+        <input type="date" name="hasta" class="form-control" value="{{ datos.hasta }}">
+    </div>
+    <div class="col-md-4 d-flex gap-2">
+        <button type="submit" class="btn btn-primary">Filtrar</button>
+        <a href="{{ url_for('reports.ganancias_reporte') }}" class="btn btn-outline-secondary">Restablecer</a>
+    </div>
+</form>
+
+<div id="printable-area">
+    <div class="d-none d-print-block mb-3">
+        <h3>Reporte de Ganancias</h3>
+        <p class="text-muted small">Generado el {{ generated_at }} por {{ current_user.full_name }}</p>
+    </div>
+
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body text-center">
+                    <div class="text-muted small">Ventas ({{ datos.num_ventas }})</div>
+                    <div class="fs-4 fw-bold text-primary">${{ "%.2f"|format(datos.total_ventas) }}</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body text-center">
+                    <div class="text-muted small">Costo de ventas</div>
+                    <div class="fs-4 fw-bold text-secondary">${{ "%.2f"|format(datos.total_costo) }}</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body text-center">
+                    <div class="text-muted small">Utilidad bruta</div>
+                    <div class="fs-4 fw-bold text-info">${{ "%.2f"|format(datos.utilidad_bruta) }}</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body text-center">
+                    <div class="text-muted small">Gastos</div>
+                    <div class="fs-4 fw-bold text-danger">${{ "%.2f"|format(datos.total_gastos) }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card border-dark mb-4">
+        <div class="card-body d-flex justify-content-between align-items-center">
+            <strong class="fs-5">GANANCIA NETA</strong>
+            <span class="fs-3 fw-bold {% if datos.ganancia_neta >= 0 %}text-success{% else %}text-danger{% endif %}">
+                ${{ "%.2f"|format(datos.ganancia_neta) }}
+            </span>
+        </div>
+    </div>
+
+    <div class="row g-3">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-white"><h6 class="mb-0">Detalle del cálculo</h6></div>
+                <div class="card-body">
+                    <table class="table table-sm mb-0">
+                        <tr><td>Ventas totales</td><td class="text-end">${{ "%.2f"|format(datos.total_ventas) }}</td></tr>
+                        <tr><td>− Costo de ventas</td><td class="text-end">${{ "%.2f"|format(datos.total_costo) }}</td></tr>
+                        <tr class="fw-bold"><td>= Utilidad bruta</td><td class="text-end">${{ "%.2f"|format(datos.utilidad_bruta) }}</td></tr>
+                        <tr><td>− Gastos</td><td class="text-end">${{ "%.2f"|format(datos.total_gastos) }}</td></tr>
+                        <tr class="fw-bold table-light"><td>= Ganancia neta</td><td class="text-end">${{ "%.2f"|format(datos.ganancia_neta) }}</td></tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-white"><h6 class="mb-0">Gastos por categoría</h6></div>
+                <div class="card-body">
+                    <table class="table table-sm mb-0">
+                        {% for key, monto in datos.desglose %}
+                        <tr><td>{{ categoria_label.get(key, key) }}</td><td class="text-end">${{ "%.2f"|format(monto) }}</td></tr>
+                        {% else %}
+                        <tr><td colspan="2" class="text-muted">Sin gastos en el periodo.</td></tr>
+                        {% endfor %}
+                        {% if datos.desglose %}
+                        <tr class="fw-bold table-light"><td>Total gastos</td><td class="text-end">${{ "%.2f"|format(datos.total_gastos) }}</td></tr>
+                        {% endif %}
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+@media print {
+    .no-print, nav, .navbar, footer, .sidebar, .topbar, .btn { display: none !important; }
+    body { background: white !important; }
+    .card { border: 1px solid #ccc !important; box-shadow: none !important; }
+}
+</style>
+
+{% endblock %}

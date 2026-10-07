@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Categorías{% endblock %}
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2>🏷️ Categorías</h2>
+    {% if current_user.is_admin() %}
+    <a href="{{ url_for('products.category_new') }}" class="btn btn-primary">+ Nueva Categoría</a>
+    {% endif %}
+</div>
+
+<div class="table-responsive">
+    <table class="table table-hover bg-white align-middle">
+        <thead class="table-dark">
+            <tr>
+                <th>Nombre</th>
+                <th>Descripción</th>
+                <th># Productos</th>
+                {% if current_user.is_admin() %}<th>Acciones</th>{% endif %}
+            </tr>
+        </thead>
+        <tbody>
+            {% for c in categories %}
+            <tr>
+                <td>{{ c.name }}</td>
+                <td>{{ c.description or "—" }}</td>
+                <td>{{ c.products|length }}</td>
+                {% if current_user.is_admin() %}
+                <td>
+                    <a href="{{ url_for('products.category_edit', category_id=c.category_id) }}" class="btn btn-sm btn-outline-primary">Editar</a>
+                    <form method="POST" action="{{ url_for('products.category_delete', category_id=c.category_id) }}" class="d-inline" onsubmit="return confirm('¿Eliminar esta categoría?');">
+                        <button type="submit" class="btn btn-sm btn-outline-danger">Eliminar</button>
+                    </form>
+                </td>
+                {% endif %}
+            </tr>
+            {% else %}
+            <tr><td colspan="4" class="text-center text-muted py-4">No hay categorías registradas.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% endblock %}

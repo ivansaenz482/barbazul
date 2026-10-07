@@ -1,0 +1,277 @@
+{% extends "base.html" %}
+{% block title %}Nueva Factura de Compra{% endblock %}
+{% block content %}
+
+<h2>📥 Nueva Factura de Compra</h2>
+<p class="text-muted">Ingresa los datos manualmente, o sube una foto/PDF de la factura para extraer el texto automáticamente.</p>
+
+<div class="bg-white p-4 rounded shadow-sm">
+
+    {% if stage == "upload" %}
+    {# ================== PASO 1: subir archivo ================== #}
+    <form method="POST" enctype="multipart/form-data">
+        <input type="hidden" name="action" value="extract">
+
+        <div class="row g-3 mb-3">
+            <div class="col-md-4">
+                <label class="form-label">Proveedor *</label>
+                <select name="supplier_id" class="form-select" required>
+                    <option value="">-- Selecciona --</option>
+                    {% for s in suppliers %}
+                    <option value="{{ s.supplier_id }}" data-term="{{ s.credit_term_days }}" {% if supplier_id == s.supplier_id|string %}selected{% endif %}>{{ s.name }} ({{ s.term_label() }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">N° de Factura</label>
+                <input type="text" name="invoice_number" class="form-control" value="{{ invoice_number }}">
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Fecha *</label>
+                <input type="date" name="invoice_date" class="form-control" value="{{ invoice_date }}" required>
+            </div>
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label d-block">¿Cómo vas a ingresar la factura?</label>
+            <div class="btn-group" role="group">
+                <input type="radio" class="btn-check" name="source_type" id="src_manual" value="manual" {% if source_type == "manual" %}checked{% endif %} onchange="this.form.submit()">
+                <label class="btn btn-outline-secondary" for="src_manual">✍️ Manual</label>
+
+                <input type="radio" class="btn-check" name="source_type" id="src_imagen" value="imagen" {% if source_type == "imagen" %}checked{% endif %}>
+                <label class="btn btn-outline-secondary" for="src_imagen">📷 Foto</label>
+
+                <input type="radio" class="btn-check" name="source_type" id="src_pdf" value="pdf" {% if source_type == "pdf" %}checked{% endif %}>
+                <label class="btn btn-outline-secondary" for="src_pdf">📄 PDF</label>
+            </div>
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">Archivo de la factura (imagen o PDF)</label>
+            <input type="file" name="invoice_file" class="form-control" accept=".pdf,.png,.jpg,.jpeg">
+            <div class="form-text">Máximo 16 MB. Formatos: PDF, PNG, JPG.</div>
+        </div>
+
+        <button type="submit" class="btn btn-primary">Extraer texto y continuar →</button>
+        <a href="{{ url_for('purchases.purchases_list') }}" class="btn btn-secondary">Cancelar</a>
+    </form>
+
+    {% else %}
+    {# ================== PASO 2: confirmar productos ================== #}
+    <form method="POST">
+        <input type="hidden" name="action" value="confirm">
+        <input type="hidden" name="source_type" value="{{ source_type }}">
+        <input type="hidden" name="file_path" value="{{ file_path }}">
+        <input type="hidden" name="ocr_text" value="{{ ocr_text }}">
+
+        <div class="row g-3 mb-3">
+            <div class="col-md-4">
+                <label class="form-label">Proveedor *</label>
+                <select name="supplier_id" class="form-select" required>
+                    <option value="">-- Selecciona --</option>
+                    {% for s in suppliers %}
+                    <option value="{{ s.supplier_id }}" data-term="{{ s.credit_term_days }}" {% if supplier_id == s.supplier_id|string %}selected{% endif %}>{{ s.name }} ({{ s.term_label() }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">N° de Factura</label>
+                <input type="text" name="invoice_number" class="form-control" value="{{ invoice_number }}">
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Fecha *</label>
+                <input type="date" name="invoice_date" class="form-control" value="{{ invoice_date }}" required>
+            </div>
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">Bodega destino de la mercancía *</label>
+            <select name="bodega_destino" class="form-select" required>
+                <option value="local" {% if bodega_destino == "local" %}selected{% endif %}>🏬 Bodega Local (donde se vende)</option>
+                <option value="matriz" {% if bodega_destino == "matriz" %}selected{% endif %}>🏭 Bodega Matriz (principal)</option>
+            </select>
+            <div class="form-text">El stock de la compra se sumará a la bodega elegida.</div>
+        </div>
+
+        <div class="row g-3 mb-3">
+            <div class="col-md-6">
+                <label class="form-label">Condición de pago *</label>
+                <select name="payment_type" id="payment_type" class="form-select">
+                    <option value="efectivo">💵 Contado</option>
+                    <option value="credito">📅 Crédito</option>
+                </select>
+            </div>
+            <div class="col-md-6" id="due_date_field" style="display: none;">
+                <label class="form-label">Fecha de vencimiento (plazo)</label>
+                <input type="date" name="due_date" id="due_date" class="form-control">
+                <div class="form-text" id="due_date_hint">Se calculará automáticamente según el plazo del proveedor si lo dejas vacío. Para 90 días (3 meses) se permite hasta +90 días.</div>
+            </div>
+        </div>
+
+        <!-- Estado de pago al ingresar -->
+        <div class="card border-0 bg-light p-3 mb-3" id="pago_inicial_card">
+            <div class="form-check mb-2">
+                <input class="form-check-input" type="checkbox" name="registrar_pago" id="registrar_pago" onchange="togglePagoInicial()">
+                <label class="form-check-label fw-bold" for="registrar_pago" id="registrar_pago_label">Registrar pago ahora</label>
+            </div>
+            <div id="pago_inicial_detalle" style="display:none;" class="row g-2">
+                <div class="col-md-4">
+                    <label class="form-label small">Monto</label>
+                    <input type="number" step="0.01" min="0.01" name="initial_payment_amount" id="initial_payment_amount" class="form-control" placeholder="Ej. 150.00">
+                    <div class="form-text">Vacío = pago total.</div>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label small">Método</label>
+                    <select name="initial_payment_method" class="form-select">
+                        <option value="efectivo">Efectivo</option>
+                        <option value="transferencia">Transferencia</option>
+                        <option value="cheque">Cheque</option>
+                        <option value="tarjeta">Tarjeta</option>
+                        <option value="otro">Otro</option>
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label small">N° comprobante</label>
+                    <input type="text" name="initial_receipt_number" class="form-control" placeholder="Opcional">
+                </div>
+            </div>
+            <div class="form-text" id="pago_inicial_hint">Si no registras pago, la factura quedará como <strong>Pendiente de pago</strong> y podrás abonarla después desde el detalle. Ideal para plazos de 30 / 60 / 90 días (3 meses) según lo ingresado.</div>
+        </div>
+
+        {% if ocr_text %}
+        <div class="mb-4">
+            <label class="form-label">📝 Texto extraído de la factura (referencia)</label>
+            <textarea class="form-control" rows="8" readonly style="font-family: monospace; font-size: 0.85rem; background: #f8f9fa;">{{ ocr_text }}</textarea>
+            <div class="form-text">Usa este texto como referencia para completar los productos abajo con cantidades y costos exactos.</div>
+        </div>
+        {% endif %}
+
+        <hr>
+        <h5>Productos comprados</h5>
+
+        <table class="table" id="products-table">
+            <thead>
+                <tr>
+                    <th style="width: 45%;">Producto</th>
+                    <th style="width: 20%;">Cantidad</th>
+                    <th style="width: 25%;">Costo unitario</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody id="products-body">
+                <tr>
+                    <td>
+                        <select name="product_id[]" class="form-select">
+                            <option value="">-- Selecciona --</option>
+                            {% for p in products %}
+                            <option value="{{ p.product_id }}">{{ p.name }} {% if p.sku %}({{ p.sku }}){% endif %}</option>
+                            {% endfor %}
+                        </select>
+                    </td>
+                    <td><input type="number" name="quantity[]" min="1" class="form-control"></td>
+                    <td><input type="number" step="0.01" min="0" name="unit_cost[]" class="form-control"></td>
+                    <td><button type="button" class="btn btn-sm btn-outline-danger" onclick="removeRow(this)">✕</button></td>
+                </tr>
+            </tbody>
+        </table>
+
+        <button type="button" class="btn btn-outline-secondary btn-sm mb-3" onclick="addRow()">+ Agregar producto</button>
+
+        <div class="mt-4 d-flex gap-2">
+            <button type="submit" class="btn btn-success">✅ Confirmar y actualizar inventario</button>
+            <a href="{{ url_for('purchases.purchase_new') }}" class="btn btn-secondary">Empezar de nuevo</a>
+        </div>
+    </form>
+    {% endif %}
+
+</div>
+
+<script>
+function addRow() {
+    const tbody = document.getElementById('products-body');
+    const newRow = tbody.rows[0].cloneNode(true);
+    newRow.querySelectorAll('select, input').forEach(el => el.value = '');
+    tbody.appendChild(newRow);
+}
+function removeRow(btn) {
+    const tbody = document.getElementById('products-body');
+    if (tbody.rows.length > 1) {
+        btn.closest('tr').remove();
+    } else {
+        alert('Debe haber al menos un producto.');
+    }
+}
+
+const paymentSelect = document.getElementById('payment_type');
+const dueDateField = document.getElementById('due_date_field');
+const dueDateInput = document.getElementById('due_date');
+const dueDateHint = document.getElementById('due_date_hint');
+
+function getInvoiceDate() {
+    // Hay dos inputs invoice_date (paso upload y paso products), tomar el visible
+    const inputs = document.querySelectorAll('input[name="invoice_date"]');
+    for (const el of inputs) {
+        if (el.offsetParent !== null || el.value) return el.value;
+    }
+    return inputs.length ? inputs[inputs.length-1].value : '';
+}
+function getSupplierTerm() {
+    const selects = document.querySelectorAll('select[name="supplier_id"]');
+    for (const sel of selects) {
+        const opt = sel.options[sel.selectedIndex];
+        if (opt && opt.value) {
+            const t = opt.getAttribute('data-term');
+            return t !== null ? t : '0';
+        }
+    }
+    return '0';
+}
+function updateDueDateLimits() {
+    if (!paymentSelect || !dueDateField || !dueDateInput) return;
+    const isCredito = paymentSelect.value === 'credito';
+    dueDateField.style.display = isCredito ? '' : 'none';
+    if (!isCredito) return;
+    const invDateStr = getInvoiceDate();
+    const termStr = getSupplierTerm();
+    let termDias = parseInt(termStr || '0', 10);
+    if (!termDias) termDias = 30;
+    if (invDateStr) {
+        dueDateInput.min = invDateStr;
+        const d = new Date(invDateStr);
+        d.setDate(d.getDate() + termDias);
+        const maxStr = d.toISOString().slice(0,10);
+        dueDateInput.max = maxStr;
+        const etiquetaTerm = termDias === 90 ? `${termDias} días (3 meses)` : `${termDias} días`;
+        if (dueDateHint) dueDateHint.textContent = `Plazo permitido: ${etiquetaTerm} → límite máximo ${maxStr} (según proveedor).`;
+        // Si ya tiene un valor que excede el máximo, avisar
+        if (dueDateInput.value && dueDateInput.value > maxStr) {
+            dueDateInput.setCustomValidity(`Excede el plazo permitido (${etiquetaTerm}, máx. ${maxStr}).`);
+        } else {
+            dueDateInput.setCustomValidity('');
+        }
+    }
+}
+function togglePagoInicial(){
+    const chk = document.getElementById('registrar_pago');
+    const det = document.getElementById('pago_inicial_detalle');
+    if (chk && det) det.style.display = chk.checked ? '' : 'none';
+}
+function updatePagoLabel(){
+    const isCredito = paymentSelect.value === 'credito';
+    const label = document.getElementById('registrar_pago_label');
+    const hint = document.getElementById('pago_inicial_hint');
+    if (label) label.textContent = isCredito ? 'Registrar abono inicial (opcional)' : 'Marcar como pagada (registrar pago total)';
+    if (hint) hint.innerHTML = isCredito ? 'Si no registras abono, la factura quedará como <strong>Pendiente de pago</strong> con vencimiento a ' + (document.getElementById('due_date') ? document.getElementById('due_date').max || '90 días (3 meses)' : '90 días') + '. Podrás abonar después desde el detalle.' : 'Si no marcas, quedará <strong>Pendiente de pago</strong> y podrás pagar después. Ideal para plazos de 30 / 60 / 90 días (3 meses).';
+}
+if (paymentSelect) {
+    paymentSelect.addEventListener('change', () => { updateDueDateLimits(); updatePagoLabel(); });
+    // Escuchar cambios de proveedor y fecha
+    document.querySelectorAll('select[name="supplier_id"]').forEach(s => s.addEventListener('change', updateDueDateLimits));
+    document.querySelectorAll('input[name="invoice_date"]').forEach(i => i.addEventListener('change', updateDueDateLimits));
+    if (dueDateInput) dueDateInput.addEventListener('change', updateDueDateLimits);
+    updateDueDateLimits();
+    updatePagoLabel();
+}
+</script>
+
+{% endblock %}

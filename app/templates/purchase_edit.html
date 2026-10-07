@@ -1,0 +1,156 @@
+{% extends "base.html" %}
+{% block title %}Editar Compra #{{ invoice.invoice_id }}{% endblock %}
+{% block content %}
+
+<h2>✏️ Editar Factura de Compra #{{ invoice.invoice_id }}</h2>
+<p class="text-muted">Modifica los datos de la compra. El stock se ajustará automáticamente según los cambios.</p>
+
+{% if invoice.payments %}
+<div class="alert alert-warning">
+    <i class="bi bi-info-circle"></i> Esta factura ya tiene <strong>{{ invoice.payments|length }} pago(s)/abono(s)</strong> por ${{ "%.2f"|format(invoice.pagado_total()) }} (saldo ${{ "%.2f"|format(invoice.saldo_pendiente()) }}). Puedes editarla igualmente: el total se recalculará y el estado quedará como <strong>Pendiente de pago</strong> si queda saldo, o <strong>Pagado</strong> si se cubre. Los pagos no se borran al editar; puedes eliminarlos desde el detalle si lo necesitas.
+</div>
+{% endif %}
+
+<div class="bg-white p-4 rounded shadow-sm">
+    <form method="POST">
+        <div class="row g-3 mb-3">
+            <div class="col-md-4">
+                <label class="form-label">Proveedor *</label>
+                <select name="supplier_id" id="supplier_select" class="form-select" required>
+                    {% for s in suppliers %}
+                    <option value="{{ s.supplier_id }}" data-term="{{ s.credit_term_days }}" {% if invoice.supplier_id == s.supplier_id %}selected{% endif %}>{{ s.name }} ({{ s.term_label() }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">N° de Factura</label>
+                <input type="text" name="invoice_number" class="form-control" value="{{ invoice.invoice_number or '' }}">
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Fecha *</label>
+                <input type="date" name="invoice_date" id="invoice_date" class="form-control" value="{{ invoice.invoice_date.strftime('%Y-%m-%d') }}" required>
+            </div>
+        </div>
+
+        <div class="row g-3 mb-3">
+            <div class="col-md-4">
+                <label class="form-label">Bodega destino *</label>
+                <select name="bodega_destino" class="form-select" required>
+                    <option value="local" {% if bodega_actual == "local" %}selected{% endif %}>🏬 Bodega Local</option>
+                    <option value="matriz" {% if bodega_actual == "matriz" %}selected{% endif %}>🏭 Bodega Matriz</option>
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Condición de pago *</label>
+                <select name="payment_type" id="payment_type" class="form-select">
+                    <option value="efectivo" {% if invoice.payment_type == "efectivo" %}selected{% endif %}>💵 Contado</option>
+                    <option value="credito" {% if invoice.payment_type == "credito" %}selected{% endif %}>📅 Crédito</option>
+                </select>
+            </div>
+            <div class="col-md-4" id="due_date_field" {% if invoice.payment_type != "credito" %}style="display:none"{% endif %}>
+                <label class="form-label">Fecha de vencimiento</label>
+                <input type="date" name="due_date" id="due_date" class="form-control" value="{{ invoice.due_date.strftime('%Y-%m-%d') if invoice.due_date else '' }}">
+                <div class="form-text" id="due_date_hint">Debe estar dentro del plazo permitido por el proveedor.</div>
+            </div>
+        </div>
+
+        {% if invoice.file_path %}
+        <div class="alert alert-light border small">📄 Documento actual: <a href="{{ url_for('purchases.purchase_file', invoice_id=invoice.invoice_id) }}" target="_blank">Ver archivo</a> (se mantiene si no subes uno nuevo)</div>
+        {% endif %}
+
+        <hr>
+        <h5>Productos</h5>
+        <table class="table" id="products-table">
+            <thead>
+                <tr>
+                    <th style="width: 45%;">Producto</th>
+                    <th style="width: 20%;">Cantidad</th>
+                    <th style="width: 25%;">Costo unitario</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody id="products-body">
+                {% for d in invoice.details %}
+                <tr>
+                    <td>
+                        <select name="product_id[]" class="form-select" required>
+                            <option value="">-- Selecciona --</option>
+                            {% for p in products %}
+                            <option value="{{ p.product_id }}" {% if d.product_id == p.product_id %}selected{% endif %}>{{ p.name }} {% if p.sku %}({{ p.sku }}){% endif %}</option>
+                            {% endfor %}
+                        </select>
+                    </td>
+                    <td><input type="number" name="quantity[]" min="1" class="form-control" value="{{ d.quantity }}" required></td>
+                    <td><input type="number" step="0.01" min="0" name="unit_cost[]" class="form-control" value="{{ "%.2f"|format(d.unit_cost) }}" required></td>
+                    <td><button type="button" class="btn btn-sm btn-outline-danger" onclick="removeRow(this)">✕</button></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <button type="button" class="btn btn-outline-secondary btn-sm mb-3" onclick="addRow()">+ Agregar producto</button>
+
+        <div class="mt-4 d-flex gap-2">
+            <button type="submit" class="btn btn-warning">💾 Guardar Cambios</button>
+            <a href="{{ url_for('purchases.purchase_detail', invoice_id=invoice.invoice_id) }}" class="btn btn-secondary">Cancelar</a>
+        </div>
+    </form>
+</div>
+
+<script>
+function addRow() {
+    const tbody = document.getElementById('products-body');
+    const newRow = tbody.rows[0].cloneNode(true);
+    newRow.querySelectorAll('select, input').forEach(el => el.value = '');
+    tbody.appendChild(newRow);
+}
+function removeRow(btn) {
+    const tbody = document.getElementById('products-body');
+    if (tbody.rows.length > 1) {
+        btn.closest('tr').remove();
+    } else {
+        alert('Debe haber al menos un producto.');
+    }
+}
+const paymentSelect = document.getElementById('payment_type');
+const dueDateField = document.getElementById('due_date_field');
+const dueDateInput = document.getElementById('due_date');
+const dueDateHint = document.getElementById('due_date_hint');
+const supplierSelect = document.getElementById('supplier_select');
+const invoiceDateInput = document.getElementById('invoice_date');
+
+function getSupplierTerm() {
+    const opt = supplierSelect.options[supplierSelect.selectedIndex];
+    return opt ? opt.getAttribute('data-term') : '0';
+}
+function updateDueDateLimits() {
+    if (!paymentSelect || !dueDateField || !dueDateInput) return;
+    const isCredito = paymentSelect.value === 'credito';
+    dueDateField.style.display = isCredito ? '' : 'none';
+    if (!isCredito) return;
+    const invDateStr = invoiceDateInput.value;
+    let termDias = parseInt(getSupplierTerm() || '0', 10);
+    if (!termDias) termDias = 30;
+    if (invDateStr) {
+        dueDateInput.min = invDateStr;
+        const d = new Date(invDateStr);
+        d.setDate(d.getDate() + termDias);
+        const maxStr = d.toISOString().slice(0,10);
+        dueDateInput.max = maxStr;
+        if (dueDateHint) dueDateHint.textContent = `Plazo permitido: ${termDias} días → límite máximo ${maxStr}.`;
+        if (dueDateInput.value && dueDateInput.value > maxStr) {
+            dueDateInput.setCustomValidity(`Excede el plazo permitido (${termDias} días, máx. ${maxStr}).`);
+        } else {
+            dueDateInput.setCustomValidity('');
+        }
+    }
+}
+if (paymentSelect) {
+    paymentSelect.addEventListener('change', updateDueDateLimits);
+    supplierSelect.addEventListener('change', updateDueDateLimits);
+    invoiceDateInput.addEventListener('change', updateDueDateLimits);
+    if (dueDateInput) dueDateInput.addEventListener('change', updateDueDateLimits);
+    updateDueDateLimits();
+}
+</script>
+
+{% endblock %}

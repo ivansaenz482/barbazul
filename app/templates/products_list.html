@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% block title %}Productos{% endblock %}
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2>📦 Productos</h2>
+    {% if current_user.can_edit_stock() %}
+    <a href="{{ url_for('products.product_new') }}" class="btn btn-primary">+ Nuevo Producto</a>
+    {% endif %}
+</div>
+
+{% if not current_user.ve_todas_bodegas() %}
+<div class="alert alert-info py-2">
+    <i class="bi bi-shop me-1"></i> Estás viendo el stock de tu bodega: <strong>{{ current_user.bodega_label() }}</strong>.
+</div>
+{% endif %}
+
+<form method="GET" class="mb-3">
+    <div class="input-group" style="max-width: 400px;">
+        <input type="text" name="q" class="form-control" placeholder="Buscar producto..." value="{{ search }}">
+        <button class="btn btn-outline-secondary" type="submit">Buscar</button>
+    </div>
+</form>
+
+<div class="table-responsive">
+    <table class="table table-hover bg-white align-middle">
+        <thead class="table-dark">
+            <tr>
+                <th>Imagen</th>
+                <th>SKU</th>
+                <th>Nombre</th>
+                <th>Categoría</th>
+                <th>Presentación</th>
+                <th>Código barras</th>
+                <th>Precio Venta</th>
+                {% if current_user.ve_todas_bodegas() %}
+                <th>Stock Local</th>
+                <th>Stock Matriz</th>
+                {% else %}
+                <th>Stock ({{ current_user.bodega_label() }})</th>
+                {% endif %}
+                <th>Estado</th>
+                {% if current_user.can_edit_stock() %}<th>Acciones</th>{% endif %}
+            </tr>
+        </thead>
+        <tbody>
+            {% for p in products %}
+            <tr class="{% if not p.active %}table-secondary text-muted{% endif %}">
+                <td>
+                    {% if p.image_path %}
+                    <a href="{{ url_for('products.product_image', product_id=p.product_id) }}" target="_blank">
+                        <img src="{{ url_for('products.product_image', product_id=p.product_id) }}" alt="{{ p.name }}"
+                             style="width: 44px; height: 44px; object-fit: cover;" class="rounded border">
+                    </a>
+                    {% else %}
+                    <div class="d-flex align-items-center justify-content-center bg-light rounded border"
+                         style="width: 44px; height: 44px;">
+                        <span class="text-muted small">—</span>
+                    </div>
+                    {% endif %}
+                </td>
+                <td>{{ p.sku or "—" }}</td>
+                <td>{{ p.name }}</td>
+                <td>{{ p.category.name if p.category else "—" }}</td>
+                <td>{{ p.presentacion or "—" }}</td>
+                <td>
+                    {% set codigo = p.barcode or p.sku or (p.product_id | string) %}
+                    <div class="d-flex align-items-center gap-2">
+                        <img src="{{ url_for('caja.caja_barcode', codigo=codigo) }}" alt="código de barras"
+                             style="height: 24px; width: auto; background: #fff;">
+                        <code class="small">{{ p.barcode or "—" }}</code>
+                    </div>
+                </td>
+                <td>${{ "%.2f"|format(p.sale_price) }}</td>
+                {% if current_user.ve_todas_bodegas() %}
+                <td>{{ p.current_stock }} {{ p.unit_measure }}</td>
+                <td>{{ p.stock_matriz or 0 }} {{ p.unit_measure }}</td>
+                {% elif current_user.bodega == 'matriz' %}
+                <td>{{ p.stock_matriz or 0 }} {{ p.unit_measure }}</td>
+                {% else %}
+                <td>{{ p.current_stock }} {{ p.unit_measure }}</td>
+                {% endif %}
+                <td>
+                    {% if not p.active %}
+                        <span class="badge bg-secondary">Inactivo</span>
+                    {% elif p.stock_status() == "bajo" %}
+                        <span class="badge bg-danger">⚠ Bajo stock</span>
+                    {% elif p.stock_status() == "sobre" %}
+                        <span class="badge bg-warning text-dark">📈 Sobre stock</span>
+                    {% else %}
+                        <span class="badge bg-success">Normal</span>
+                    {% endif %}
+                </td>
+                {% if current_user.can_edit_stock() %}
+                <td>
+                    <a href="{{ url_for('products.product_edit', product_id=p.product_id) }}" class="btn btn-sm btn-outline-primary">Editar</a>
+                    {% if p.active %}
+                    <form method="POST" action="{{ url_for('products.product_delete', product_id=p.product_id) }}" class="d-inline" onsubmit="return confirm('¿Desactivar este producto?');">
+                        <button type="submit" class="btn btn-sm btn-outline-danger">Desactivar</button>
+                    </form>
+                    {% endif %}
+                </td>
+                {% endif %}
+            </tr>
+            {% else %}
+            <tr><td colspan="11" class="text-center text-muted py-4">No hay productos registrados todavía.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% endblock %}

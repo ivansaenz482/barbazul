@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+{% block title %}Facturas SRI{% endblock %}
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2>🧾 Panel de Facturas — SRI</h2>
+    <a href="{{ url_for('sri.sri_config') }}" class="btn btn-outline-primary">⚙️ Configuración SRI</a>
+</div>
+
+{% if not cfg or not cfg.cert_path %}
+<div class="alert alert-warning py-2">
+    <i class="bi bi-info-circle me-1"></i>
+    Configura los datos del emisor y sube el <strong>certificado .p12</strong> en
+    <a href="{{ url_for('sri.sri_config') }}">Configuración SRI</a> para firmar y enviar.
+    Puedes generar el <strong>XML</strong> de cada factura desde el botón de la tabla.
+</div>
+{% endif %}
+
+<div class="row g-3 mb-3">
+    <div class="col-md-3">
+        <div class="card text-center shadow-sm"><div class="card-body">
+            <h5>{{ totales.todas }}</h5><div class="text-muted small">Facturas emitidas</div>
+        </div></div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center shadow-sm"><div class="card-body">
+            <h5 class="text-warning">{{ totales.pendiente }}</h5><div class="text-muted small">Pendientes de autorizar</div>
+        </div></div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center shadow-sm"><div class="card-body">
+            <h5 class="text-success">{{ totales.autorizada }}</h5><div class="text-muted small">Autorizadas</div>
+        </div></div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center shadow-sm"><div class="card-body">
+            <h5 class="text-danger">{{ totales.rechazada }}</h5><div class="text-muted small">Rechazadas</div>
+        </div></div>
+    </div>
+</div>
+
+<form method="GET" class="card shadow-sm mb-3">
+    <div class="card-body d-flex gap-2 align-items-center">
+        <label class="form-label small mb-0">Filtrar por estado:</label>
+        <select name="estado" class="form-select" style="max-width: 220px;" onchange="this.form.submit()">
+            <option value="">-- Todos --</option>
+            <option value="pendiente" {% if selected_estado == "pendiente" %}selected{% endif %}>Pendientes</option>
+            <option value="autorizada" {% if selected_estado == "autorizada" %}selected{% endif %}>Autorizadas</option>
+            <option value="rechazada" {% if selected_estado == "rechazada" %}selected{% endif %}>Rechazadas</option>
+        </select>
+    </div>
+</form>
+
+<div class="table-responsive">
+    <table class="table table-hover bg-white align-middle">
+        <thead class="table-dark">
+            <tr>
+                <th>#</th>
+                <th>Fecha</th>
+                <th>Cliente</th>
+                <th class="text-end">Total</th>
+                <th>Estado SRI</th>
+                <th>Clave de acceso</th>
+                <th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for f in facturas %}
+            <tr>
+                <td>#{{ f.sale_id }}</td>
+                <td>{{ f.sale_date.strftime("%d/%m/%Y") }}</td>
+                <td>{{ f.customer.full_name }}</td>
+                <td class="text-end">${{ "%.2f"|format(f.total_amount) }}</td>
+                <td>
+                    {% if f.sri_status == "autorizada" %}
+                        <span class="badge bg-success">Autorizada</span>
+                        {% if f.sri_autorizado_at %}<div class="small text-muted">{{ f.sri_autorizado_at.strftime("%d/%m/%Y %H:%M") }}</div>{% endif %}
+                    {% elif f.sri_status == "rechazada" %}
+                        <span class="badge bg-danger">Rechazada</span>
+                    {% else %}
+                        <span class="badge bg-warning text-dark">Pendiente</span>
+                    {% endif %}
+                </td>
+                <td style="max-width: 260px;">
+                    {% if f.sri_status == "pendiente" %}
+                    <form method="POST" action="{{ url_for('sri.factura_autorizar', sale_id=f.sale_id) }}" class="d-flex gap-1">
+                        <input type="text" name="clave_acceso" class="form-control form-control-sm" placeholder="Clave de acceso" maxlength="80">
+                        <button type="submit" class="btn btn-sm btn-success text-nowrap" title="Autorizar factura para subir al SRI">
+                            <i class="bi bi-check-lg"></i> Autorizar
+                        </button>
+                    </form>
+                    {% else %}
+                    {{ f.sri_clave_acceso or "—" }}
+                    {% endif %}
+                </td>
+                <td>
+                    <div class="d-flex gap-1 flex-wrap">
+                        <a href="{{ url_for('sri.factura_xml', sale_id=f.sale_id) }}" class="btn btn-sm btn-outline-dark" title="Generar y descargar XML del SRI">XML</a>
+                        <a href="{{ url_for('sri.factura_ride', sale_id=f.sale_id) }}" class="btn btn-sm btn-outline-primary" title="RIDE imprimible">RIDE</a>
+                        {% if f.sri_status != 'autorizada' %}
+                        <form method="POST" action="{{ url_for('sri.factura_enviar', sale_id=f.sale_id) }}" onsubmit="return confirm('¿Firmar y enviar esta factura al SRI?');">
+                            <button type="submit" class="btn btn-sm btn-success" title="Firmar y enviar al SRI">Enviar</button>
+                        </form>
+                        {% endif %}
+                        {% if f.sri_status == "pendiente" %}
+                        <form method="POST" action="{{ url_for('sri.factura_rechazar', sale_id=f.sale_id) }}" onsubmit="return confirm('¿Rechazar la autorización SRI de esta factura?');">
+                            <button type="submit" class="btn btn-sm btn-outline-danger" title="Rechazar"><i class="bi bi-x-lg"></i></button>
+                        </form>
+                        {% else %}
+                        <form method="POST" action="{{ url_for('sri.factura_revertir', sale_id=f.sale_id) }}" onsubmit="return confirm('¿Volver la factura a PENDIENTE?');">
+                            <button type="submit" class="btn btn-sm btn-outline-secondary" title="Volver a pendiente"><i class="bi bi-arrow-counterclockwise"></i></button>
+                        </form>
+                        {% endif %}
+                    </div>
+                </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="7" class="text-center text-muted py-4">No hay facturas que coincidan con el filtro.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% endblock %}

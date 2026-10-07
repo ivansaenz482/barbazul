@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title %}Vacaciones y Permisos{% endblock %}
+{% block content %}
+
+<h2 class="mb-3"><i class="bi bi-airplane me-2 text-info"></i>Vacaciones y Permisos</h2>
+
+<div class="card mb-4">
+    <div class="card-header bg-white"><h6 class="mb-0">Registrar solicitud</h6></div>
+    <div class="card-body">
+        <form method="POST" action="{{ url_for('hr.hr_vacaciones_nueva') }}" class="row g-2 align-items-end">
+            <div class="col-md-3">
+                <label class="form-label small">Empleado *</label>
+                <select name="employee_id" class="form-select" required>
+                    <option value="">-- Selecciona --</option>
+                    {% for e in employees %}<option value="{{ e.employee_id }}">{{ e.name }}</option>{% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small">Tipo *</label>
+                <select name="type" class="form-select">
+                    {% for key, label in tipos %}<option value="{{ key }}">{{ label }}</option>{% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small">Desde *</label>
+                <input type="date" name="start_date" class="form-control" value="{{ today }}" required>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small">Hasta</label>
+                <input type="date" name="end_date" class="form-control" value="{{ today }}">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small">Motivo</label>
+                <input type="text" name="reason" class="form-control">
+            </div>
+            <div class="col-md-1">
+                <button type="submit" class="btn btn-primary w-100">+</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="table-responsive">
+    <table class="table table-hover bg-white align-middle">
+        <thead class="table-dark">
+            <tr><th>Empleado</th><th>Tipo</th><th>Desde</th><th>Hasta</th><th class="text-center">Días</th><th>Motivo</th><th>Estado</th><th class="text-end">Acciones</th></tr>
+        </thead>
+        <tbody>
+            {% for r in registros %}
+            <tr>
+                <td>{{ r.employee.name }}</td>
+                <td>{{ r.type_label() }}</td>
+                <td>{{ r.start_date.strftime("%d/%m/%Y") }}</td>
+                <td>{{ r.end_date.strftime("%d/%m/%Y") }}</td>
+                <td class="text-center">{{ r.dias() }}</td>
+                <td class="small text-muted">{{ r.reason or "" }}</td>
+                <td>
+                    {% if r.status == "aprobado" %}<span class="badge bg-success">Aprobado</span>
+                    {% elif r.status == "rechazado" %}<span class="badge bg-danger">Rechazado</span>
+                    {% else %}<span class="badge bg-warning text-dark">Pendiente</span>{% endif %}
+                </td>
+                <td class="text-end text-nowrap">
+                    {% if r.status != "aprobado" %}
+                    <form method="POST" action="{{ url_for('hr.hr_vacaciones_estado', leave_id=r.leave_id) }}" class="d-inline">
+                        <input type="hidden" name="status" value="aprobado"><button class="btn btn-sm btn-outline-success">Aprobar</button>
+                    </form>
+                    {% endif %}
+                    {% if r.status != "rechazado" %}
+                    <form method="POST" action="{{ url_for('hr.hr_vacaciones_estado', leave_id=r.leave_id) }}" class="d-inline">
+                        <input type="hidden" name="status" value="rechazado"><button class="btn btn-sm btn-outline-secondary">Rechazar</button>
+                    </form>
+                    {% endif %}
+                    <form method="POST" action="{{ url_for('hr.hr_vacaciones_eliminar', leave_id=r.leave_id) }}" class="d-inline" onsubmit="return confirm('¿Eliminar?');">
+                        <button class="btn btn-sm btn-outline-danger">Eliminar</button>
+                    </form>
+                </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="8" class="text-center text-muted py-4">Sin solicitudes registradas.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% endblock %}

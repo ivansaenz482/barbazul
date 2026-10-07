@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% block title %}Pagos a Proveedores{% endblock %}
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2>💳 Pagos a Proveedores</h2>
+    <div class="d-flex gap-2">
+        <a href="{{ url_for('reports.pagos_proveedores', supplier_id=selected_supplier, metodo=selected_metodo, desde=desde, hasta=hasta) }}" class="btn btn-outline-primary"><i class="bi bi-bar-chart"></i> Ver Reporte Completo</a>
+        <button onclick="window.print()" class="btn btn-outline-secondary"><i class="bi bi-printer"></i> Imprimir</button>
+    </div>
+</div>
+
+<div class="card shadow-sm mb-3 no-print">
+    <div class="card-body">
+        <form method="GET" class="row g-2 align-items-end">
+            <div class="col-md-3">
+                <label class="form-label small mb-1">Proveedor</label>
+                <select name="supplier_id" class="form-select">
+                    <option value="">-- Todos --</option>
+                    {% for s in suppliers %}
+                    <option value="{{ s.supplier_id }}" {% if selected_supplier == s.supplier_id|string %}selected{% endif %}>{{ s.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small mb-1">Método</label>
+                <select name="metodo" class="form-select">
+                    <option value="">-- Todos --</option>
+                    {% for m in [('efectivo','Efectivo'),('cheque','Cheque'),('transferencia','Transferencia'),('tarjeta','Tarjeta'),('otro','Otro')] %}
+                    <option value="{{ m[0] }}" {% if selected_metodo == m[0] %}selected{% endif %}>{{ m[1] }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small mb-1">Desde</label>
+                <input type="date" name="desde" class="form-control" value="{{ desde }}">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small mb-1">Hasta</label>
+                <input type="date" name="hasta" class="form-control" value="{{ hasta }}">
+            </div>
+            <div class="col-md-3 d-flex gap-2">
+                <button class="btn btn-primary">Consultar</button>
+                <a href="{{ url_for('purchases.purchases_payments_list') }}" class="btn btn-secondary">Limpiar</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="printable-area">
+    <div class="d-none d-print-block text-center mb-3">
+        <h5 class="mb-0">REPUESTOS Y ACCESORIOS DE MOTO Y BICICLETAS HUANG</h5>
+        <p class="mb-0" style="font-size: 0.8rem;">RUC 0963863014001 — Pagos a Proveedores</p>
+        <hr>
+    </div>
+
+    <div class="table-responsive">
+        <table class="table table-hover bg-white align-middle">
+            <thead class="table-dark">
+                <tr>
+                    <th>Fecha Pago</th>
+                    <th>Compra</th>
+                    <th>Proveedor</th>
+                    <th class="text-end">Monto</th>
+                    <th>Método</th>
+                    <th>Comprobante</th>
+                    <th>Registrado por</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in pagos %}
+                <tr>
+                    <td>{{ p.payment_date.strftime("%d/%m/%Y %H:%M") }}</td>
+                    <td><a href="{{ url_for('purchases.purchase_detail', invoice_id=p.invoice.invoice_id) }}">#{{ p.invoice.invoice_id }}</a>{% if p.invoice.invoice_number %} ({{ p.invoice.invoice_number }}){% endif %}</td>
+                    <td>{{ p.invoice.supplier.name }}</td>
+                    <td class="text-end">${{ "%.2f"|format(p.amount) }}</td>
+                    <td><span class="badge bg-light text-dark border">{{ p.metodo_label() }}</span></td>
+                    <td>{{ p.receipt_number or "—" }}</td>
+                    <td>{{ p.registered_by_user.full_name if p.registered_by_user else "—" }}</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="7" class="text-center text-muted py-4">No hay pagos que coincidan con los filtros. Usa los filtros o revisa el reporte completo para emitir en Excel.</td></tr>
+                {% endfor %}
+            </tbody>
+            {% if pagos %}
+            <tfoot>
+                <tr class="table-light fw-bold">
+                    <td colspan="3" class="text-end">Total mostrado:</td>
+                    <td class="text-end">${{ "%.2f"|format(pagos|sum(attribute='amount')) }}</td>
+                    <td colspan="3"></td>
+                </tr>
+            </tfoot>
+            {% endif %}
+        </table>
+    </div>
+
+    <div class="no-print d-flex gap-2 justify-content-end mt-3">
+        <a href="{{ url_for('reports.pagos_proveedores', supplier_id=selected_supplier, metodo=selected_metodo, desde=desde, hasta=hasta) }}" class="btn btn-success"><i class="bi bi-file-earmark-excel"></i> Emitir Reporte en Excel</a>
+        <a href="{{ url_for('reports.pagos_proveedores', supplier_id=selected_supplier, metodo=selected_metodo, desde=desde, hasta=hasta) }}" class="btn btn-primary"><i class="bi bi-printer"></i> Reporte para Imprimir</a>
+    </div>
+</div>
+
+{% endblock %}

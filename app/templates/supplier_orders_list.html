@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block title %}Pedidos a Proveedor{% endblock %}
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <h2 class="mb-1"><i class="bi bi-clipboard-plus me-2 text-primary"></i>Pedidos a Proveedor</h2>
+        <p class="text-muted mb-0">Órdenes de compra para solicitar mercadería. Puedes imprimirlas o guardarlas en PDF.</p>
+    </div>
+    <a href="{{ url_for('supplier_orders.order_new') }}" class="btn btn-primary">+ Nuevo Pedido</a>
+</div>
+
+<form method="GET" class="row g-2 mb-3">
+    <div class="col">
+        <input type="text" name="q" value="{{ q or '' }}" class="form-control"
+               placeholder="Buscar por proveedor, código o # pedido..." aria-label="Buscar">
+    </div>
+    <div class="col-auto">
+        <button type="submit" class="btn btn-primary"><i class="bi bi-search me-1"></i>Buscar</button>
+        {% if q %}
+        <a href="{{ url_for('supplier_orders.orders_list') }}" class="btn btn-outline-secondary">Limpiar</a>
+        {% endif %}
+    </div>
+</form>
+
+<div class="table-responsive">
+    <table class="table table-hover bg-white align-middle">
+        <thead class="table-dark">
+            <tr>
+                <th>Código</th>
+                <th>Fecha</th>
+                <th>Proveedor</th>
+                <th>Bodega</th>
+                <th class="text-center">Unidades</th>
+                <th>Estado</th>
+                <th class="text-end">Total</th>
+                <th class="text-end no-print">Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for o in orders %}
+            <tr>
+                <td><a href="{{ url_for('supplier_orders.order_detail', order_id=o.order_id) }}">{{ o.codigo() }}</a></td>
+                <td>{{ o.order_date.strftime("%d/%m/%Y") }}</td>
+                <td>{{ o.supplier.name }}</td>
+                <td>
+                    {% if o.bodega_destino == "matriz" %}
+                        <span class="badge bg-primary">Matriz</span>
+                    {% else %}
+                        <span class="badge bg-secondary">Local</span>
+                    {% endif %}
+                </td>
+                <td class="text-center">{{ o.total_unidades() }}</td>
+                <td>
+                    {% if o.status == "recibido" %}
+                        <span class="badge bg-success">Recibido</span>
+                    {% elif o.status == "enviado" %}
+                        <span class="badge bg-info text-dark">Enviado</span>
+                    {% elif o.status == "anulado" %}
+                        <span class="badge bg-danger">Anulado</span>
+                    {% else %}
+                        <span class="badge bg-warning text-dark">Borrador</span>
+                    {% endif %}
+                    {% if o.convertido() %}
+                        <span class="badge bg-primary ms-1" title="Convertido en factura de compra">Compra #{{ o.purchase_invoice_id }}</span>
+                    {% endif %}
+                </td>
+                <td class="text-end fw-bold">${{ "%.2f"|format(o.total_amount) }}</td>
+                <td class="text-end no-print">
+                    <div class="btn-group btn-group-sm">
+                        <a href="{{ url_for('supplier_orders.order_detail', order_id=o.order_id) }}" class="btn btn-outline-primary">Ver / Imprimir</a>
+                        <a href="{{ url_for('supplier_orders.order_edit', order_id=o.order_id) }}" class="btn btn-outline-warning">Editar</a>
+                        <form method="POST" action="{{ url_for('supplier_orders.order_delete', order_id=o.order_id) }}" class="d-inline" onsubmit="return confirm('¿Eliminar el pedido {{ o.codigo() }}? El stock sumado se revertirá.');">
+                            <button type="submit" class="btn btn-outline-danger">Eliminar</button>
+                        </form>
+                    </div>
+                </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="8" class="text-center text-muted py-4">No hay pedidos a proveedor registrados todavía.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% endblock %}

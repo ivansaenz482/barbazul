@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}Mi Perfil{% endblock %}
+{% block content %}
+
+<h2>Mi Perfil</h2>
+
+<form method="POST" enctype="multipart/form-data" class="bg-white p-4 rounded shadow-sm" style="max-width: 600px;">
+    <div class="text-center mb-4">
+        {% if user.avatar_path %}
+        <img src="{{ url_for('users.user_avatar', user_id=user.user_id) }}" class="rounded-circle mb-2" style="width: 100px; height: 100px; object-fit: cover;">
+        {% else %}
+        <div class="rounded-circle bg-secondary text-white d-inline-flex align-items-center justify-content-center mb-2" style="width: 100px; height: 100px; font-size: 2rem;">
+            {{ user.initials() }}
+        </div>
+        {% endif %}
+        <div>
+            <label class="form-label small d-block">Cambiar foto de perfil</label>
+            <input type="file" name="avatar" accept=".png,.jpg,.jpeg" class="form-control form-control-sm" style="max-width: 300px; margin: 0 auto;">
+        </div>
+    </div>
+
+    <div class="row g-3">
+        <div class="col-md-6">
+            <label class="form-label">Usuario</label>
+            <input type="text" class="form-control" value="{{ user.username }}" disabled>
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">Rol</label>
+            <input type="text" class="form-control" value="{{ user.role.role_name|capitalize }}" disabled>
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">Nombre completo</label>
+            <input type="text" name="full_name" class="form-control" value="{{ user.full_name }}" required>
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">Email</label>
+            <input type="email" name="email" class="form-control" value="{{ user.email or '' }}">
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">Teléfono</label>
+            <input type="text" name="phone" class="form-control" value="{{ user.phone or '' }}">
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">Nueva contraseña</label>
+            <input type="password" name="password" class="form-control">
+            <div class="form-text">Déjalo en blanco para no cambiarla.</div>
+        </div>
+    </div>
+
+    <div class="mt-4">
+        <button type="submit" class="btn btn-primary">Guardar cambios</button>
+    </div>
+</form>
+
+{% endblock %}

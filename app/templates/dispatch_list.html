@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block title %}Guías de Despacho{% endblock %}
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <h2 class="mb-1"><i class="bi bi-truck me-2 text-primary"></i>Guías de Despacho</h2>
+        <p class="text-muted mb-0">Guías consolidadas para que bodega despache todos los pedidos seleccionados.</p>
+    </div>
+    <a href="{{ url_for('despachos.despacho_nueva') }}" class="btn btn-primary">+ Nueva Guía de Despacho</a>
+</div>
+
+<form method="GET" class="row g-2 mb-3">
+    <div class="col">
+        <input type="text" name="q" value="{{ q or '' }}" class="form-control"
+               placeholder="Buscar por transportista, número o # guía..." aria-label="Buscar">
+    </div>
+    <div class="col-auto">
+        <button type="submit" class="btn btn-primary"><i class="bi bi-search me-1"></i>Buscar</button>
+        {% if q %}
+        <a href="{{ url_for('despachos.despachos_list') }}" class="btn btn-outline-secondary">Limpiar</a>
+        {% endif %}
+    </div>
+</form>
+
+<div class="table-responsive">
+    <table class="table table-hover bg-white align-middle">
+        <thead class="table-dark">
+            <tr>
+                <th>#</th>
+                <th>Fecha</th>
+                <th>Pedidos</th>
+                <th>Unidades</th>
+                <th>Transportista</th>
+                <th>Estado</th>
+                <th>Emitida por</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for g in guias %}
+            <tr>
+                <td>#{{ g.dispatch_id }}{% if g.dispatch_number %} ({{ g.dispatch_number }}){% endif %}</td>
+                <td>{{ g.dispatch_date.strftime("%d/%m/%Y") }}</td>
+                <td>{{ g.total_ventas() }}</td>
+                <td>{{ g.total_unidades() }}</td>
+                <td>{{ g.transportista_nombre or "—" }}</td>
+                <td>
+                    {% if g.entregada %}
+                        <span class="badge bg-success">Entregada</span>
+                    {% else %}
+                        <span class="badge bg-warning text-dark">Por entregar</span>
+                    {% endif %}
+                </td>
+                <td>{{ g.creator.full_name }}</td>
+                <td>
+                    <a href="{{ url_for('despachos.despacho_detail', dispatch_id=g.dispatch_id) }}" class="btn btn-sm btn-outline-primary">Ver / Imprimir</a>
+                    {% if not g.entregada %}
+                    <form method="POST" action="{{ url_for('despachos.despacho_entregar', dispatch_id=g.dispatch_id) }}" class="d-inline">
+                        <button type="submit" class="btn btn-sm btn-success">✅ Entregada</button>
+                    </form>
+                    {% endif %}
+                    {% if current_user.is_admin() %}
+                    <form method="POST" action="{{ url_for('despachos.despacho_delete', dispatch_id=g.dispatch_id) }}" class="d-inline" onsubmit="return confirm('¿Eliminar la guía de despacho #{{ g.dispatch_id }}? Los pedidos quedarán disponibles para despachar de nuevo.');">
+                        <button type="submit" class="btn btn-sm btn-outline-danger">Eliminar</button>
+                    </form>
+                    {% endif %}
+                </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="8" class="text-center text-muted py-4">No hay guías de despacho generadas todavía.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% endblock %}

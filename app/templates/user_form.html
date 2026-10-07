@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title %}{{ "Editar" if user else "Nuevo" }} Usuario{% endblock %}
+{% block content %}
+
+<h2>{{ "Editar" if user else "Nuevo" }} Usuario</h2>
+
+<form method="POST" class="bg-white p-4 rounded shadow-sm" style="max-width: 600px;">
+    <div class="row g-3">
+        <div class="col-md-6">
+            <label class="form-label">Usuario (para iniciar sesión) *</label>
+            {% if user %}
+            <input type="text" class="form-control" value="{{ user.username }}" disabled>
+            <div class="form-text">El nombre de usuario no se puede cambiar.</div>
+            {% else %}
+            <input type="text" name="username" class="form-control" required autofocus>
+            {% endif %}
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">Nombre completo *</label>
+            <input type="text" name="full_name" class="form-control" value="{{ user.full_name if user else '' }}" required>
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">Email</label>
+            <input type="email" name="email" class="form-control" value="{{ user.email if user else '' }}">
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">Teléfono</label>
+            <input type="text" name="phone" class="form-control" value="{{ user.phone if user else '' }}">
+        </div>
+
+        <div class="col-md-6">
+            <label class="form-label">Rol *</label>
+            <select name="role_id" class="form-select" required>
+                {% for r in roles %}
+                <option value="{{ r.role_id }}" {% if user and user.role_id == r.role_id %}selected{% endif %}>{{ r.role_name|capitalize }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="col-md-6">
+            <label class="form-label">Bodega / Sucursal</label>
+            <select name="bodega" class="form-select">
+                <option value="" {% if not user or not user.bodega %}selected{% endif %}>Todas las bodegas (sin restricción)</option>
+                <option value="local" {% if user and user.bodega == 'local' %}selected{% endif %}>Bodega Local</option>
+                <option value="matriz" {% if user and user.bodega == 'matriz' %}selected{% endif %}>Bodega Matriz</option>
+            </select>
+            <div class="form-text">El usuario solo verá y facturará desde esa bodega. Deja "Todas" para ver ambas (admin).</div>
+        </div>
+
+        {% if user %}
+        <div class="col-md-6 d-flex align-items-end">
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" name="active" id="active" {% if user.active %}checked{% endif %}>
+                <label class="form-check-label" for="active">Usuario activo (puede iniciar sesión)</label>
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="col-12"><hr></div>
+
+        {% if user %}
+        <div class="col-md-6">
+            <label class="form-label">Nueva contraseña</label>
+            <input type="password" name="password" class="form-control">
+            <div class="form-text">Déjalo en blanco para no cambiar la contraseña actual.</div>
+        </div>
+        {% else %}
+        <div class="col-md-6">
+            <label class="form-label">Contraseña *</label>
+            <input type="password" name="password" class="form-control" required minlength="6">
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">Confirmar contraseña *</label>
+            <input type="password" name="password_confirm" class="form-control" required minlength="6">
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="mt-4 d-flex gap-2">
+        <button type="submit" class="btn btn-primary">Guardar</button>
+        <a href="{{ url_for('users.users_list') }}" class="btn btn-secondary">Cancelar</a>
+    </div>
+</form>
+
+{% endblock %}

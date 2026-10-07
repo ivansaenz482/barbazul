@@ -1,0 +1,328 @@
+{% extends "base.html" %}
+{% from "_whatsapp.html" import wa_button %}
+{% block title %}{{ sale.document_type_label() }} #{{ sale.sale_id }}{% endblock %}
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-3 no-print">
+    <h2 class="mb-0">{{ sale.document_type_label() }} #{{ sale.sale_id }}</h2>
+    <div class="d-flex gap-2">
+        {% if current_user.can_edit_pedidos() %}
+        <a href="{{ url_for('sales.sale_edit', sale_id=sale.sale_id) }}" class="btn btn-outline-warning btn-sm">✏️ Editar</a>
+        <form method="POST" action="{{ url_for('sales.sale_delete', sale_id=sale.sale_id) }}" class="d-inline" onsubmit="return confirm('¿Eliminar la venta #{{ sale.sale_id }}? El stock se devolverá al inventario.');">
+            <button type="submit" class="btn btn-outline-danger btn-sm">🗑️ Eliminar</button>
+        </form>
+        {% endif %}
+        <button onclick="window.print()" class="btn btn-dark btn-sm">🖨️ Imprimir</button>
+        {% set wa_msg = sale.document_type_label() ~ " #" ~ sale.sale_id ~ "\nCliente: " ~ sale.customer.full_name ~ "\nTotal: $" ~ "%.2f"|format(sale.total_amount) ~ "\n\n" ~ request.url %}
+        {{ wa_button(sale.customer.phone, wa_msg) }}
+        {% if sale.liquidada %}
+        <a href="{{ url_for('guides.guide_new', sale_id=sale.sale_id) }}" class="btn btn-outline-dark btn-sm">Generar Guía de Remisión</a>
+        <a href="{{ url_for('sri.nota_credito_nueva', sale_id=sale.sale_id) }}" class="btn btn-outline-danger btn-sm">Nota de Crédito</a>
+        {% endif %}
+        <a href="{{ url_for('sales.sales_list') }}" class="btn btn-secondary btn-sm">← Volver</a>
+    </div>
+</div>
+
+{% if not sale.liquidada %}
+<div class="card border-warning mb-4 no-print">
+    <div class="card-body">
+        <h6 class="card-title text-warning-emphasis">⏳ Este es un {{ sale.document_type_label() }} pendiente de autorizar</h6>
+        <p class="text-muted small mb-3">
+            Todavía no descontó inventario ni se registró como venta real. Cuando el cliente
+            confirme que la entrega o venta se ejecutó, autorízala aquí para convertirla en
+            Nota de Venta Autorizada o Factura definitiva.
+        </p>
+        {% if current_user.can_edit_pedidos() %}
+        <form method="POST" action="{{ url_for('sales.sale_liquidar', sale_id=sale.sale_id) }}" class="row g-2 align-items-end">
+            <div class="col-md-4">
+                <label class="form-label small">Convertir a</label>
+                <select name="document_type" class="form-select">
+                    <option value="nota_venta_autorizada">Nota de Venta Autorizada</option>
+                    <option value="factura">Factura</option>
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label small">Tipo de pago final</label>
+                <select name="payment_type" id="liq_payment_type" class="form-select" onchange="toggleLiqPagada()">
+                    <option value="efectivo" {% if sale.payment_type == "efectivo" %}selected{% endif %}>Efectivo</option>
+                    <option value="credito" {% if sale.payment_type == "credito" %}selected{% endif %}>Crédito</option>
+                </select>
+            </div>
+            <div class="col-md-4">
+                <button type="submit" class="btn btn-success w-100" onclick="return confirm('¿Confirmas que la entrega/venta se realizó? Esto descontará el inventario.');">
+                    ✅ Liquidar / Confirmar venta
+                </button>
+            </div>
+            <div class="col-12" id="liq_pagada_field">
+                <div class="row g-2 mt-1">
+                    <div class="col-md-4">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="marcar_pagada" id="liq_marcar_pagada" checked onchange="toggleLiqDetalle()">
+                            <label class="form-check-label small" for="liq_marcar_pagada">Marcar Cancelada de inmediato</label>
+                        </div>
+                    </div>
+                    <div class="col-md-4" id="liq_detalle_metodo">
+                        <select name="initial_payment_method" class="form-select form-select-sm">
+                            <option value="efectivo">Efectivo</option>
+                            <option value="cheque">Cheque</option>
+                            <option value="transferencia">Transferencia</option>
+                            <option value="tarjeta">Tarjeta</option>
+                            <option value="otro">Otro</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4" id="liq_detalle_recibo">
+                        <input type="text" name="initial_receipt_number" class="form-control form-control-sm" placeholder="N° de recibo (opcional)">
+                    </div>
+                </div>
+            </div>
+        </form>
+        {% else %}
+        <p class="text-muted small">No tienes permiso para autorizar este pedido.</p>
+        {% endif %}
+        <script>
+        function toggleLiqPagada() {
+            const isCredito = document.getElementById('liq_payment_type').value === 'credito';
+            document.getElementById('liq_pagada_field').classList.toggle('d-none', isCredito);
+        }
+        function toggleLiqDetalle() {
+            const marcado = document.getElementById('liq_marcar_pagada').checked;
+            document.getElementById('liq_detalle_metodo').classList.toggle('d-none', !marcado);
+            document.getElementById('liq_detalle_recibo').classList.toggle('d-none', !marcado);
+        }
+        document.addEventListener('DOMContentLoaded', () => { toggleLiqPagada(); toggleLiqDetalle(); });
+        </script>
+    </div>
+</div>
+{% endif %}
+
+<div id="printable-invoice">
+    <div class="d-none d-print-block mb-2">
+        <div class="d-flex align-items-center gap-3 pb-2 mb-2" style="border-bottom: 2px solid #1a3c63;">
+            {% if company_logo_url %}
+            <img src="{{ company_logo_url }}" alt="Logo" style="height: 62px; width: auto; object-fit: contain;">
+            {% endif %}
+            <div>
+                <h5 class="mb-0" style="color: #1a3c63;">REPUESTOS Y ACCESORIOS DE MOTO Y BICICLETAS HUANG</h5>
+                <p class="mb-0" style="font-size: 0.7rem; color: #6b7c8c;">RUC: 0963863014001 — Calle 38 y Av. 0818 y Calle E — Cel: 0979698202 — almacenehuang88@gmail.com — Guayaquil, Ecuador</p>
+            </div>
+            <div class="ms-auto text-end">
+                <h5 class="mb-0">{{ sale.document_type_label() }}</h5>
+                <p class="mb-0" style="font-size: 0.7rem; color: #6b7c8c;">N° {{ sale.sale_id }} — {{ sale.sale_date.strftime("%d/%m/%Y %H:%M") }}</p>
+            </div>
+        </div>
+        {% if sale.document_type == "proforma" %}
+        <p class="text-danger fw-bold" style="font-size: 0.8rem;">*** PROFORMA — NO VÁLIDO COMO COMPROBANTE DE VENTA ***</p>
+        {% endif %}
+    </div>
+
+    <div class="row g-3 mb-3 invoice-summary-row">
+        <div class="col-md-6">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h6 class="card-title text-muted">Cliente</h6>
+                    <p class="mb-1"><strong>{{ sale.customer.full_name }}</strong></p>
+                    {% if sale.customer.business_name %}<p class="mb-1 small text-muted">{{ sale.customer.business_name }}</p>{% endif %}
+                    <p class="mb-1 small text-muted">
+                        {% if sale.customer.cedula %}<strong>CI:</strong> {{ sale.customer.cedula }}{% endif %}
+                        {% if sale.customer.cedula and sale.customer.phone %} &nbsp;•&nbsp; {% endif %}
+                        {% if sale.customer.phone %}<strong>Cel:</strong> {{ sale.customer.phone }}{% endif %}
+                    </p>
+                    <p class="mb-0">
+                        {% if sale.payment_type == "credito" %}
+                            <span class="badge bg-info text-dark">Crédito</span>
+                        {% else %}
+                            <span class="badge bg-success">Efectivo</span>
+                        {% endif %}
+                    </p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h6 class="card-title text-muted">Resumen</h6>
+                    <p class="mb-1 no-print">Documento: <strong>{{ sale.document_type_label() }}</strong></p>
+                    <p class="mb-1 no-print">Fecha: {{ sale.sale_date.strftime("%d/%m/%Y %H:%M") }}</p>
+                    <p class="mb-1">Registrado por: {{ sale.seller.full_name }}</p>
+                    <p class="mb-1">Bodega: <strong>{{ "Matriz" if sale.bodega == "matriz" else "Local" }}</strong></p>
+                    {% if sale.vendedor %}<p class="mb-1">Vendedor: <strong>{{ sale.vendedor.name }}</strong></p>{% endif %}
+                    <p class="mb-1">Total: <strong>${{ "%.2f"|format(sale.total_amount) }}</strong></p>
+                    <p class="mb-0">
+                        Estado:
+                        {% if not sale.liquidada %}
+                            <span class="badge bg-warning text-dark">Pendiente de autorizar</span>
+                        {% elif sale.status == "pagado" %}
+                            <span class="badge bg-success">Cancelada</span>
+                        {% elif sale.status == "vencido" %}
+                            <span class="badge bg-danger">Vencido</span>
+                        {% else %}
+                            <span class="badge bg-warning text-dark">Pendiente de pago</span>
+                        {% endif %}
+                    </p>
+                    {% if sale.liquidada and sale.liquidated_by %}
+                    <p class="mb-0 small text-muted no-print">Confirmado por: {{ sale.liquidator.full_name }} el {{ sale.liquidated_at.strftime("%d/%m/%Y %H:%M") }}</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="table-responsive mb-3">
+        <table class="table table-bordered bg-white invoice-items-table">
+            <thead class="table-light">
+                <tr>
+                    <th>Código</th>
+                    <th>Producto</th>
+                    <th>Cantidad</th>
+                    <th>Precio unit.</th>
+                    <th>Subtotal</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for d in sale.details %}
+                <tr>
+                    <td>{{ d.product.sku or "—" }}</td>
+                    <td>{{ d.product.name }}</td>
+                    <td>{{ d.quantity }}</td>
+                    <td>${{ "%.2f"|format(d.unit_price) }}</td>
+                    <td>${{ "%.2f"|format(d.subtotal) }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr class="table-light">
+                    <th colspan="4" class="text-end">Total</th>
+                    <th>${{ "%.2f"|format(sale.total_amount) }}</th>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+
+    {% if sale.payment_type == "credito" %}
+    <div class="table-responsive mb-3">
+        <table class="table table-bordered invoice-terms-table">
+            <thead class="table-light">
+                <tr><th>Condiciones de pago</th><th>Total</th><th>Plazo</th><th>Fecha de vencimiento</th></tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Crédito</td>
+                    <td>${{ "%.2f"|format(sale.total_amount) }}</td>
+                    <td>{{ sale.customer.credit_term_days }} días</td>
+                    <td>{{ sale.due_date.strftime("%d/%m/%Y") if sale.due_date else "—" }}</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+
+    <div class="text-center mt-4 pt-3" style="border-top: 1px dashed #bbb; background: #000; color: #fff; border-radius: 4px; padding: 10px;">
+        <p class="mb-0 fw-bold" style="font-size: 0.9rem; letter-spacing: 1px;">SALIDA DE MERCADERÍA</p>
+        <p class="mb-0 fw-bold" style="font-size: 0.85rem;">NO HAY CAMBIOS NI DEVOLUCIÓN</p>
+    </div>
+</div>
+
+{% if sale.liquidada and sale.payments %}
+<div class="card no-print mb-3" style="max-width: 560px;">
+    <div class="card-body">
+        <h6 class="card-title">🧾 Historial de pagos</h6>
+        <ul class="list-unstyled small text-muted mb-0">
+            {% for p in sale.payments %}
+            <li>{{ p.payment_date.strftime("%d/%m/%Y") }} — ${{ "%.2f"|format(p.amount) }} ({{ p.payment_method|capitalize }}{% if p.receipt_number %}, recibo #{{ p.receipt_number }}{% endif %})</li>
+            {% endfor %}
+        </ul>
+    </div>
+</div>
+{% endif %}
+
+{% if sale.liquidada and sale.status != "pagado" %}
+<div class="card no-print" style="max-width: 560px;">
+    <div class="card-body">
+        <h6 class="card-title">💵 Estado de pago</h6>
+        <p>Pagado: ${{ "%.2f"|format(sale.pagado_total()) }} de ${{ "%.2f"|format(sale.total_amount) }}</p>
+        <p>Saldo pendiente: <strong>${{ "%.2f"|format(sale.saldo_pendiente()) }}</strong></p>
+        {% if current_user.can_edit_pedidos() %}
+
+        <form method="POST" action="{{ url_for('sales.sale_add_payment', sale_id=sale.sale_id) }}" class="row g-2 mt-2">
+            <div class="col-6">
+                <input type="number" step="0.01" min="0.01" name="amount" class="form-control" placeholder="Monto" required>
+            </div>
+            <div class="col-6">
+                <select name="payment_method" class="form-select">
+                    <option value="efectivo">Efectivo</option>
+                    <option value="cheque">Cheque</option>
+                    <option value="transferencia">Transferencia</option>
+                    <option value="tarjeta">Tarjeta</option>
+                    <option value="otro">Otro</option>
+                </select>
+            </div>
+            <div class="col-12">
+                <input type="text" name="receipt_number" class="form-control" placeholder="N° de recibo (opcional)">
+            </div>
+            <div class="col-12">
+                <button type="submit" class="btn btn-primary btn-sm">Registrar pago parcial</button>
+            </div>
+        </form>
+
+        <hr>
+        <form method="POST" action="{{ url_for('sales.sale_edit_payment_status', sale_id=sale.sale_id) }}" class="row g-2">
+            <input type="hidden" name="accion" value="marcar_cancelada">
+            <div class="col-6">
+                <select name="payment_method" class="form-select form-select-sm">
+                    <option value="efectivo">Efectivo</option>
+                    <option value="cheque">Cheque</option>
+                    <option value="transferencia">Transferencia</option>
+                    <option value="tarjeta">Tarjeta</option>
+                    <option value="otro">Otro</option>
+                </select>
+            </div>
+            <div class="col-6">
+                <input type="text" name="receipt_number" class="form-control form-control-sm" placeholder="N° de recibo (opcional)">
+            </div>
+            <div class="col-12">
+                <button type="submit" class="btn btn-success btn-sm w-100">✅ Marcar como Cancelada (pagada completa)</button>
+            </div>
+        </form>
+        {% else %}
+        <p class="text-muted small">No tienes permiso para registrar pagos.</p>
+        {% endif %}
+    </div>
+</div>
+{% elif sale.liquidada and sale.status == "pagado" and current_user.is_admin() %}
+<div class="card no-print" style="max-width: 500px;">
+    <div class="card-body">
+        <h6 class="card-title">💵 Estado de pago</h6>
+        <p class="text-success">✅ Cancelada — pagada en su totalidad.</p>
+        <form method="POST" action="{{ url_for('sales.sale_edit_payment_status', sale_id=sale.sale_id) }}" onsubmit="return confirm('¿Revertir esta venta a Pendiente? Esto elimina los pagos registrados.');">
+            <input type="hidden" name="accion" value="revertir_pendiente">
+            <button type="submit" class="btn btn-outline-danger btn-sm">Revertir a Pendiente (solo administrador)</button>
+        </form>
+    </div>
+</div>
+{% endif %}
+
+<style>
+@media print {
+    @page { size: A4 portrait; margin: 10mm 12mm 12mm 12mm; }
+    html, body { background: white !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+    .no-print, nav, .navbar, footer, .sidebar, .topbar, .app-footer, .alert, .btn { display: none !important; }
+    .app-body, .app-shell, .app-content, .app-main { display: block !important; background: white !important; padding: 0 !important; margin: 0 !important; }
+    #printable-invoice { font-size: 0.82rem; }
+    .invoice-summary-row .card { box-shadow: none !important; border: 1px solid #ccc !important; }
+    .invoice-summary-row .card-body { padding: 0.5rem 0.75rem !important; }
+    .invoice-items-table, .invoice-terms-table { font-size: 0.8rem; }
+    .invoice-items-table th, .invoice-items-table td,
+    .invoice-terms-table th, .invoice-terms-table td { padding: 0.3rem 0.5rem !important; }
+    h6.card-title { font-size: 0.75rem; margin-bottom: 0.3rem !important; }
+    a[href]:after { content: none !important; }
+}
+</style>
+<script>
+(function(){
+  const originalTitle = document.title;
+  window.addEventListener('beforeprint', () => { document.title = ' '; });
+  window.addEventListener('afterprint', () => { document.title = originalTitle; });
+})();
+</script>
+
+{% endblock %}

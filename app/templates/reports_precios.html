@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% block title %}Lista de Precios{% endblock %}
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-3 no-print">
+    <div>
+        <h2 class="mb-1"><i class="bi bi-tags me-2 text-primary"></i>Lista de Precios por Producto</h2>
+        <p class="text-muted mb-0">Precios de las 3 listas: Contado, Crédito y Mayorista.</p>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="{{ url_for('reports.precios_productos_excel') }}{% if q %}?q={{ q }}{% endif %}" class="btn btn-success">📊 Exportar Excel</a>
+        <button onclick="window.print()" class="btn btn-dark">🖨️ Imprimir</button>
+    </div>
+</div>
+
+<form method="GET" class="row g-2 mb-4 no-print bg-white p-3 rounded shadow-sm align-items-end">
+    <div class="col-md-4">
+        <label class="form-label small text-muted mb-1">Buscar (nombre, código o barras)</label>
+        <input type="text" name="q" value="{{ q or '' }}" class="form-control" placeholder="Ej. SPRAY o SKU...">
+    </div>
+    <div class="col-md-3">
+        <label class="form-label small text-muted mb-1">Categoría</label>
+        <select name="categoria" class="form-select">
+            <option value="">Todas las categorías</option>
+            {% for c in categorias %}
+            <option value="{{ c.category_id }}" {% if c.category_id|string in selected_categorias %}selected{% endif %}>{{ c.name }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="col-md-3">
+        <div class="form-check mb-2">
+            <input class="form-check-input" type="checkbox" name="activos" value="1" id="activos" {% if solo_activos %}checked{% endif %}>
+            <label class="form-check-label small" for="activos">Solo productos activos</label>
+        </div>
+        <button type="submit" class="btn btn-primary w-100">Consultar</button>
+    </div>
+    <div class="col-md-2">
+        <a href="{{ url_for('reports.precios_productos') }}" class="btn btn-outline-secondary w-100">Restablecer</a>
+    </div>
+</form>
+
+<div id="printable-area">
+    <div class="d-none d-print-block mb-3">
+        <h3>Lista de Precios por Producto</h3>
+        <p class="text-muted small">Generado el {{ generated_at }} por {{ current_user.full_name }}</p>
+    </div>
+
+    <div class="table-responsive">
+        <table class="table table-bordered bg-white align-middle">
+            <thead class="table-dark">
+                <tr>
+                    <th>Código</th>
+                    <th>Producto</th>
+                    <th>Categoría</th>
+                    <th class="text-end">Costo</th>
+                    <th class="text-end">Contado</th>
+                    <th class="text-end">Crédito</th>
+                    <th class="text-end">Mayorista</th>
+                    <th class="text-end">Margen contado</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in productos %}
+                <tr>
+                    <td><code>{{ p.sku or ('PROD-' ~ p.product_id) }}</code></td>
+                    <td>{{ p.name }}</td>
+                    <td>{{ p.category.name if p.category else "Sin categoría" }}</td>
+                    <td class="text-end">${{ "%.2f"|format(p.cost_price or 0) }}</td>
+                    <td class="text-end fw-bold">${{ "%.2f"|format(p.sale_price or 0) }}</td>
+                    <td class="text-end">${{ "%.2f"|format(p.price_credito or 0) }}</td>
+                    <td class="text-end">${{ "%.2f"|format(p.price_mayorista or 0) }}</td>
+                    <td class="text-end">
+                        {% set costo = p.cost_price or 0 %}
+                        {% if costo > 0 %}
+                            {{ "%.1f"|format((p.sale_price - costo) / costo * 100) }}%
+                        {% else %}
+                            —
+                        {% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="8" class="text-center text-muted py-4">No hay productos que coincidan con los filtros.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <p class="text-muted small">Total de productos: {{ productos|length }}</p>
+</div>
+
+<style>
+@media print {
+    .no-print, nav, .navbar, footer, .sidebar, .topbar, .btn { display: none !important; }
+    body { background: white !important; }
+    .table { font-size: 9pt !important; }
+}
+</style>
+
+{% endblock %}

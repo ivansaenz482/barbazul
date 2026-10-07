@@ -1,0 +1,148 @@
+{% extends "base.html" %}
+{% block title %}Ajuste de Stock{% endblock %}
+{% block content %}
+
+<h2 class="mb-1"><i class="bi bi-sliders me-2 text-primary"></i>Ajuste de Stock</h2>
+<p class="text-muted">Corrige el inventario por conteo, error de digitación, daño, etc. Cada ajuste queda registrado.</p>
+
+<style>
+    .searchable-select { position: relative; width: 100%; }
+    .searchable-select .ss-caret { position: absolute; right: .5rem; top: 50%; transform: translateY(-50%); pointer-events: none; color: #6c757d; }
+    .searchable-list {
+        position: absolute; top: 100%; left: 0; right: 0; z-index: 1050;
+        background: #fff; border: 1px solid #ced4da; border-radius: .375rem;
+        max-height: 240px; overflow-y: auto; box-shadow: 0 .5rem 1rem rgba(0,0,0,.15);
+    }
+    .searchable-item { display: block; padding: .45rem .65rem; cursor: pointer; font-size: .9rem; }
+    .searchable-item .ss-code { display: block; font-size: .72rem; color: #6c757d; }
+    .searchable-item:hover { background: #e9ecef; }
+    .searchable-item.ss-empty { color: #6c757d; cursor: default; }
+</style>
+
+<form method="POST" class="bg-white p-4 rounded shadow-sm mb-4" style="max-width: 820px;">
+    <div class="row g-3">
+        <div class="col-md-6">
+            <label class="form-label">Producto *</label>
+            <select name="product_id" id="producto" class="form-select" data-searchable
+                    data-placeholder="Busca producto por nombre o código..." required>
+                <option value="">-- Selecciona --</option>
+                {% for p in products %}
+                <option value="{{ p.product_id }}" data-local="{{ p.current_stock or 0 }}" data-matriz="{{ p.stock_matriz or 0 }}" data-codigo="{{ p.sku or p.barcode or '' }}">
+                    {{ p.name }}{% if p.sku %} ({{ p.sku }}){% endif %}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">Bodega *</label>
+            <select name="bodega" id="bodega" class="form-select" onchange="actualizarActual()">
+                <option value="local">Bodega Local</option>
+                <option value="matriz">Bodega Matriz</option>
+            </select>
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">Stock actual</label>
+            <input type="text" id="stock_actual" class="form-control" value="—" readonly>
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">Nuevo stock *</label>
+            <input type="number" min="0" name="nuevo_stock" class="form-control" required>
+        </div>
+        <div class="col-md-9">
+            <label class="form-label">Motivo</label>
+            <input type="text" name="motivo" class="form-control" placeholder="Ej. conteo físico, error de digitación, producto dañado...">
+        </div>
+    </div>
+    <div class="mt-4">
+        <button type="submit" class="btn btn-primary">Aplicar ajuste</button>
+    </div>
+</form>
+
+<h5 class="mt-4">Últimos ajustes</h5>
+<div class="table-responsive">
+    <table class="table table-sm table-hover bg-white align-middle">
+        <thead class="table-light">
+            <tr>
+                <th>Fecha</th>
+                <th>Producto</th>
+                <th class="text-center">Cant.</th>
+                <th>Detalle</th>
+                <th>Usuario</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for m in historial %}
+            <tr>
+                <td>{{ m.movement_date.strftime("%d/%m/%Y %H:%M") }}</td>
+                <td>{{ m.product.name if m.product else "—" }}</td>
+                <td class="text-center">{{ m.quantity }}</td>
+                <td class="small text-muted">{{ m.notes }}</td>
+                <td>{{ m.user.full_name if m.user else "—" }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="5" class="text-center text-muted py-3">Sin ajustes registrados.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<script>
+function actualizarActual() {
+    const sel = document.getElementById('producto');
+    const opt = sel.options[sel.selectedIndex];
+    const bodega = document.getElementById('bodega').value;
+    const campo = document.getElementById('stock_actual');
+    if (!opt || sel.value === '') { campo.value = '—'; return; }
+    campo.value = opt.getAttribute(bodega === 'matriz' ? 'data-matriz' : 'data-local') || '0';
+}
+
+function buildSearchable(select) {
+    if (select.dataset.transformed === '1') return;
+    select.dataset.transformed = '1';
+    const store = Array.from(select.options).map(opt => ({
+        value: opt.value, text: opt.textContent.trim(), codigo: opt.getAttribute('data-codigo') || '',
+    }));
+    select.style.display = 'none';
+    const wrap = document.createElement('div');
+    wrap.className = 'searchable-select';
+    const input = document.createElement('input');
+    input.type = 'text'; input.className = 'form-control';
+    input.placeholder = select.dataset.placeholder || 'Buscar...'; input.autocomplete = 'off';
+    const caret = document.createElement('i'); caret.className = 'bi bi-chevron-down ss-caret';
+    const list = document.createElement('div'); list.className = 'searchable-list';
+    wrap.appendChild(input); wrap.appendChild(caret); wrap.appendChild(list);
+    const selected = select.options[select.selectedIndex];
+    if (selected && selected.value !== '') input.value = selected.textContent.trim();
+
+    function render(term) {
+        const t = term.trim().toLowerCase(); list.innerHTML = ''; let any = false;
+        store.forEach(item => {
+            if (item.value === '') return;
+            if (t && item.text.toLowerCase().indexOf(t) === -1 && item.codigo.toLowerCase().indexOf(t) === -1) return;
+            any = true;
+            const el = document.createElement('div'); el.className = 'searchable-item'; el.textContent = item.text;
+            if (item.codigo) { const c = document.createElement('span'); c.className = 'ss-code'; c.textContent = 'Código: ' + item.codigo; el.appendChild(c); }
+            el.addEventListener('click', () => {
+                select.value = item.value; input.value = item.text; list.style.display = 'none';
+                select.dispatchEvent(new Event('change'));
+            });
+            list.appendChild(el);
+        });
+        if (!any) { const no = document.createElement('div'); no.className = 'searchable-item ss-empty'; no.textContent = 'Sin resultados'; list.appendChild(no); }
+        list.style.display = 'block';
+    }
+    input.addEventListener('input', () => render(input.value));
+    input.addEventListener('focus', () => render(input.value));
+    input.addEventListener('keydown', (e) => { if (e.key === 'Escape') list.style.display = 'none'; });
+    input.addEventListener('blur', () => setTimeout(() => list.style.display = 'none', 200));
+    select.parentNode.insertBefore(wrap, select);
+}
+
+document.addEventListener('DOMContentLoaded', function () {
+    const sel = document.getElementById('producto');
+    buildSearchable(sel);
+    sel.addEventListener('change', actualizarActual);
+});
+</script>
+
+{% endblock %}

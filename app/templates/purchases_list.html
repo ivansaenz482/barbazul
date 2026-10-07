@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title %}Compras{% endblock %}
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2>📥 Facturas de Compra</h2>
+    <div class="d-flex gap-2">
+        <a href="{{ url_for('purchases.purchases_payments_list') }}" class="btn btn-outline-primary">💳 Ver Pagos</a>
+        <a href="{{ url_for('reports.pagos_proveedores') }}" class="btn btn-outline-success">📊 Reporte Pagos</a>
+        <a href="{{ url_for('purchases.purchase_new') }}" class="btn btn-primary">+ Nueva Factura</a>
+    </div>
+</div>
+
+<div class="table-responsive">
+    <table class="table table-hover bg-white align-middle">
+        <thead class="table-dark">
+            <tr>
+                <th>#</th>
+                <th>Fecha</th>
+                <th>Proveedor</th>
+                <th>N° Factura</th>
+                <th>Origen</th>
+                <th>Condición</th>
+                <th>Estado</th>
+                <th class="text-end">Total</th>
+                <th class="text-end">Saldo</th>
+                <th class="text-end no-print">Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for inv in invoices %}
+            <tr>
+                <td><a href="{{ url_for('purchases.purchase_detail', invoice_id=inv.invoice_id) }}">#{{ inv.invoice_id }}</a></td>
+                <td>{{ inv.invoice_date.strftime("%d/%m/%Y") }}</td>
+                <td>{{ inv.supplier.name }}</td>
+                <td>{{ inv.invoice_number or "—" }}</td>
+                <td>
+                    {% if inv.source_type == "manual" %}
+                        <span class="badge bg-secondary">Manual</span>
+                    {% elif inv.source_type == "pdf" %}
+                        <span class="badge bg-info text-dark">PDF (OCR)</span>
+                    {% else %}
+                        <span class="badge bg-warning text-dark">Imagen (OCR)</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if inv.payment_type == "credito" %}
+                        <span class="badge bg-info text-dark">Crédito</span>
+                    {% else %}
+                        <span class="badge bg-success">Contado</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% set est = inv.estado_actual() %}
+                    {% if est == "pagado" %}
+                        <span class="badge bg-success">Pagado</span>
+                    {% elif est == "vencido" %}
+                        <span class="badge bg-danger" title="Vencía el {{ inv.due_date.strftime('%d/%m/%Y') if inv.due_date }}">Vencido</span>
+                    {% else %}
+                        <span class="badge bg-warning text-dark">Pendiente</span>
+                    {% endif %}
+                    {% if inv.due_date and est != "pagado" %}
+                        <div class="small text-muted">vence {{ inv.due_date.strftime("%d/%m/%Y") }}</div>
+                    {% endif %}
+                </td>
+                <td class="text-end">${{ "%.2f"|format(inv.total_amount) }}</td>
+                <td class="text-end">${{ "%.2f"|format(inv.saldo_pendiente()) }}</td>
+                <td class="text-end no-print">
+                    <div class="btn-group btn-group-sm">
+                        <a href="{{ url_for('purchases.purchase_detail', invoice_id=inv.invoice_id) }}" class="btn btn-outline-primary">Ver</a>
+                        <a href="{{ url_for('purchases.purchase_edit', invoice_id=inv.invoice_id) }}" class="btn btn-outline-warning">Editar</a>
+                        <form method="POST" action="{{ url_for('purchases.purchase_delete', invoice_id=inv.invoice_id) }}" class="d-inline" onsubmit="return confirm('¿Eliminar la compra #{{ inv.invoice_id }}? El stock se revertirá.');">
+                            <button type="submit" class="btn btn-outline-danger">Eliminar</button>
+                        </form>
+                    </div>
+                </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="10" class="text-center text-muted py-4">No hay facturas de compra registradas todavía.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% endblock %}

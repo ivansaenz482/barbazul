@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+{% block title %}Alertas{% endblock %}
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>🔔 Alertas del Sistema</h2>
+    {% if current_user.is_admin() %}
+    <form method="POST" action="{{ url_for('alerts.send_email_now') }}">
+        <button type="submit" class="btn btn-outline-dark btn-sm">✉️ Enviar resumen por correo ahora</button>
+    </form>
+    {% endif %}
+</div>
+
+<div class="card mb-4 border-danger">
+    <div class="card-header bg-white">⚠️ Bajo Stock ({{ bajo_stock|length }})</div>
+    <div class="table-responsive">
+        <table class="table mb-0">
+            <thead class="table-light"><tr><th>Producto</th><th>Stock actual</th><th>Mínimo</th><th>Faltan</th></tr></thead>
+            <tbody>
+                {% for p in bajo_stock %}
+                <tr>
+                    <td>{{ p.name }}</td>
+                    <td>{{ p.current_stock }} {{ p.unit_measure }}</td>
+                    <td>{{ p.min_stock }}</td>
+                    <td class="text-danger fw-bold">{{ p.min_stock - p.current_stock if p.min_stock > p.current_stock else 0 }}</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="4" class="text-center text-muted py-3">Ningún producto en bajo stock. 👍</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="card mb-4 border-warning">
+    <div class="card-header bg-white">📈 Sobre Stock ({{ sobre_stock|length }})</div>
+    <div class="table-responsive">
+        <table class="table mb-0">
+            <thead class="table-light"><tr><th>Producto</th><th>Stock actual</th><th>Máximo</th><th>Exceso</th></tr></thead>
+            <tbody>
+                {% for p in sobre_stock %}
+                <tr>
+                    <td>{{ p.name }}</td>
+                    <td>{{ p.current_stock }} {{ p.unit_measure }}</td>
+                    <td>{{ p.max_stock }}</td>
+                    <td class="text-warning fw-bold">{{ p.current_stock - p.max_stock }}</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="4" class="text-center text-muted py-3">Ningún producto en sobre stock. 👍</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% if current_user.is_admin() %}
+<div class="card mb-4 border-dark">
+    <div class="card-header bg-white">🚨 Créditos Vencidos ({{ creditos_vencidos|length }})</div>
+    <div class="table-responsive">
+        <table class="table mb-0">
+            <thead class="table-light"><tr><th>Venta</th><th>Cliente</th><th>Venció</th><th>Saldo</th></tr></thead>
+            <tbody>
+                {% for s in creditos_vencidos %}
+                <tr>
+                    <td><a href="{{ url_for('sales.sale_detail', sale_id=s.sale_id) }}">#{{ s.sale_id }}</a></td>
+                    <td>{{ s.customer.full_name }}</td>
+                    <td>{{ s.due_date.strftime("%d/%m/%Y") }}</td>
+                    <td class="text-danger fw-bold">${{ "%.2f"|format(s.saldo_pendiente()) }}</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="4" class="text-center text-muted py-3">No hay créditos vencidos. 👍</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="card mb-4 border-warning">
+    <div class="card-header bg-white">⏰ Pagos a Proveedores Próximos a Vencer — 15 días ({{ pagos_proximos|length }})</div>
+    <div class="table-responsive">
+        <table class="table mb-0">
+            <thead class="table-light"><tr><th>Compra</th><th>Proveedor</th><th>Vence</th><th>Saldo</th><th>Días</th></tr></thead>
+            <tbody>
+                {% for inv in pagos_proximos %}
+                <tr>
+                    <td><a href="{{ url_for('purchases.purchase_detail', invoice_id=inv.invoice_id) }}">#{{ inv.invoice_id }}</a>{% if inv.invoice_number %} ({{ inv.invoice_number }}){% endif %}</td>
+                    <td>{{ inv.supplier.name }}</td>
+                    <td>{{ inv.due_date.strftime("%d/%m/%Y") }}</td>
+                    <td class="text-warning fw-bold">${{ "%.2f"|format(inv.saldo_pendiente()) }}</td>
+                    <td>{{ (inv.due_date - inv.invoice_date).days if inv.invoice_date else "—" }} días plazo</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="5" class="text-center text-muted py-3">No hay pagos próximos en los próximos 15 días. 👍</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="card mb-4 border-danger">
+    <div class="card-header bg-white">💸 Pagos a Proveedores Vencidos ({{ pagos_vencidos|length }})</div>
+    <div class="table-responsive">
+        <table class="table mb-0">
+            <thead class="table-light"><tr><th>Compra</th><th>Proveedor</th><th>Venció</th><th>Saldo</th></tr></thead>
+            <tbody>
+                {% for inv in pagos_vencidos %}
+                <tr>
+                    <td><a href="{{ url_for('purchases.purchase_detail', invoice_id=inv.invoice_id) }}">#{{ inv.invoice_id }}</a>{% if inv.invoice_number %} ({{ inv.invoice_number }}){% endif %}</td>
+                    <td>{{ inv.supplier.name }}</td>
+                    <td>{{ inv.due_date.strftime("%d/%m/%Y") }}</td>
+                    <td class="text-danger fw-bold">${{ "%.2f"|format(inv.saldo_pendiente()) }}</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="4" class="text-center text-muted py-3">No hay pagos vencidos a proveedores. 👍</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}

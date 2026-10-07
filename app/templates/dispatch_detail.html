@@ -1,0 +1,160 @@
+{% extends "base.html" %}
+{% block title %}Guía de Despacho #{{ guia.dispatch_id }}{% endblock %}
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-3 no-print">
+    <h2 class="mb-0">Guía de Despacho #{{ guia.dispatch_id }}</h2>
+    <div class="d-flex gap-2">
+        {% if not guia.entregada %}
+        <form method="POST" action="{{ url_for('despachos.despacho_entregar', dispatch_id=guia.dispatch_id) }}">
+            <button type="submit" class="btn btn-success btn-sm">✅ Marcar como Entregada</button>
+        </form>
+        {% endif %}
+        <button onclick="window.print()" class="btn btn-dark btn-sm">🖨️ Imprimir</button>
+        {% if current_user.is_admin() %}
+        <form method="POST" action="{{ url_for('despachos.despacho_delete', dispatch_id=guia.dispatch_id) }}" class="d-inline" onsubmit="return confirm('¿Eliminar la guía de despacho #{{ guia.dispatch_id }}? Los pedidos quedarán disponibles para despachar de nuevo.');">
+            <button type="submit" class="btn btn-outline-danger btn-sm">🗑️ Eliminar</button>
+        </form>
+        {% endif %}
+        <a href="{{ url_for('despachos.despacho_nueva') }}" class="btn btn-primary btn-sm">+ Nueva</a>
+        <a href="{{ url_for('despachos.despachos_list') }}" class="btn btn-secondary btn-sm">← Volver</a>
+    </div>
+</div>
+
+<div class="mb-3 no-print">
+    {% if guia.entregada %}
+        <span class="badge bg-success">Entregada el {{ guia.entregada_at.strftime("%d/%m/%Y %H:%M") }} por {{ guia.entregada_por_user.full_name }}</span>
+    {% else %}
+        <span class="badge bg-warning text-dark">Por entregar</span>
+    {% endif %}
+    <span class="badge bg-secondary ms-2">{{ guia.total_ventas() }} pedido(s) incluidos · {{ guia.total_unidades() }} unidades</span>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <div class="d-flex align-items-center gap-3 mb-3">
+            <div>
+                <h5 class="mb-0" style="color: #1a3c63;">REPUESTOS Y ACCESORIOS DE MOTO Y BICICLETAS HUANG</h5>
+                <p class="mb-0 small text-muted">RUC: 0963863014001 — Calle 38 y Av. 0818 y Calle E — Cel: 0979698202</p>
+                <p class="mb-0 small text-muted">almacenehuang88@gmail.com — Guayaquil, Ecuador</p>
+            </div>
+        </div>
+        <div class="text-center mb-3">
+            <h4>GUÍA DE DESPACHO — CONSOLIDADO PARA BODEGA</h4>
+            {% if guia.dispatch_number %}<p class="text-muted">N° {{ guia.dispatch_number }}</p>{% endif %}
+            <p class="text-muted small">Fecha de emisión: {{ guia.dispatch_date.strftime("%d/%m/%Y") }}</p>
+        </div>
+
+        <div class="row g-3 mb-3">
+            <div class="col-md-6">
+                {% if guia.origin_branch %}
+                <h6 class="text-muted">Local de origen</h6>
+                <p>{{ guia.origin_branch.name }} — {{ guia.origin_branch.address or "" }}</p>
+                {% endif %}
+                <h6 class="text-muted">Pedidos incluidos</h6>
+                <p>{{ guia.total_ventas() }} pedido(s) · {{ guia.total_unidades() }} unidades en total</p>
+            </div>
+            <div class="col-md-6">
+                <h6 class="text-muted">Datos del transporte</h6>
+                <p class="mb-0 small">Transportista: {{ guia.transportista_nombre or "—" }}</p>
+                <p class="mb-0 small">Identificación: {{ guia.transportista_identificacion or "—" }}</p>
+                <p class="mb-0 small">Placa: {{ guia.vehiculo_placa or "—" }}</p>
+            </div>
+        </div>
+
+        <h6 class="fw-bold mt-4"><u>Productos a despachar (consolidado)</u></h6>
+        <table class="table table-bordered mt-2">
+            <thead class="table-light">
+                <tr>
+                    <th>Código</th>
+                    <th>Producto</th>
+                    <th>Presentación</th>
+                    <th class="text-center">Unidades</th>
+                    <th class="text-center">Volumen total</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for d in guia.details %}
+                <tr>
+                    <td><code>{{ d.product.sku or d.product.product_id }}</code></td>
+                    <td>{{ d.product.name }}</td>
+                    <td>{{ d.presentacion() }}</td>
+                    <td class="text-center fw-bold">{{ d.quantity }} {{ d.unit_measure_snapshot or 'unidades' }}</td>
+                    <td class="text-center">{{ d.volumen_total_display() or "—" }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        {% if guia.sales.all() %}
+        <h6 class="fw-bold mt-4"><u>Pedidos incluidos</u></h6>
+        <table class="table table-sm table-striped mt-2">
+            <thead class="table-light">
+                <tr>
+                    <th># Venta</th>
+                    <th>Cliente</th>
+                    <th>Cédula</th>
+                    <th>Documento</th>
+                    <th>Fecha</th>
+                    <th class="text-end">Total</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for s in guia.sales.all() %}
+                <tr>
+                    <td>#{{ s.sale_id }}</td>
+                    <td>{{ s.customer.full_name }}</td>
+                    <td>{{ s.customer.cedula or "—" }}</td>
+                    <td>{{ s.document_type_label() }}</td>
+                    <td>{{ s.sale_date.strftime("%d/%m/%Y %H:%M") }}</td>
+                    <td class="text-end fw-bold">${{ "%.2f"|format(s.total_amount) }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% endif %}
+
+        {% if guia.observaciones %}
+        <p class="mt-3"><strong>Observaciones:</strong> {{ guia.observaciones }}</p>
+        {% endif %}
+
+        <div class="d-flex justify-content-between gap-4 mt-5 pt-4">
+            <div class="flex-fill text-center">
+                <div style="border-top: 1.5px solid #333; width: 78%; margin: 0 auto; padding-top: 6px;">
+                    <small class="text-muted">Firma Encargado de Bodega</small>
+                </div>
+            </div>
+            <div class="flex-fill text-center">
+                <div style="border-top: 1.5px solid #333; width: 78%; margin: 0 auto; padding-top: 6px;">
+                    <small class="text-muted">Firma Chofer / Repartidor</small>
+                </div>
+            </div>
+        </div>
+
+        <p class="small text-muted text-center mt-3">Emitida por {{ guia.creator.full_name }} el {{ guia.created_at.strftime("%d/%m/%Y %H:%M") }}</p>
+    </div>
+</div>
+
+<style>
+@media print {
+    @page { size: A4 portrait; margin: 10mm 12mm 12mm 12mm; }
+    html, body { background: white !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+    .no-print, nav, .navbar, footer, .sidebar, .topbar, .app-footer, .alert, .btn { display: none !important; }
+    .app-body, .app-shell, .app-content, .app-main { display: block !important; background: white !important; padding: 0 !important; margin: 0 !important; }
+    .card { box-shadow: none !important; border: 1px solid #bbb !important; break-inside: avoid; margin: 0 !important; }
+    .card-body { padding: 12px 14px !important; }
+    h4, h5, h6 { break-after: avoid; }
+    table { font-size: 8.5pt !important; }
+    .table th, .table td { padding: 0.3rem 0.45rem !important; }
+    a[href]:after { content: none !important; }
+}
+</style>
+<script>
+(function(){
+  const originalTitle = document.title;
+  window.addEventListener('beforeprint', () => { document.title = ' '; });
+  window.addEventListener('afterprint', () => { document.title = originalTitle; });
+})();
+</script>
+
+{% endblock %}

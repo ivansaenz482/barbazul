@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{% block title %}Ventas{% endblock %}
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2>Ventas y Facturación</h2>
+    <div class="d-flex gap-2">
+        {% if current_user.can_view_reporte_caja() %}
+        <a href="{{ url_for('reports.liquidacion_vendedores') }}?periodo=diario" class="btn btn-success">
+            <i class="bi bi-cash-coin me-1"></i>Liquidación Diaria
+        </a>
+        {% endif %}
+        {% if current_user.can_view_ventas() %}
+        <a href="{{ url_for('sales.sale_new') }}" class="btn btn-primary">+ Nueva Venta</a>
+        {% endif %}
+    </div>
+</div>
+
+<form method="GET" class="row g-2 mb-3">
+    <div class="col-auto">
+        <select name="status" class="form-select" onchange="this.form.submit()">
+            <option value="">Todos los estados</option>
+            <option value="pendiente" {% if status == "pendiente" %}selected{% endif %}>Pendiente</option>
+            <option value="pagado" {% if status == "pagado" %}selected{% endif %}>Pagado</option>
+            <option value="vencido" {% if status == "vencido" %}selected{% endif %}>Vencido</option>
+        </select>
+    </div>
+    <div class="col">
+        <input type="text" name="q" value="{{ q or '' }}" class="form-control"
+               placeholder="Buscar por cliente o # venta..." aria-label="Buscar">
+    </div>
+    <div class="col-auto">
+        <button type="submit" class="btn btn-primary"><i class="bi bi-search me-1"></i>Buscar</button>
+        {% if q %}
+        <a href="{{ url_for('sales.sales_list', status=status) }}" class="btn btn-outline-secondary">Limpiar</a>
+        {% endif %}
+    </div>
+</form>
+
+<div class="table-responsive">
+    <table class="table table-hover bg-white align-middle">
+        <thead class="table-dark">
+            <tr>
+                <th>#</th>
+                <th>Fecha</th>
+                <th>Cliente</th>
+                <th>Documento</th>
+                <th>Tipo pago</th>
+                <th>Total</th>
+                <th>Estado</th>
+                <th>Vendedor</th>
+                <th class="text-end">Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for s in sales %}
+            <tr>
+                <td>#{{ s.sale_id }}</td>
+                <td>{{ s.sale_date.strftime("%d/%m/%Y %H:%M") }}</td>
+                <td>{{ s.customer.full_name }}</td>
+                <td>
+                    {% if not s.liquidada %}
+                        <span class="badge bg-warning text-dark">{{ s.document_type_label() }} (pendiente)</span>
+                    {% elif s.document_type == "factura" %}
+                        <span class="badge bg-primary">Factura</span>
+                    {% else %}
+                        <span class="badge bg-secondary">{{ s.document_type_label() }}</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if s.payment_type == "credito" %}
+                        <span class="badge bg-info text-dark">Crédito</span>
+                    {% else %}
+                        <span class="badge bg-success">Efectivo</span>
+                    {% endif %}
+                </td>
+                <td>${{ "%.2f"|format(s.total_amount) }}</td>
+                <td>
+                    {% if s.status == "pagado" %}
+                        <span class="badge bg-success">Pagado</span>
+                    {% elif s.status == "vencido" %}
+                        <span class="badge bg-danger">Vencido</span>
+                    {% else %}
+                        <span class="badge bg-warning text-dark">Pendiente</span>
+                    {% endif %}
+                </td>
+                <td>{{ s.seller.full_name }}</td>
+                <td class="text-end text-nowrap">
+                    <a href="{{ url_for('sales.sale_detail', sale_id=s.sale_id) }}" class="btn btn-sm btn-outline-primary">Ver</a>
+                    {% if current_user.can_edit_pedidos() %}
+                    <a href="{{ url_for('sales.sale_edit', sale_id=s.sale_id) }}" class="btn btn-sm btn-outline-warning">Editar</a>
+                    <form method="POST" action="{{ url_for('sales.sale_delete', sale_id=s.sale_id) }}" class="d-inline" onsubmit="return confirm('¿Eliminar la venta #{{ s.sale_id }}? El stock se devolverá al inventario.');">
+                        <button type="submit" class="btn btn-sm btn-outline-danger">Eliminar</button>
+                    </form>
+                    {% endif %}
+                </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="9" class="text-center text-muted py-4">No hay ventas registradas todavía.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% endblock %}

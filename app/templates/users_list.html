@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}Usuarios{% endblock %}
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="mb-0"><i class="bi bi-people-fill me-2"></i>Usuarios del Sistema</h2>
+    <a href="{{ url_for('users.user_new') }}" class="btn btn-primary"><i class="bi bi-plus-lg me-1"></i>Nuevo Usuario</a>
+</div>
+
+<div class="table-responsive">
+    <table class="table table-hover bg-white align-middle">
+        <thead class="table-dark">
+            <tr>
+                <th>Nombre</th>
+                <th>Usuario</th>
+                <th>Rol</th>
+                <th>Estado</th>
+                <th>Categorías permitidas para vender</th>
+                <th>Permisos</th>
+                <th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for u in users %}
+            <tr class="{% if not u.active %}table-secondary text-muted{% endif %}">
+                <td>{{ u.full_name }}</td>
+                <td>{{ u.username }}</td>
+                <td><span class="badge bg-secondary">{{ u.role.role_name|capitalize }}</span></td>
+                <td>
+                    {% if u.active %}
+                        <span class="badge bg-success">Activo</span>
+                    {% else %}
+                        <span class="badge bg-danger">Inactivo</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if u.is_admin() %}
+                        <span class="text-muted">Acceso total (administrador)</span>
+                    {% elif u.allowed_categories %}
+                        {% for c in u.allowed_categories %}
+                        <span class="badge bg-info text-dark">{{ c.name }}</span>
+                        {% endfor %}
+                    {% else %}
+                        <span class="text-success">Todas (sin restricción)</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if u.is_admin() %}
+                        <span class="text-muted">Todos</span>
+                    {% else %}
+                        {% if u.perm_inventario %}<span class="badge bg-primary">Inventario</span>{% endif %}
+                        {% if u.perm_ventas %}<span class="badge bg-success">Ventas</span>{% endif %}
+                        {% if u.perm_clientes %}<span class="badge bg-warning text-dark">Clientes</span>{% endif %}
+                        {% if u.perm_edit_stock %}<span class="badge bg-danger">Edita stock</span>{% else %}<span class="badge bg-light text-dark border">No edita stock</span>{% endif %}
+                        {% if u.perm_edit_pedidos %}<span class="badge bg-danger">Edita pedidos</span>{% else %}<span class="badge bg-light text-dark border">No edita pedidos</span>{% endif %}
+                        {% if u.perm_reporte_caja %}<span class="badge bg-info text-dark">Reporte caja</span>{% endif %}
+                        {% if not u.perm_inventario and not u.perm_ventas and not u.perm_clientes and not u.perm_reporte_caja %}<span class="text-muted">Sin permisos</span>{% endif %}
+                    {% endif %}
+                </td>
+                <td>
+                    <a href="{{ url_for('users.user_edit', user_id=u.user_id) }}" class="btn btn-sm btn-outline-secondary">Editar</a>
+                    {% if not u.is_admin() %}
+                    <a href="{{ url_for('users.user_permisos_edit', user_id=u.user_id) }}" class="btn btn-sm btn-outline-dark">Permisos</a>
+                    <a href="{{ url_for('users.user_categories_edit', user_id=u.user_id) }}" class="btn btn-sm btn-outline-primary">Categorías</a>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% endblock %}

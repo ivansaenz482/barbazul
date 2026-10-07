@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block title %}Vendedores{% endblock %}
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <h2 class="mb-1"><i class="bi bi-person-badge me-2 text-primary"></i>Vendedores</h2>
+        <p class="text-muted mb-0">Catálogo de vendedores para asignar a las ventas y separar los reportes.</p>
+    </div>
+    <a href="{{ url_for('sellers.seller_new') }}" class="btn btn-primary">+ Nuevo Vendedor</a>
+</div>
+
+<form method="GET" class="row g-2 mb-3">
+    <div class="col">
+        <input type="text" name="q" value="{{ q or '' }}" class="form-control" placeholder="Buscar vendedor por nombre...">
+    </div>
+    <div class="col-auto">
+        <button type="submit" class="btn btn-primary"><i class="bi bi-search me-1"></i>Buscar</button>
+        {% if q %}<a href="{{ url_for('sellers.sellers_list') }}" class="btn btn-outline-secondary">Limpiar</a>{% endif %}
+    </div>
+</form>
+
+<div class="table-responsive">
+    <table class="table table-hover bg-white align-middle">
+        <thead class="table-dark">
+            <tr>
+                <th>#</th>
+                <th>Nombre</th>
+                <th>Teléfono</th>
+                <th>Estado</th>
+                <th class="text-end">Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for s in sellers %}
+            <tr>
+                <td>{{ s.seller_id }}</td>
+                <td>{{ s.name }}</td>
+                <td>{{ s.phone or "—" }}</td>
+                <td>
+                    {% if s.active %}
+                        <span class="badge bg-success">Activo</span>
+                    {% else %}
+                        <span class="badge bg-secondary">Inactivo</span>
+                    {% endif %}
+                </td>
+                <td class="text-end">
+                    <a href="{{ url_for('sellers.seller_edit', seller_id=s.seller_id) }}" class="btn btn-sm btn-outline-warning">Editar</a>
+                    {% if s.active %}
+                    <form method="POST" action="{{ url_for('sellers.seller_delete', seller_id=s.seller_id) }}" class="d-inline" onsubmit="return confirm('¿Desactivar al vendedor {{ s.name }}?');">
+                        <button type="submit" class="btn btn-sm btn-outline-danger">Desactivar</button>
+                    </form>
+                    {% endif %}
+                </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="5" class="text-center text-muted py-4">No hay vendedores registrados todavía.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% endblock %}

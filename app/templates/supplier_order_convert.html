@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+{% block title %}Convertir pedido {{ order.codigo() }} en Compra{% endblock %}
+{% block content %}
+
+<h2 class="mb-3"><i class="bi bi-arrow-left-right me-2 text-primary"></i>
+    Convertir pedido {{ order.codigo() }} en Compra
+</h2>
+
+<div class="alert alert-info">
+    <i class="bi bi-info-circle me-1"></i>
+    La mercadería del pedido se registrará como <strong>factura de compra</strong> del proveedor
+    <strong>{{ order.supplier.name }}</strong>. El stock se recalculará en la bodega elegida.
+</div>
+
+{% if stock_aplicado %}
+<div class="alert alert-warning">
+    <i class="bi bi-exclamation-triangle me-1"></i>
+    <strong>Control anti-duplicado:</strong> este pedido ya sumó stock ({{ order.total_unidades() }} unidades).
+    Al convertir, ese stock se ajustará y la Compra lo registrará <strong>una sola vez</strong>, sin duplicarlo.
+</div>
+{% endif %}
+
+<form method="POST" enctype="multipart/form-data" class="bg-white p-4 rounded shadow-sm">
+    <div class="row g-3 mb-3">
+        <div class="col-md-4">
+            <label class="form-label">Fecha de entrega / factura *</label>
+            <input type="date" name="invoice_date" id="invoice_date" class="form-control" required value="{{ today }}">
+        </div>
+        <div class="col-md-4">
+            <label class="form-label">N° de factura del proveedor</label>
+            <input type="text" name="invoice_number" class="form-control" placeholder="Opcional">
+        </div>
+        <div class="col-md-4">
+            <label class="form-label">Imagen / PDF de la factura</label>
+            <input type="file" name="factura_imagen" class="form-control" accept="image/png,image/jpeg,image/webp,image/gif,application/pdf">
+            <div class="form-text">Se adjuntará a la Compra (opcional).</div>
+        </div>
+        <div class="col-md-4">
+            <label class="form-label">Bodega destino *</label>
+            <select name="bodega_destino" class="form-select">
+                <option value="local" {% if order.bodega_destino == 'local' %}selected{% endif %}>Bodega Local (donde se vende)</option>
+                <option value="matriz" {% if order.bodega_destino == 'matriz' %}selected{% endif %}>Bodega Matriz (principal)</option>
+            </select>
+        </div>
+
+        <div class="col-md-4">
+            <label class="form-label">Condición de pago *</label>
+            <select name="payment_type" id="payment_type" class="form-select" onchange="togglePlazo()">
+                <option value="credito" selected>Crédito (con plazo)</option>
+                <option value="efectivo">Contado (pago inmediato)</option>
+            </select>
+        </div>
+        <div class="col-md-4" id="plazo_field">
+            <label class="form-label">Plazo de la factura *</label>
+            <select name="credit_term_days" id="credit_term_days" class="form-select" onchange="mostrarVencimiento()">
+                {% set term = order.supplier.credit_term_days or '0' %}
+                <option value="30" {% if term == '30' %}selected{% endif %}>30 días (1 mes)</option>
+                <option value="60" {% if term == '60' %}selected{% endif %}>60 días (2 meses)</option>
+                <option value="90" {% if term == '90' %}selected{% endif %}>90 días (3 meses)</option>
+            </select>
+        </div>
+        <div class="col-md-4">
+            <label class="form-label">Vencimiento estimado</label>
+            <input type="text" id="vencimiento_preview" class="form-control" value="" readonly>
+        </div>
+    </div>
+
+    <hr>
+    <h5>Resumen del pedido</h5>
+    <table class="table table-bordered">
+        <thead class="table-light">
+            <tr>
+                <th>Código</th>
+                <th>Producto</th>
+                <th class="text-center">Cantidad</th>
+                <th class="text-end">Costo unit.</th>
+                <th class="text-end">Subtotal</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for d in order.details %}
+            <tr>
+                <td><code>{{ d.product.sku or d.product.product_id }}</code></td>
+                <td>{{ d.product.name }}</td>
+                <td class="text-center">{{ d.quantity }}</td>
+                <td class="text-end">${{ "%.2f"|format(d.unit_cost) }}</td>
+                <td class="text-end">${{ "%.2f"|format(d.subtotal) }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+        <tfoot>
+            <tr>
+                <td colspan="2" class="text-end fw-bold">TOTAL</td>
+                <td class="text-center fw-bold">{{ order.total_unidades() }}</td>
+                <td></td>
+                <td class="text-end fw-bold">${{ "%.2f"|format(order.total_amount) }}</td>
+            </tr>
+        </tfoot>
+    </table>
+
+    <div class="d-flex gap-2">
+        <button type="submit" class="btn btn-success">
+            <i class="bi bi-check2-circle me-1"></i>Convertir en Compra
+        </button>
+        <a href="{{ url_for('supplier_orders.order_detail', order_id=order.order_id) }}" class="btn btn-secondary">Cancelar</a>
+    </div>
+    {% if stock_aplicado %}
+    <div class="form-check mt-3">
+        <input class="form-check-input" type="checkbox" name="confirmar_stock" value="1" id="confirmar_stock" required>
+        <label class="form-check-label" for="confirmar_stock">
+            Confirmo convertir el pedido <strong>sin duplicar</strong> el inventario.
+        </label>
+    </div>
+    {% endif %}
+</form>
+
+<script>
+function togglePlazo() {
+    const esCredito = document.getElementById('payment_type').value === 'credito';
+    document.getElementById('plazo_field').style.display = esCredito ? 'block' : 'none';
+    mostrarVencimiento();
+}
+function mostrarVencimiento() {
+    const esCredito = document.getElementById('payment_type').value === 'credito';
+    const campo = document.getElementById('vencimiento_preview');
+    if (!esCredito) { campo.value = 'Contado (sin vencimiento)'; return; }
+    const fecha = document.getElementById('invoice_date').value;
+    const dias = parseInt(document.getElementById('credit_term_days').value) || 30;
+    if (!fecha) { campo.value = ''; return; }
+    const d = new Date(fecha + 'T00:00:00');
+    d.setDate(d.getDate() + dias);
+    campo.value = d.toLocaleDateString('es-EC');
+}
+document.getElementById('invoice_date').addEventListener('change', mostrarVencimiento);
+document.addEventListener('DOMContentLoaded', function () { togglePlazo(); mostrarVencimiento(); });
+</script>
+
+{% endblock %}

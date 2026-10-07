@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}{{ "Editar" if supplier else "Nuevo" }} Proveedor{% endblock %}
+{% block content %}
+
+<h2>{{ "Editar" if supplier else "Nuevo" }} Proveedor</h2>
+
+<form method="POST" class="bg-white p-4 rounded shadow-sm" style="max-width: 600px;">
+    <div class="row g-3">
+        <div class="col-md-6">
+            <label class="form-label">Nombre *</label>
+            <input type="text" name="name" class="form-control" value="{{ supplier.name if supplier else '' }}" required>
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">RUC</label>
+            <input type="text" name="ruc" class="form-control" value="{{ supplier.ruc if supplier else '' }}">
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">Teléfono</label>
+            <input type="text" name="phone" class="form-control" value="{{ supplier.phone if supplier else '' }}">
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">Email</label>
+            <input type="email" name="email" class="form-control" value="{{ supplier.email if supplier else '' }}">
+        </div>
+        <div class="col-12">
+            <label class="form-label">Dirección</label>
+            <input type="text" name="address" class="form-control" value="{{ supplier.address if supplier else '' }}">
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">Plazo de pago</label>
+            <select name="credit_term_days" class="form-select">
+                <option value="0" {% if (supplier and supplier.credit_term_days == "0") or not supplier %}selected{% endif %}>Contado</option>
+                <option value="30" {% if supplier and supplier.credit_term_days == "30" %}selected{% endif %}>30 días</option>
+                <option value="60" {% if supplier and supplier.credit_term_days == "60" %}selected{% endif %}>60 días</option>
+                <option value="90" {% if supplier and supplier.credit_term_days == "90" %}selected{% endif %}>90 días</option>
+            </select>
+            <div class="form-text">Tiempo máximo para pagar las facturas de compra a este proveedor.</div>
+        </div>
+    </div>
+
+    <div class="mt-4 d-flex gap-2">
+        <button type="submit" class="btn btn-primary">Guardar</button>
+        <a href="{{ url_for('products.suppliers_list') }}" class="btn btn-secondary">Cancelar</a>
+    </div>
+</form>
+
+{% endblock %}

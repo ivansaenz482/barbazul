@@ -1,0 +1,197 @@
+{% extends "base.html" %}
+{% block title %}{{ "Editar" if product else "Nuevo" }} Producto{% endblock %}
+{% block content %}
+
+<h2>{{ "Editar" if product else "Nuevo" }} Producto</h2>
+
+<form method="POST" enctype="multipart/form-data" class="bg-white p-4 rounded shadow-sm" style="max-width: 700px;">
+    <div class="row g-3">
+        <div class="col-md-6">
+            <label class="form-label">Nombre *</label>
+            <input type="text" name="name" class="form-control" value="{{ product.name if product else '' }}" required>
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">SKU / Código</label>
+            <input type="text" name="sku" class="form-control" value="{{ product.sku if product else '' }}">
+        </div>
+
+        <div class="col-12">
+            <label class="form-label">Imagen del producto</label>
+            <div class="d-flex align-items-start gap-3">
+                <div id="imagen-preview" class="border rounded d-flex align-items-center justify-content-center bg-light overflow-hidden"
+                     style="width: 110px; height: 110px;">
+                    {% if product and product.image_path %}
+                    <img src="{{ url_for('products.product_image', product_id=product.product_id) }}" alt="Imagen del producto"
+                         style="width: 100%; height: 100%; object-fit: cover;">
+                    {% else %}
+                    <span class="text-muted small">Sin imagen</span>
+                    {% endif %}
+                </div>
+                <div class="flex-grow-1">
+                    <input type="file" name="imagen" id="imagen-input" class="form-control" accept="image/png,image/jpeg,image/webp,image/gif"
+                           onchange="vistaPreviaImagen(this)">
+                    <div class="form-text">PNG, JPG, JPEG, WEBP o GIF. Si ya tiene imagen y eliges otra, se reemplazará.</div>
+                    {% if product and product.image_path %}
+                    <button type="button" class="btn btn-sm btn-outline-danger mt-2" onclick="eliminarImagenProducto()">🗑️ Eliminar imagen</button>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <label class="form-label">Código de barras</label>
+            <div class="input-group">
+                <input type="text" name="barcode" id="barcode-input" class="form-control" value="{{ product.barcode if product else '' }}"
+                       placeholder="Escanea el código del producto o genera uno">
+                <button type="button" class="btn btn-outline-primary" onclick="generarBarcode()"><i class="bi bi-upc-scan"></i> Generar</button>
+            </div>
+            <div class="form-text">Pasa el lector sobre el EAN del producto. Si no tiene, pulsa <strong>Generar</strong>.</div>
+            <div id="barcode-preview" class="mt-2 d-none">
+                <div class="border rounded p-2 text-center bg-white" style="width: fit-content;">
+                    <img id="barcode-img" src="" alt="vista previa del código de barras" style="height: 40px; width: auto;">
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <label class="form-label">Categoría</label>
+            <select name="category_id" class="form-select">
+                <option value="">-- Sin categoría --</option>
+                {% for c in categories %}
+                <option value="{{ c.category_id }}" {% if product and product.category_id == c.category_id %}selected{% endif %}>{{ c.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">Proveedor</label>
+            <select name="supplier_id" class="form-select">
+                <option value="">-- Sin proveedor --</option>
+                {% for s in suppliers %}
+                <option value="{{ s.supplier_id }}" {% if product and product.supplier_id == s.supplier_id %}selected{% endif %}>{{ s.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="col-md-4">
+            <label class="form-label">Unidad de medida</label>
+            <select name="unit_measure" class="form-select" required>
+                {% set um = product.unit_measure if product else 'unidad' %}
+                <option value="unidad" {% if um == 'unidad' %}selected{% endif %}>Unidad</option>
+                <option value="amperio" {% if um == 'amperio' %}selected{% endif %}>Amperio (A)</option>
+                <option value="metro" {% if um == 'metro' %}selected{% endif %}>Metro (m)</option>
+                <option value="centimetro" {% if um == 'centimetro' %}selected{% endif %}>Centímetro (cm)</option>
+                <option value="milimetro" {% if um == 'milimetro' %}selected{% endif %}>Milímetro (mm)</option>
+            </select>
+        </div>
+        <div class="col-md-4">
+            <label class="form-label">Presentación / Mililitraje</label>
+            <input type="text" name="presentacion" class="form-control" value="{{ product.presentacion if product else '' }}"
+                   placeholder="Ej. 400 ml, 500 ml, galón, unidad">
+            <div class="form-text">Se muestra en la guía de despacho (ej. "400 ml").</div>
+        </div>
+        <div class="col-md-4">
+            <label class="form-label">Precio Costo</label>
+            <input type="number" step="0.01" min="0" name="cost_price" class="form-control" value="{{ product.cost_price if product else 0 }}">
+        </div>
+        <div class="col-md-4">
+            <label class="form-label">Precio Contado</label>
+            <input type="number" step="0.01" min="0" name="sale_price" class="form-control" value="{{ product.sale_price if product else 0 }}">
+            <div class="form-text">Lista para clientes de contado / efectivo.</div>
+        </div>
+        <div class="col-md-4">
+            <label class="form-label">Precio Crédito</label>
+            <input type="number" step="0.01" min="0" name="price_credito" class="form-control" value="{{ product.price_credito if product else 0 }}">
+            <div class="form-text">Lista para clientes a crédito.</div>
+        </div>
+        <div class="col-md-4">
+            <label class="form-label">Precio Mayorista</label>
+            <input type="number" step="0.01" min="0" name="price_mayorista" class="form-control" value="{{ product.price_mayorista if product else 0 }}">
+            <div class="form-text">Lista para clientes mayoristas.</div>
+        </div>
+
+        <div class="col-md-4">
+            <label class="form-label">Stock Bodega Local</label>
+            <input type="number" min="0" name="current_stock" class="form-control" value="{{ product.current_stock if product else 0 }}">
+            <div class="form-text">Stock disponible en la bodega local (donde se vende).</div>
+        </div>
+        <div class="col-md-4">
+            <label class="form-label">Stock Bodega Matriz</label>
+            <input type="number" min="0" name="stock_matriz" class="form-control" value="{{ product.stock_matriz if product else 0 }}">
+            <div class="form-text">Stock en la bodega matriz (principal).</div>
+        </div>
+        <div class="col-md-4">
+            <label class="form-label">Stock mínimo (alerta bajo stock)</label>
+            <input type="number" min="0" name="min_stock" class="form-control" value="{{ product.min_stock if product else 0 }}">
+        </div>
+        <div class="col-md-4">
+            <label class="form-label">Stock máximo (alerta sobre stock)</label>
+            <input type="number" min="0" name="max_stock" class="form-control" value="{{ product.max_stock if product else 0 }}">
+        </div>
+    </div>
+
+    <div class="mt-4 d-flex gap-2">
+        <button type="submit" class="btn btn-primary">Guardar</button>
+        <a href="{{ url_for('products.products_list') }}" class="btn btn-secondary">Cancelar</a>
+    </div>
+</form>
+
+<script>
+const BARCODE_URL = "{{ url_for('caja.caja_barcode', codigo='') }}";
+const barcodeInput = document.getElementById('barcode-input');
+const barcodePreview = document.getElementById('barcode-preview');
+const barcodeImg = document.getElementById('barcode-img');
+
+function vistaPreviaImagen(input) {
+    const preview = document.getElementById('imagen-preview');
+    if (input.files && input.files[0]) {
+        const reader = new FileReader();
+        reader.onload = function (e) {
+            preview.innerHTML = '<img src="' + e.target.result + '" alt="Vista previa" style="width: 100%; height: 100%; object-fit: cover;">';
+        };
+        reader.readAsDataURL(input.files[0]);
+    }
+}
+
+function eliminarImagenProducto() {
+    if (!confirm('¿Eliminar la imagen de este producto?')) return;
+    const url = "{{ url_for('products.product_image_delete', product_id=product.product_id) if product else '' }}";
+    if (!url) { alert('Este producto aún no tiene imagen para eliminar.'); return; }
+    fetch(url, { method: 'POST' })
+        .then(r => {
+            if (r.ok) { location.reload(); }
+            else { alert('No se pudo eliminar la imagen.'); }
+        })
+        .catch(() => alert('Error de conexión al eliminar la imagen.'));
+}
+
+function actualizarPreview() {
+    const valor = barcodeInput.value.trim();
+    if (valor) {
+        barcodeImg.src = BARCODE_URL + encodeURIComponent(valor);
+        barcodePreview.classList.remove('d-none');
+    } else {
+        barcodePreview.classList.add('d-none');
+        barcodeImg.src = '';
+    }
+}
+barcodeInput.addEventListener('input', actualizarPreview);
+actualizarPreview();
+
+async function generarBarcode() {
+    const pid = {{ product.product_id if product else 'null' }};
+    try {
+        const res = await fetch("{{ url_for('products.api_generar_barcode') }}?product_id=" + (pid || ''));
+        const data = await res.json();
+        if (data.barcode) {
+            document.getElementById('barcode-input').value = data.barcode;
+            actualizarPreview();
+        } else {
+            alert('No se pudo generar el código.');
+        }
+    } catch (e) {
+        alert('Error al generar el código: ' + e);
+    }
+}
+</script>
+
+{% endblock %}

@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}ATS{% endblock %}
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <h2 class="mb-1"><i class="bi bi-file-earmark-spreadsheet me-2 text-primary"></i>ATS — Anexo Transaccional Simplificado</h2>
+        <p class="text-muted mb-0">Resumen mensual para el ATS del SRI. Revísalo con tu contador antes de subirlo.</p>
+    </div>
+    <a href="{{ url_for('sri.facturas_sri') }}" class="btn btn-outline-secondary">← Facturas SRI</a>
+</div>
+
+<form method="GET" class="row g-2 mb-4 bg-white p-3 rounded shadow-sm align-items-end">
+    <div class="col-md-3">
+        <label class="form-label small text-muted mb-1">Año</label>
+        <input type="number" name="anio" class="form-control" value="{{ anio }}">
+    </div>
+    <div class="col-md-3">
+        <label class="form-label small text-muted mb-1">Mes</label>
+        <select name="mes" class="form-select">
+            {% for n in range(1,13) %}
+            <option value="{{ n }}" {% if mes == n %}selected{% endif %}>{{ n }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="col-md-3"><button class="btn btn-primary w-100">Consultar</button></div>
+    <div class="col-md-3">
+        <a href="{{ url_for('sri.ats_xml', anio=anio, mes=mes) }}" class="btn btn-success w-100">⬇️ Descargar ATS (XML)</a>
+    </div>
+</form>
+
+{% if not cfg or not cfg.ruc %}
+<div class="alert alert-warning">Configura los datos del emisor en <a href="{{ url_for('sri.sri_config') }}">Configuración SRI</a> para generar el ATS.</div>
+{% endif %}
+
+<div class="row g-3">
+    <div class="col-md-3"><div class="card border-0 shadow-sm h-100"><div class="card-body text-center">
+        <div class="text-muted small">Ventas del mes</div><div class="fs-5 fw-bold">{{ num_ventas }}</div>
+        <div class="small text-muted">${{ "%.2f"|format(total_ventas) }}</div>
+    </div></div></div>
+    <div class="col-md-3"><div class="card border-0 shadow-sm h-100"><div class="card-body text-center">
+        <div class="text-muted small">Compras del mes</div><div class="fs-5 fw-bold">{{ num_compras }}</div>
+        <div class="small text-muted">${{ "%.2f"|format(total_compras) }}</div>
+    </div></div></div>
+    <div class="col-md-3"><div class="card border-0 shadow-sm h-100"><div class="card-body text-center">
+        <div class="text-muted small">Retenciones emitidas</div><div class="fs-5 fw-bold">{{ num_ret_emit }}</div>
+    </div></div></div>
+    <div class="col-md-3"><div class="card border-0 shadow-sm h-100"><div class="card-body text-center">
+        <div class="text-muted small">Retenciones recibidas</div><div class="fs-5 fw-bold">{{ num_ret_rec }}</div>
+    </div></div></div>
+</div>
+
+<div class="alert alert-secondary small mt-3">
+    <i class="bi bi-info-circle me-1"></i>
+    El XML del ATS incluye <strong>ventas</strong>, <strong>compras</strong>, <strong>retenciones emitidas y recibidas</strong>
+    y el total de ventas del período. Descárgalo, revísalo con tu contador y súbelo en el portal del SRI.
+</div>
+
+{% endblock %}

@@ -1,0 +1,6 @@
+# Configuracion de Nixpacks (Railway) para el Sistema Barbazul.
+# Instala Tesseract OCR en el servidor para que funcione la lectura de
+# facturas por foto/PDF escaneado. Si no lo quieres, borra este archivo.
+
+[phases.setup]
+aptPkgs = ["tesseract-ocr"]

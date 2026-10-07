@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}Guías de Remisión{% endblock %}
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2>Guías de Remisión</h2>
+    <a href="{{ url_for('guides.guide_new') }}" class="btn btn-primary">+ Nueva Guía</a>
+</div>
+
+<div class="table-responsive">
+    <table class="table table-hover bg-white align-middle">
+        <thead class="table-dark">
+            <tr>
+                <th>#</th>
+                <th>Fecha</th>
+                <th>Motivo</th>
+                <th>Destino</th>
+                <th>Transportista</th>
+                <th>Estado</th>
+                <th>Emitida por</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for g in guides %}
+            <tr>
+                <td>#{{ g.guide_id }}{% if g.guide_number %} ({{ g.guide_number }}){% endif %}</td>
+                <td>{{ g.fecha_emision.strftime("%d/%m/%Y") }}</td>
+                <td>{{ g.motivo_label() }}</td>
+                <td>
+                    {% if g.destination_branch %}{{ g.destination_branch.name }}
+                    {% elif g.customer %}{{ g.customer.full_name }}
+                    {% else %}{{ g.destination_address or "—" }}{% endif %}
+                </td>
+                <td>{{ g.transportista_nombre or "—" }}</td>
+                <td>
+                    {% if g.entregada %}
+                        <span class="badge bg-success">Entregada</span>
+                    {% else %}
+                        <span class="badge bg-warning text-dark">Por entregar</span>
+                    {% endif %}
+                </td>
+                <td>{{ g.creator.full_name }}</td>
+                <td>
+                    <a href="{{ url_for('guides.guide_detail', guide_id=g.guide_id) }}" class="btn btn-sm btn-outline-primary">Ver</a>
+                    {% if not g.entregada %}
+                    <form method="POST" action="{{ url_for('guides.guide_marcar_entregada', guide_id=g.guide_id) }}" class="d-inline">
+                        <button type="submit" class="btn btn-sm btn-success">✅ Entregada</button>
+                    </form>
+                    {% endif %}
+                    {% if current_user.is_admin() %}
+                    <form method="POST" action="{{ url_for('guides.guide_delete', guide_id=g.guide_id) }}" class="d-inline" onsubmit="return confirm('¿Eliminar la guía #{{ g.guide_id }}? Esta acción no se puede deshacer.');">
+                        <button type="submit" class="btn btn-sm btn-outline-danger">Eliminar</button>
+                    </form>
+                    {% endif %}
+                </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="8" class="text-center text-muted py-4">No hay guías de remisión generadas todavía.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% endblock %}

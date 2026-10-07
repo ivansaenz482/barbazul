@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}{{ "Editar" if branch else "Nuevo" }} Local{% endblock %}
+{% block content %}
+
+<h2>{{ "Editar" if branch else "Nuevo" }} Local</h2>
+
+<form method="POST" class="bg-white p-4 rounded shadow-sm" style="max-width: 500px;">
+    <div class="mb-3">
+        <label class="form-label">Nombre del local *</label>
+        <input type="text" name="name" class="form-control" value="{{ branch.name if branch else '' }}" required>
+    </div>
+    <div class="mb-3">
+        <label class="form-label">Dirección</label>
+        <input type="text" name="address" class="form-control" value="{{ branch.address if branch else '' }}">
+    </div>
+    <div class="mb-3">
+        <label class="form-label">Teléfono</label>
+        <input type="text" name="phone" class="form-control" value="{{ branch.phone if branch else '' }}">
+    </div>
+    <div class="d-flex gap-2">
+        <button type="submit" class="btn btn-primary">Guardar</button>
+        <a href="{{ url_for('customers.branches_list') }}" class="btn btn-secondary">Cancelar</a>
+    </div>
+</form>
+
+{% endblock %}

@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}Nota de Crédito — Venta #{{ sale.sale_id }}{% endblock %}
+{% block content %}
+
+<h2 class="mb-3"><i class="bi bi-file-earmark-minus me-2 text-primary"></i>Nota de Crédito / Devolución — Venta #{{ sale.sale_id }}</h2>
+
+<div class="alert alert-info py-2">
+    Cliente: <strong>{{ sale.customer.full_name }}</strong> · Bodega: <strong>{{ "Matriz" if sale.bodega == "matriz" else "Local" }}</strong>
+</div>
+
+<form method="POST" class="bg-white p-4 rounded shadow-sm">
+    <div class="row g-3 mb-3">
+        <div class="col-md-4">
+            <label class="form-label">Fecha *</label>
+            <input type="date" name="fecha" class="form-control" value="{{ sale.sale_date.strftime('%Y-%m-%d') }}" required>
+        </div>
+        <div class="col-md-4">
+            <label class="form-label">Motivo *</label>
+            <select name="motivo" class="form-select">
+                <option value="devolucion">Devolución de mercadería</option>
+                <option value="descuento">Descuento posterior</option>
+                <option value="error">Corrección por error</option>
+                <option value="otro">Otro</option>
+            </select>
+        </div>
+        <div class="col-md-4">
+            <label class="form-label">Observaciones</label>
+            <input type="text" name="observaciones" class="form-control">
+        </div>
+    </div>
+
+    <h5>Productos a devolver</h5>
+    <p class="text-muted small">Indica cuántas unidades devolver (0 = no devolver).</p>
+    <table class="table table-bordered">
+        <thead class="table-light">
+            <tr><th>Código</th><th>Producto</th><th class="text-center">Vendidos</th><th style="width:160px;">A devolver</th><th class="text-end">P. Unit.</th></tr>
+        </thead>
+        <tbody>
+            {% for d in sale.details %}
+            <tr>
+                <td>{{ d.product.sku if d.product else "—" }}</td>
+                <td>{{ d.product.name if d.product else "—" }}</td>
+                <td class="text-center">{{ d.quantity }}</td>
+                <td><input type="number" min="0" max="{{ d.quantity }}" name="qty_{{ d.detail_id }}" class="form-control" value="0"></td>
+                <td class="text-end">${{ "%.2f"|format(d.unit_price) }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <div class="d-flex gap-2">
+        <button type="submit" class="btn btn-primary">Emitir Nota de Crédito</button>
+        <a href="{{ url_for('sales.sale_detail', sale_id=sale.sale_id) }}" class="btn btn-secondary">Cancelar</a>
+    </div>
+</form>
+
+{% endblock %}

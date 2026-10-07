@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+{% block title %}Cierre de Caja{% endblock %}
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-3 no-print">
+    <h2 class="mb-0">Cierre de Caja</h2>
+    <button onclick="window.print()" class="btn btn-dark">🖨️ Imprimir</button>
+</div>
+
+<form method="GET" class="row g-2 mb-4 no-print bg-white p-3 rounded shadow-sm align-items-end">
+    <div class="col-md-4">
+        <label class="form-label small text-muted mb-1">Periodo</label>
+        <select name="periodo" class="form-select">
+            <option value="diario" {% if periodo == "diario" %}selected{% endif %}>Diario</option>
+            <option value="semanal" {% if periodo == "semanal" %}selected{% endif %}>Semanal</option>
+            <option value="mensual" {% if periodo == "mensual" %}selected{% endif %}>Mensual</option>
+            <option value="trimestral" {% if periodo == "trimestral" %}selected{% endif %}>Trimestral</option>
+            <option value="anual" {% if periodo == "anual" %}selected{% endif %}>Anual</option>
+        </select>
+    </div>
+    <div class="col-md-4">
+        <label class="form-label small text-muted mb-1">Fecha de referencia</label>
+        <input type="date" name="fecha" class="form-control" value="{{ fecha }}">
+    </div>
+    <div class="col-md-4">
+        <button type="submit" class="btn btn-primary w-100">Consultar</button>
+    </div>
+</form>
+
+<div id="printable-area">
+    <div class="d-none d-print-block mb-3">
+        <h3>Cierre de Caja</h3>
+        <p class="text-muted small">Generado el {{ generated_at }} por {{ current_user.full_name }}</p>
+    </div>
+
+    <p class="text-muted">
+        Periodo: <strong>{{ periodo|capitalize }}</strong> —
+        del {{ fecha_inicio.strftime("%d/%m/%Y") }} al {{ fecha_fin.strftime("%d/%m/%Y") }}
+    </p>
+
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="card border-primary text-center">
+                <div class="card-body">
+                    <h6 class="text-muted mb-1">Ventas totales</h6>
+                    <h4>${{ "%.2f"|format(total_vendido) }}</h4>
+                    <p class="small text-muted mb-0">{{ num_ventas }} venta(s)</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-success text-center">
+                <div class="card-body">
+                    <h6 class="text-muted mb-1">Total cobrado</h6>
+                    <h4>${{ "%.2f"|format(total_cobrado) }}</h4>
+                    <p class="small text-muted mb-0">pagos recibidos en el periodo</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-warning text-center">
+                <div class="card-body">
+                    <h6 class="text-muted mb-1">Pendiente por cobrar</h6>
+                    <h4>${{ "%.2f"|format(total_pendiente) }}</h4>
+                    <p class="small text-muted mb-0">créditos de este periodo sin cancelar</p>
+                </div>
+            </div>
+        </div>
+        {% if current_user.is_admin() %}
+        <div class="col-md-3">
+            <div class="card border-info text-center">
+                <div class="card-body">
+                    <h6 class="text-muted mb-1">Utilidad</h6>
+                    <h4>${{ "%.2f"|format(total_utilidad) }}</h4>
+                    <p class="small text-muted mb-0">de las ventas del periodo</p>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="row g-3 mb-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-body">
+                    <h6 class="card-title">Ventas por tipo de pago</h6>
+                    <table class="table table-sm mb-0">
+                        <tbody>
+                            <tr><td>Efectivo (contado)</td><td class="text-end">${{ "%.2f"|format(total_efectivo_vendido) }}</td></tr>
+                            <tr><td>Crédito</td><td class="text-end">${{ "%.2f"|format(total_credito_vendido) }}</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-body">
+                    <h6 class="card-title">Dinero cobrado por método de pago</h6>
+                    <table class="table table-sm mb-0">
+                        <tbody>
+                            {% for metodo, monto in por_metodo.items() %}
+                            <tr><td>{{ metodo|capitalize }}</td><td class="text-end">${{ "%.2f"|format(monto) }}</td></tr>
+                            {% else %}
+                            <tr><td colspan="2" class="text-muted">No se registraron pagos en este periodo.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% if pendientes %}
+    <h5 class="mb-3">Cuentas pendientes de este periodo</h5>
+    <div class="table-responsive">
+        <table class="table table-bordered bg-white">
+            <thead class="table-light">
+                <tr><th>Venta</th><th>Cliente</th><th>Vence</th><th>Saldo pendiente</th></tr>
+            </thead>
+            <tbody>
+                {% for s in pendientes %}
+                <tr>
+                    <td><a href="{{ url_for('sales.sale_detail', sale_id=s.sale_id) }}">#{{ s.sale_id }}</a></td>
+                    <td>{{ s.customer.full_name }}</td>
+                    <td>{{ s.due_date.strftime("%d/%m/%Y") if s.due_date else "—" }}</td>
+                    <td>${{ "%.2f"|format(s.saldo_pendiente()) }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+</div>
+
+<style>
+@media print {
+    .no-print, nav, .navbar, footer { display: none !important; }
+    body { background: white !important; }
+}
+</style>
+
+{% endblock %}

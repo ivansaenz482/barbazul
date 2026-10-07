@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}Respaldos{% endblock %}
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>💾 Respaldos de la Base de Datos</h2>
+    <form method="POST" action="{{ url_for('backups.backup_new') }}">
+        <button type="submit" class="btn btn-primary">+ Generar respaldo ahora</button>
+    </form>
+</div>
+
+<p class="text-muted">
+    Los respaldos se guardan en la carpeta <code>backups/</code> de este proyecto.
+    Se conservan automáticamente los últimos {{ backups|length }} más recientes según la configuración
+    de <code>MAX_BACKUPS</code> en tu archivo <code>.env</code>.
+</p>
+
+<div class="table-responsive">
+    <table class="table table-hover bg-white align-middle">
+        <thead class="table-dark">
+            <tr>
+                <th>Archivo</th>
+                <th>Fecha</th>
+                <th>Tamaño</th>
+                <th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for b in backups %}
+            <tr>
+                <td>{{ b.filename }}</td>
+                <td>{{ b.fecha.strftime("%d/%m/%Y %H:%M") }}</td>
+                <td>{{ b.size_kb }} KB</td>
+                <td>
+                    <a href="{{ url_for('backups.backup_download', filename=b.filename) }}" class="btn btn-sm btn-outline-primary">⬇️ Descargar</a>
+                    <form method="POST" action="{{ url_for('backups.backup_delete', filename=b.filename) }}" class="d-inline" onsubmit="return confirm('¿Eliminar este respaldo? No se puede deshacer.');">
+                        <button type="submit" class="btn btn-sm btn-outline-danger">Eliminar</button>
+                    </form>
+                </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="4" class="text-center text-muted py-4">Aún no hay respaldos generados.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<div class="alert alert-info mt-4">
+    💡 Para que esto se genere solo, todos los días, sin que tengas que acordarte: revisa la sección
+    <strong>"Respaldo automático"</strong> del <code>README.md</code> del proyecto — usa el Programador
+    de Tareas de Windows, igual que configuramos las alertas por correo.
+</div>
+
+{% endblock %}

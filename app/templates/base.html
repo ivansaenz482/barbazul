@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Sistema de Facturación{% endblock %}</title>
+    <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='img/favicon.ico') }}">
+    <link rel="manifest" href="{{ url_for('main.manifest') }}">
+    <meta name="theme-color" content="#0d2540">
+    <link rel="apple-touch-icon" href="{{ url_for('static', filename='img/icon-192.png') }}">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Barbazul">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body class="app-body">
+
+    {% if current_user.is_authenticated %}
+    <div class="app-shell">
+        {# ============ SIDEBAR ============ #}
+        <aside class="sidebar" id="sidebar">
+            <a class="sidebar-brand" href="{{ url_for('main.dashboard') }}">
+                {% if company_logo_url %}
+                <img src="{{ company_logo_url }}" alt="Logo del negocio" class="sidebar-logo-img">
+                {% else %}
+                <span class="sidebar-logo-placeholder"><i class="bi bi-shop"></i></span>
+                {% endif %}
+                <span class="sidebar-brand-text">
+                    Sistema de Facturación
+                    <small>Gestión e Inventario</small>
+                </span>
+            </a>
+
+            <nav class="sidebar-nav">
+                <a class="sidebar-link" href="{{ url_for('main.dashboard') }}"><i class="bi bi-house-door"></i>Inicio</a>
+
+                {% macro sidebar_group(title, links) %}
+                <div class="sidebar-group" data-group="{{ title }}">
+                    <button type="button" class="sidebar-group-title">
+                        <span>{{ title }}</span>
+                        <i class="bi bi-chevron-down sidebar-group-caret"></i>
+                    </button>
+                    <div class="sidebar-group-body">
+                        {% for url, icon, label in links %}
+                        <a class="sidebar-link" href="{{ url }}"><i class="bi {{ icon }}"></i>{{ label }}</a>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endmacro %}
+
+                {# --- Rol personal: permisos granulares --- #}
+                {% if not current_user.is_admin() %}
+                {% if current_user.can_view_inventario() %}
+                {{ sidebar_group("Inventario", [
+                    (url_for('products.products_list'), "bi-box-seam", "Productos / Stock")
+                ]) }}
+                {% endif %}
+                {% if current_user.can_view_ventas() %}
+                {{ sidebar_group("Ventas", [
+                    (url_for('caja.caja_index'), "bi-cash-coin", "Caja"),
+                    (url_for('sales.sales_list'), "bi-receipt", "Ventas / Pedidos"),
+                    (url_for('sales.liquidacion_diaria'), "bi-cash-stack", "Liquidación del día")
+                ]) }}
+                {% endif %}
+                {% if current_user.can_view_clientes() %}
+                {{ sidebar_group("Clientes", [
+                    (url_for('customers.customers_list'), "bi-people", "Clientes"),
+                    (url_for('customers.branches_list'), "bi-building", "Locales")
+                ]) }}
+                {% endif %}
+                {% if current_user.can_view_reporte_caja() %}
+                {{ sidebar_group("Análisis", [
+                    (url_for('reports.cierre_caja'), "bi-cash-stack", "Cierre de Caja"),
+                    (url_for('reports.ventas_por_cliente'), "bi-bar-chart", "Reporte de Caja (Ventas por Cliente)")
+                ]) }}
+                {% endif %}
+
+                {% else %}
+                {# --- Rol administrador: menú completo --- #}
+                {{ sidebar_group("Inventario", [
+                    (url_for('products.products_list'), "bi-box-seam", "Productos / Stock"),
+                    (url_for('products.stock_adjust'), "bi-sliders", "Ajuste de Stock"),
+                    (url_for('products.categories_list'), "bi-tags", "Categorías"),
+                    (url_for('products.suppliers_list'), "bi-truck", "Proveedores"),
+                    (url_for('purchases.purchases_list'), "bi-cart-plus", "Compras"),
+                    (url_for('supplier_orders.orders_list'), "bi-clipboard-plus", "Pedidos a Proveedor"),
+                    (url_for('reports.pagos_proveedores'), "bi-wallet2", "Pagos a Proveedores"),
+                    (url_for('guides.guides_list'), "bi-clipboard-check", "Guías de Remisión"),
+                    (url_for('despachos.despachos_list'), "bi-truck-front", "Despacho a Bodega"),
+                    (url_for('caja.caja_etiquetas'), "bi-upc-scan", "Etiquetas")
+                ]) }}
+
+                {{ sidebar_group("Ventas", [
+                    (url_for('caja.caja_index'), "bi-cash-coin", "Caja"),
+                    (url_for('sales.sales_list'), "bi-receipt", "Ventas / Pedidos"),
+                    (url_for('sellers.sellers_list'), "bi-person-badge", "Vendedores"),
+                    (url_for('sales.liquidacion_diaria'), "bi-cash-stack", "Liquidación del día"),
+                    (url_for('sri.facturas_sri'), "bi-buildings", "Facturas SRI")
+                ]) }}
+
+                {{ sidebar_group("Clientes", [
+                    (url_for('customers.customers_list'), "bi-people", "Clientes"),
+                    (url_for('customers.branches_list'), "bi-building", "Locales")
+                ]) }}
+
+                {{ sidebar_group("Análisis", [
+                    (url_for('reports.panel_dueno'), "bi-speedometer2", "Panel del Dueño"),
+                    (url_for('reports.comisiones'), "bi-cash-coin", "Comisiones"),
+                    (url_for('reports.recomendaciones'), "bi-lightbulb", "Recomendaciones"),
+                    (url_for('reports.ventas_por_cliente'), "bi-bar-chart", "Reportes"),
+                    (url_for('reports.precios_productos'), "bi-tags", "Lista de Precios"),
+                    (url_for('reports.liquidacion_vendedores'), "bi-person-badge", "Liquidación por Vendedor"),
+                    (url_for('reports.cierre_caja'), "bi-cash-stack", "Cierre de Caja"),
+                    (url_for('reports.estado_cuenta_clientes'), "bi-credit-card", "Clientes de Crédito"),
+                    (url_for('reports.inventario_por_categorias'), "bi-box-seam", "Inventario por Categoría"),
+                    (url_for('dashboard.index'), "bi-graph-up", "Ventas y Rentabilidad"),
+                    (url_for('alerts.alerts_page'), "bi-bell", "Alertas")
+                ]) }}
+
+                {{ sidebar_group("Recursos Humanos", [
+                    (url_for('hr.hr_home'), "bi-person-vcard", "RRHH (Resumen)"),
+                    (url_for('employees.employees_list'), "bi-people-fill", "Personal"),
+                    (url_for('hr.hr_asistencia'), "bi-calendar-check", "Asistencia"),
+                    (url_for('hr.hr_qr'), "bi-qr-code", "QR de Asistencia"),
+                    (url_for('hr.hr_vacaciones'), "bi-airplane", "Vacaciones / Permisos"),
+                    (url_for('hr.hr_adelantos'), "bi-cash-stack", "Adelantos / Préstamos"),
+                    (url_for('hr.hr_pagos'), "bi-receipt", "Historial de pagos")
+                ]) }}
+
+                {{ sidebar_group("Gastos", [
+                    (url_for('expenses.expenses_list'), "bi-receipt-cutoff", "Gastos"),
+                    (url_for('reports.gastos_reporte'), "bi-clipboard-data", "Reporte de Gastos"),
+                    (url_for('reports.ganancias_reporte'), "bi-graph-up-arrow", "Reporte de Ganancias")
+                ]) }}
+
+                {{ sidebar_group("Administración", [
+                    (url_for('users.users_list'), "bi-gear", "Usuarios y permisos"),
+                    (url_for('sri.sri_config'), "bi-buildings", "Configuración SRI"),
+                    (url_for('sri.notas_credito_list'), "bi-file-earmark-minus", "Notas de Crédito"),
+                    (url_for('sri.retenciones'), "bi-file-earmark-minus", "Retenciones"),
+                    (url_for('sri.declaraciones'), "bi-file-earmark-text", "Declaraciones SRI"),
+                    (url_for('sri.ats'), "bi-file-earmark-spreadsheet", "ATS"),
+                    (url_for('sri.vencimientos'), "bi-calendar-event", "Vencimientos"),
+                    (url_for('settings.settings_page'), "bi-image", "Logo / Configuración"),
+                    (url_for('backups.backups_page'), "bi-database", "Respaldos")
+                ]) }}
+                {% endif %}
+            </nav>
+        </aside>
+
+        <div class="app-content">
+            {% if config.get('DEMO_MODE') %}
+            <div class="demo-banner no-print">
+                <i class="bi bi-eye me-1"></i>
+                <strong>MODO DEMO — entorno de pruebas.</strong>
+                Los datos son ficticios; no es el sistema real del negocio.
+            </div>
+            {% endif %}
+
+            {# ============ TOPBAR ============ #}
+            <header class="topbar">
+                <button class="btn btn-outline-light btn-sm d-lg-none" type="button" onclick="document.getElementById('sidebar').classList.toggle('show')">
+                    <i class="bi bi-list"></i>
+                </button>
+
+                <div class="ms-auto d-flex align-items-center">
+                    <div class="dropdown me-3">
+                        <button class="btn btn-outline-light btn-sm position-relative" type="button" data-bs-toggle="dropdown">
+                            <i class="bi bi-bell"></i>
+                            <span id="alert-badge" class="badge rounded-pill bg-danger position-absolute top-0 start-100 translate-middle d-none">0</span>
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end p-2" style="min-width: 260px;">
+                            <li id="alert-dropdown-content" class="px-2 text-muted small">Cargando...</li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item text-center" href="{{ url_for('alerts.alerts_page') }}">Ver todas las alertas</a></li>
+                        </ul>
+                    </div>
+                    <div class="dropdown">
+                        <button class="btn btn-outline-light btn-sm d-flex align-items-center gap-2" type="button" data-bs-toggle="dropdown">
+                            {% if current_user.avatar_path %}
+                            <img src="{{ url_for('users.user_avatar', user_id=current_user.user_id) }}" class="rounded-circle" style="width: 26px; height: 26px; object-fit: cover;">
+                            {% else %}
+                            <span class="user-avatar-initials">{{ current_user.initials() }}</span>
+                            {% endif %}
+                            <span>{{ current_user.full_name }}</span>
+                            <span class="badge bg-secondary">{{ current_user.role.role_name }}</span>
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li><a class="dropdown-item" href="{{ url_for('users.mi_perfil') }}"><i class="bi bi-person-circle me-1"></i>Mi Perfil</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="{{ url_for('auth.logout') }}"><i class="bi bi-box-arrow-right me-1"></i>Cerrar sesión</a></li>
+                        </ul>
+                    </div>
+                </div>
+            </header>
+
+            <script>
+            async function actualizarAlertas() {
+                try {
+                    const res = await fetch("{{ url_for('alerts.alerts_resumen') }}");
+                    const data = await res.json();
+                    const badge = document.getElementById("alert-badge");
+                    const content = document.getElementById("alert-dropdown-content");
+
+                    if (data.total > 0) {
+                        badge.textContent = data.total;
+                        badge.classList.remove("d-none");
+                    } else {
+                        badge.classList.add("d-none");
+                    }
+
+                    let items = [];
+                    if (data.bajo_stock > 0) items.push(`⚠️ ${data.bajo_stock} producto(s) en bajo stock`);
+                    if (data.sobre_stock > 0) items.push(`📈 ${data.sobre_stock} producto(s) en sobre stock`);
+                    if (data.creditos_vencidos > 0) items.push(`🚨 ${data.creditos_vencidos} crédito(s) vencido(s)`);
+                    if (data.pagos_proveedores_proximos > 0) items.push(`⏰ ${data.pagos_proveedores_proximos} pago(s) a proveedores próximo(s) a vencer (15 días)`);
+                    if (data.pagos_proveedores_vencidos > 0) items.push(`💸 ${data.pagos_proveedores_vencidos} pago(s) a proveedores vencido(s)`);
+
+                    content.innerHTML = items.length > 0
+                        ? items.map(i => `<div class="py-1">${i}</div>`).join("")
+                        : "Sin alertas activas 👍";
+                } catch (e) {
+                    console.error("No se pudo cargar el resumen de alertas", e);
+                }
+            }
+            actualizarAlertas();
+            setInterval(actualizarAlertas, 60000);
+            </script>
+
+            <main class="container-fluid px-4 py-4 app-main">
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        {% for category, message in messages %}
+                            <div class="alert alert-{{ category }} alert-dismissible fade show no-print" role="alert">
+                                {{ message }}
+                                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+                {% endwith %}
+
+                {% block content %}{% endblock %}
+            </main>
+
+            <footer class="app-footer no-print">
+                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 px-4 py-3">
+                    <div class="app-footer-copy">
+                        <i class="bi bi-shield-check text-success me-1"></i>
+                        © {{ current_year }} <strong>Sistema de Facturación e Inventario</strong>. Todos los derechos reservados.
+                    </div>
+                    <div class="app-footer-credit-pill">
+                        <i class="bi bi-code-slash"></i>
+                        <span>Desarrollado por: <strong>Ing. Iván Teneta</strong></span>
+                        <span class="badge-tnt">Corporación TNT</span>
+                    </div>
+                </div>
+            </footer>
+        </div>
+    </div>
+    {% endif %}
+
+    <script>
+    // Oculta el título/URL del encabezado del navegador al imprimir (el usuario también puede desactivar "Encabezados y pies" en el diálogo)
+    (function(){
+      const originalTitle = document.title;
+      window.addEventListener('beforeprint', () => { document.title = ' '; });
+      window.addEventListener('afterprint', () => { document.title = originalTitle; });
+    })();
+    </script>
+
+    <script>
+    // Menu lateral: secciones que se recogen y aparecen al hacer clic (con memoria)
+    (function () {
+        const STORAGE_KEY = 'sidebar_groups_collapsed';
+        let collapsed = [];
+        try { collapsed = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); } catch (e) { collapsed = []; }
+
+        document.querySelectorAll('.sidebar-group').forEach(function (group) {
+            const title = group.querySelector('.sidebar-group-title');
+            const name = group.getAttribute('data-group') || '';
+            if (collapsed.indexOf(name) !== -1) group.classList.add('collapsed');
+            if (!title) return;
+            title.addEventListener('click', function () {
+                group.classList.toggle('collapsed');
+                const isCollapsed = group.classList.contains('collapsed');
+                collapsed = collapsed.filter(n => n !== name);
+                if (isCollapsed) collapsed.push(name);
+                try { localStorage.setItem(STORAGE_KEY, JSON.stringify(collapsed)); } catch (e) {}
+            });
+        });
+    })();
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+    // Registra el Service Worker para poder instalar el sistema como app (PWA)
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', function () {
+            navigator.serviceWorker.register('/sw.js').catch(function () {});
+        });
+    }
+    </script>
+</body>
+</html>

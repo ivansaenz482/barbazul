@@ -1,0 +1,8 @@
+{% macro wa_button(phone, message, label="Enviar por WhatsApp", extra_class="") %}
+{%- set digits = (phone or '') | replace(' ', '') | replace('-', '') | replace('+', '') | replace('(', '') | replace(')', '') | replace('.', '') -%}
+<a href="https://wa.me/{% if digits %}{{ digits }}{% endif %}?text={{ message | urlencode }}"
+   target="_blank" rel="noopener"
+   class="btn btn-success btn-sm {{ extra_class }}">
+    <i class="bi bi-whatsapp me-1"></i>{{ label }}
+</a>
+{% endmacro %}

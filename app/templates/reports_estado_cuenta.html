@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+{% block title %}Clientes de Crédito{% endblock %}
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-3 no-print">
+    <h2 class="mb-0">Estado de Cuenta — Clientes de Crédito</h2>
+    <div class="d-flex gap-2">
+        {% if current_user.is_admin() %}
+            {% if ver_utilidad %}
+            <a href="{{ url_for('reports.estado_cuenta_clientes', customer_id=selected_customer, ver_utilidad=0) }}" class="btn btn-outline-secondary btn-sm">🙈 Ocultar utilidad</a>
+            {% else %}
+            <a href="{{ url_for('reports.estado_cuenta_clientes', customer_id=selected_customer, ver_utilidad=1) }}" class="btn btn-outline-secondary btn-sm">🔎 Mostrar utilidad</a>
+            {% endif %}
+        {% endif %}
+        <button onclick="window.print()" class="btn btn-dark btn-sm">🖨️ Imprimir</button>
+    </div>
+</div>
+
+<form method="GET" class="row g-2 mb-4 no-print bg-white p-3 rounded shadow-sm align-items-end">
+    <div class="col-md-5">
+        <label class="form-label small text-muted mb-1">Cliente</label>
+        <select name="customer_id" class="form-select">
+            <option value="">Todos los clientes de crédito</option>
+            {% for c in clientes %}
+            <option value="{{ c.customer_id }}" {% if selected_customer == c.customer_id|string %}selected{% endif %}>{{ c.full_name }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    {% if ver_utilidad %}<input type="hidden" name="ver_utilidad" value="1">{% endif %}
+    <div class="col-md-3">
+        <button type="submit" class="btn btn-primary w-100">Consultar</button>
+    </div>
+</form>
+
+<div id="printable-area">
+    <div class="d-none d-print-block mb-3">
+        <h3>Estado de Cuenta — Clientes de Crédito</h3>
+        <p class="text-muted small">Generado el {{ generated_at }} por {{ current_user.full_name }}
+            {% if not ver_utilidad %}· (sin información de utilidad){% endif %}
+        </p>
+    </div>
+
+    {% for e in estado_cuentas %}
+    <div class="card mb-4">
+        <div class="card-header bg-white">
+            <div class="d-flex justify-content-between align-items-start flex-wrap">
+                <div>
+                    <strong>{{ e.cliente.full_name }}</strong>
+                    {% if e.cliente.business_name %}<span class="text-muted"> — {{ e.cliente.business_name }}</span>{% endif %}
+                    <br>
+                    <span class="small text-muted">{{ e.cliente.cedula or "" }} {{ e.cliente.phone or "" }}</span>
+                </div>
+                <div class="text-end">
+                    <span class="badge bg-info text-dark">Plazo: {{ e.cliente.credit_term_days }} días</span>
+                    <span class="badge bg-secondary">Límite: ${{ "%.2f"|format(e.cliente.credit_limit) }}</span>
+                </div>
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="row g-2 mb-3">
+                <div class="col-md-4">
+                    <div class="border rounded p-2 text-center">
+                        <div class="small text-muted">Total a crédito</div>
+                        <div class="fw-bold">${{ "%.2f"|format(e.total_credito) }}</div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="border rounded p-2 text-center">
+                        <div class="small text-muted">Total abonado</div>
+                        <div class="fw-bold text-success">${{ "%.2f"|format(e.total_abonado) }}</div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="border rounded p-2 text-center {% if e.saldo_actual > 0 %}border-danger{% endif %}">
+                        <div class="small text-muted">Deuda actual</div>
+                        <div class="fw-bold {% if e.saldo_actual > 0 %}text-danger{% else %}text-success{% endif %}">${{ "%.2f"|format(e.saldo_actual) }}</div>
+                    </div>
+                </div>
+            </div>
+
+            {% if ver_utilidad %}
+            <p class="small text-muted mb-3">Utilidad generada por este cliente: <strong>${{ "%.2f"|format(e.total_utilidad) }}</strong></p>
+            {% endif %}
+
+            {% for v in e.ventas %}
+            <div class="mb-3 {% if not loop.last %}border-bottom pb-3{% endif %}">
+                <div class="d-flex justify-content-between flex-wrap">
+                    <div>
+                        <strong>Venta #{{ v.venta.sale_id }}</strong> — {{ v.venta.document_type_label() }}
+                        · {{ v.venta.sale_date.strftime("%d/%m/%Y") }}
+                        · Vence: {{ v.venta.due_date.strftime("%d/%m/%Y") if v.venta.due_date else "—" }}
+                    </div>
+                    <div>
+                        Total: ${{ "%.2f"|format(v.venta.total_amount) }}
+                        {% if ver_utilidad %} · Utilidad: ${{ "%.2f"|format(v.venta.utilidad()) }}{% endif %}
+                        · Saldo: <strong class="{% if v.saldo > 0 %}text-danger{% else %}text-success{% endif %}">${{ "%.2f"|format(v.saldo) }}</strong>
+                    </div>
+                </div>
+
+                {% if v.abonos %}
+                <table class="table table-sm mt-2 mb-0">
+                    <thead>
+                        <tr class="small text-muted"><th>Fecha del abono</th><th>Monto</th><th>Forma de pago</th><th>N° de recibo</th></tr>
+                    </thead>
+                    <tbody>
+                        {% for a in v.abonos %}
+                        <tr class="small">
+                            <td>{{ a.payment_date.strftime("%d/%m/%Y") }}</td>
+                            <td>${{ "%.2f"|format(a.amount) }}</td>
+                            <td>{{ a.payment_method|capitalize }}</td>
+                            <td>{{ a.receipt_number or "—" }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                <p class="small text-muted mb-0 mt-1">Sin abonos registrados todavía.</p>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% else %}
+    <div class="alert alert-secondary">No hay clientes de crédito con ventas registradas todavía.</div>
+    {% endfor %}
+</div>
+
+<style>
+@media print {
+    .no-print, nav, .navbar, footer { display: none !important; }
+    body { background: white !important; }
+    .card { break-inside: avoid; border: 1px solid #ccc !important; }
+}
+</style>
+
+{% endblock %}

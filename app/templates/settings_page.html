@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}Configuración del Negocio{% endblock %}
+{% block content %}
+
+<h2 class="mb-3"><i class="bi bi-gear me-2 text-primary"></i>Configuración del Negocio</h2>
+
+<div class="card bg-white shadow-sm" style="max-width: 720px;">
+    <div class="card-body">
+        <h5 class="card-title">Logo del negocio</h5>
+        <p class="text-muted small">
+            El logo aparece en la <strong>factura / nota de venta</strong>, en el <strong>recibo</strong>
+            y en la parte del <strong>carrito de compras</strong> y el menú. <strong>No</strong> se muestra en los reportes.
+        </p>
+
+        <div class="d-flex align-items-center gap-4 mb-3">
+            <div class="border rounded d-flex align-items-center justify-content-center bg-light"
+                 style="width: 180px; height: 120px; overflow: hidden;">
+                {% if company and company.logo_path %}
+                <img src="{{ url_for('settings.company_logo') }}" alt="Logo actual"
+                     style="max-width: 100%; max-height: 100%; object-fit: contain;">
+                {% else %}
+                <span class="text-muted small">Sin logo</span>
+                {% endif %}
+            </div>
+
+            <div class="flex-grow-1">
+                <form method="POST" action="{{ url_for('settings.logo_upload') }}" enctype="multipart/form-data">
+                    <label class="form-label small">Subir / cambiar logo</label>
+                    <input type="file" name="logo" class="form-control" accept="image/png,image/jpeg,image/webp,image/gif" required>
+                    <div class="form-text">PNG, JPG, JPEG, WEBP o GIF. Se recomienda fondo transparente (PNG).</div>
+                    <button type="submit" class="btn btn-primary btn-sm mt-2">
+                        <i class="bi bi-upload me-1"></i>Guardar logo
+                    </button>
+                </form>
+
+                {% if company and company.logo_path %}
+                <form method="POST" action="{{ url_for('settings.logo_delete') }}" class="mt-2"
+                      onsubmit="return confirm('¿Eliminar el logo actual?');">
+                    <button type="submit" class="btn btn-outline-danger btn-sm">
+                        <i class="bi bi-trash me-1"></i>Eliminar logo
+                    </button>
+                </form>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

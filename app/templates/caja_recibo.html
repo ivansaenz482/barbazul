@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Recibo {{ sale.document_type_label() }} #{{ sale.sale_id }}</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Courier New', monospace;
+            background: #e9ecef;
+            font-size: 12px;
+        }
+        .no-print { font-family: Arial, sans-serif; }
+        .receipt {
+            width: 78mm;
+            margin: 20px auto;
+            background: #fff;
+            padding: 6mm 5mm;
+            color: #111;
+        }
+        .header { text-align: center; margin-bottom: 6px; }
+        .header img { height: 42px; margin-bottom: 2px; }
+        .header .negocio { font-size: 12px; font-weight: bold; letter-spacing: 0; line-height: 1.2; }
+        .header .lema { font-size: 10px; color: #444; }
+        .sep { border-top: 1px dashed #333; margin: 6px 0; }
+        .row { display: flex; justify-content: space-between; }
+        .texto { font-size: 11px; }
+        .centrado { text-align: center; }
+        .titulo-doc { text-align: center; font-weight: bold; font-size: 13px; margin: 4px 0; }
+        table { width: 100%; border-collapse: collapse; }
+        td { padding: 1px 0; vertical-align: top; }
+        td.cant { white-space: nowrap; }
+        td.precio { text-align: right; white-space: nowrap; }
+        td.desc { padding-left: 4px; }
+        .total { font-size: 14px; font-weight: bold; }
+        .btn-bar { text-align: center; margin: 20px auto 40px; }
+        .btn-bar button { padding: 10px 24px; font-size: 14px; margin: 0 6px; cursor: pointer; }
+        .pie { text-align: center; margin-top: 8px; font-size: 11px; }
+        .aviso-venta {
+            background: #000;
+            color: #fff;
+            padding: 5px 4px;
+            border-radius: 3px;
+            font-weight: bold;
+            font-size: 12px;
+            line-height: 1.5;
+        }
+        .aviso-venta span { text-shadow: 0 0 2px #000; }
+        .gris { color: #555; }
+        @media print {
+            body { background: #fff; }
+            .no-print { display: none !important; }
+            .receipt { margin: 0 auto; box-shadow: none; }
+            @page { margin: 5mm; }
+        }
+    </style>
+</head>
+<body>
+    <div class="btn-bar no-print">
+        <button onclick="window.print()" style="background:#198754; color:#fff; border:none; border-radius:6px;">🖨️ Imprimir recibo</button>
+        {% set digits = (sale.customer.phone or '')|replace(' ','')|replace('-','')|replace('+','')|replace('(','')|replace(')','') %}
+        {% set wa_msg = sale.document_type_label() ~ " #" ~ sale.sale_id ~ "\nCliente: " ~ sale.customer.full_name ~ "\nTotal: $" ~ "%.2f"|format(sale.total_amount) %}
+        <a href="https://wa.me/{{ digits }}?text={{ wa_msg|urlencode }}" target="_blank" rel="noopener"
+           style="background:#25D366; color:#fff; border:none; border-radius:6px; padding:10px 24px; font-size:14px; text-decoration:none; display:inline-block;">💬 Enviar por WhatsApp</a>
+        <button onclick="window.close()" style="background:#6c757d; color:#fff; border:none; border-radius:6px;">Cerrar</button>
+    </div>
+
+    <div class="receipt">
+        <div class="header">
+            {% if company_logo_url %}
+            <img src="{{ company_logo_url }}" alt="Logo">
+            {% endif %}
+            <div class="negocio">REPUESTOS Y ACCESORIOS DE MOTO Y BICICLETAS HUANG</div>
+            <div class="lema">RUC: 0963863014001</div>
+            <div class="lema">Dirección: Calle 38 y Av. 0818 y Calle E</div>
+            <div class="lema">Cel: 0979698202 — almacenehuang88@gmail.com</div>
+            <div class="lema">Guayaquil — Ecuador</div>
+        </div>
+
+        <div class="titulo-doc">{{ sale.document_type_label().upper() }}</div>
+        <div class="centrado gris texto">N° {{ sale.sale_id }} &nbsp;•&nbsp; {{ sale.sale_date.strftime("%d/%m/%Y %H:%M") }}</div>
+
+        <div class="sep"></div>
+
+        <div class="texto">
+            <div>Cliente: <strong>{{ sale.customer.full_name }}</strong></div>
+            {% if sale.customer.business_name %}<div>Empresa: {{ sale.customer.business_name }}</div>{% endif %}
+            {% if sale.customer.cedula %}<div>CI: {{ sale.customer.cedula }}</div>{% endif %}
+            {% if sale.customer.phone %}<div>Tel: {{ sale.customer.phone }}</div>{% endif %}
+            <div>Vendedor: {{ sale.seller.full_name }}</div>
+        </div>
+
+        <div class="sep"></div>
+
+        <table>
+            {% for d in sale.details %}
+            <tr>
+                <td class="cant">{{ d.quantity }} x</td>
+                <td class="desc">{{ d.product.name }}</td>
+                <td class="precio">{{ "%.2f"|format(d.subtotal) }}</td>
+            </tr>
+            {% if d.product.presentacion %}
+            <tr>
+                <td></td>
+                <td class="gris texto" colspan="2">({{ d.product.presentacion }} @ ${{ "%.2f"|format(d.unit_price) }})</td>
+            </tr>
+            {% endif %}
+            {% endfor %}
+        </table>
+
+        <div class="sep"></div>
+
+        <div class="row total">
+            <span>TOTAL</span>
+            <span>${{ "%.2f"|format(sale.total_amount) }}</span>
+        </div>
+
+        <div class="sep"></div>
+
+        <div class="texto">
+            {% if sale.payment_type == "credito" %}
+                <div>Pago: <strong>CRÉDITO</strong>{% if sale.due_date %} — vence {{ sale.due_date.strftime("%d/%m/%Y") }}{% endif %}</div>
+                <div class="gris">Plazo: {{ sale.customer.credit_term_days or "0" }} días</div>
+            {% else %}
+                {% set metodo = sale.payments[0].payment_method if sale.payments and sale.payments[0].payment_method else "efectivo" %}
+                <div>Pago: <strong>{{ metodo|upper }}</strong></div>
+                {% if sale.payments and sale.payments[0].receipt_number %}
+                <div>N° recibo: {{ sale.payments[0].receipt_number }}</div>
+                {% endif %}
+            {% endif %}
+            <div>Estado: {% if sale.status == "pagado" %}CANCELADA{% elif sale.status == "vencido" %}VENCIDA{% else %}PENDIENTE{% endif %}</div>
+        </div>
+
+        <div class="sep"></div>
+
+        <div class="pie aviso-venta">
+            SALIDA DE MERCADERÍA<br>
+            <span>NO HAY CAMBIOS NI DEVOLUCIÓN</span>
+        </div>
+    </div>
+
+    <script>
+        (function(){
+          const originalTitle = document.title;
+          window.addEventListener('beforeprint', () => { document.title = ' '; });
+          window.addEventListener('afterprint', () => { document.title = originalTitle; });
+        })();
+        window.onload = function () { window.print(); };
+    </script>
+</body>
+</html>

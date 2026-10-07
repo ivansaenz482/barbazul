@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block title %}RIDE Factura #{{ sale.sale_id }}{% endblock %}
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-3 no-print">
+    <h2 class="mb-0">RIDE — Factura #{{ sale.sale_id }}</h2>
+    <div class="d-flex gap-2">
+        <button onclick="window.print()" class="btn btn-dark btn-sm">🖨️ Imprimir / Guardar PDF</button>
+        <a href="{{ url_for('sri.facturas_sri') }}" class="btn btn-secondary btn-sm">← Volver</a>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <div class="text-center mb-3" style="border-bottom: 2px solid #1a3c63; padding-bottom: 8px;">
+            {% if cfg and cfg.razon_social %}
+            <h5 class="mb-0" style="color:#1a3c63;">{{ cfg.razon_social }}</h5>
+            <p class="mb-0 small">{{ cfg.nombre_comercial or "" }}</p>
+            <p class="mb-0 small">RUC: {{ cfg.ruc }} — {{ cfg.direccion_matriz or "" }}</p>
+            <p class="mb-0 small">{{ cfg.telefono or "" }} {{ cfg.email or "" }}</p>
+            {% else %}
+            <p class="text-muted">Configura los datos del SRI para mostrar el encabezado completo.</p>
+            {% endif %}
+            <h6 class="mt-2 mb-0">FACTURA</h6>
+        </div>
+
+        <div class="row g-3 mb-3">
+            <div class="col-md-7">
+                <table class="table table-sm table-bordered mb-0">
+                    <tr><th style="width:130px;">Cliente</th><td>{{ sale.customer.full_name }}</td></tr>
+                    <tr><th>Identificación</th><td>{{ sale.customer.cedula or "—" }}</td></tr>
+                    <tr><th>Dirección</th><td>{{ sale.customer.address or "—" }}</td></tr>
+                    <tr><th>Teléfono</th><td>{{ sale.customer.phone or "—" }}</td></tr>
+                </table>
+            </div>
+            <div class="col-md-5">
+                <table class="table table-sm table-bordered mb-0">
+                    <tr><th>Fecha emisión</th><td>{{ sale.sale_date.strftime("%d/%m/%Y %H:%M") }}</td></tr>
+                    <tr><th>N° Factura</th><td>{{ '%03d-%03d-%09d'|format(1, 1, sale.sale_id) if not cfg else (('%s-%s-%09d')|format(cfg.establecimiento, cfg.punto_emision, sale.sale_id)) }}</td></tr>
+                    <tr><th>Ambiente</th><td>{{ cfg.ambiente_label() if cfg else "—" }}</td></tr>
+                    <tr><th>Estado SRI</th><td>{{ sale.sri_status_label() }}</td></tr>
+                </table>
+            </div>
+        </div>
+
+        {% if sale.sri_clave_acceso %}
+        <div class="mb-3">
+            <span class="small text-muted">Clave de acceso:</span>
+            <code>{{ sale.sri_clave_acceso }}</code>
+            <div class="mt-1">
+                <img src="{{ url_for('caja.caja_barcode', codigo=sale.sri_clave_acceso) }}" alt="clave" style="height:48px; background:#fff;">
+            </div>
+        </div>
+        {% endif %}
+
+        <table class="table table-bordered">
+            <thead class="table-light">
+                <tr><th>Código</th><th>Descripción</th><th class="text-center">Cant.</th><th class="text-end">P. Unit.</th><th class="text-end">Subtotal</th></tr>
+            </thead>
+            <tbody>
+                {% for d in sale.details %}
+                <tr>
+                    <td>{{ d.product.sku if d.product else "—" }}</td>
+                    <td>{{ d.product.name if d.product else "—" }}</td>
+                    <td class="text-center">{{ d.quantity }}</td>
+                    <td class="text-end">${{ "%.2f"|format(d.unit_price) }}</td>
+                    <td class="text-end">${{ "%.2f"|format(d.subtotal) }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr><td colspan="4" class="text-end">Subtotal (sin IVA)</td><td class="text-end">${{ "%.2f"|format(base) }}</td></tr>
+                <tr><td colspan="4" class="text-end">IVA {{ iva }}%</td><td class="text-end">${{ "%.2f"|format(valor_iva) }}</td></tr>
+                <tr class="fw-bold"><td colspan="4" class="text-end">TOTAL</td><td class="text-end">${{ "%.2f"|format(sale.total_amount) }}</td></tr>
+            </tfoot>
+        </table>
+
+        <div class="text-center mt-3">
+            <img src="https://api.qrserver.com/v1/create-qr-code/?size=120x120&data={{ (sale.sri_clave_acceso or sale.sale_id)|urlencode }}" alt="QR" style="height:110px;">
+            <p class="small text-muted mb-0">Escanee para verificar (contenido: clave de acceso)</p>
+        </div>
+    </div>
+</div>
+
+<style>
+@media print {
+    @page { size: A4 portrait; margin: 10mm 12mm; }
+    .no-print, nav, .navbar, footer, .sidebar, .topbar, .btn { display: none !important; }
+    body { background: white !important; }
+    .card { border: 1px solid #ccc !important; box-shadow: none !important; }
+}
+</style>
+
+{% endblock %}

@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}Retención #{{ ret.retencion_id }}{% endblock %}
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-3 no-print">
+    <h2 class="mb-0">Comprobante de Retención #{{ ret.retencion_id }}</h2>
+    <div class="d-flex gap-2">
+        <a href="{{ url_for('sri.retencion_xml', ret_id=ret.retencion_id) }}" class="btn btn-outline-dark btn-sm">XML</a>
+        {% if ret.estado != 'autorizada' %}
+        <form method="POST" action="{{ url_for('sri.retencion_enviar', ret_id=ret.retencion_id) }}" class="d-inline" onsubmit="return confirm('¿Firmar y enviar al SRI?');">
+            <button class="btn btn-success btn-sm">Enviar al SRI</button>
+        </form>
+        {% else %}
+        <span class="badge bg-success">Autorizada</span>
+        {% endif %}
+        <button onclick="window.print()" class="btn btn-dark btn-sm">🖨️ Imprimir / Guardar PDF</button>
+        <a href="{{ url_for('sri.retenciones') }}" class="btn btn-secondary btn-sm">← Volver</a>
+    </div>
+</div>
+
+<div class="card"><div class="card-body">
+    <div class="text-center mb-3" style="border-bottom:2px solid #1a3c63; padding-bottom:8px;">
+        <h5 class="mb-0" style="color:#1a3c63;">{{ cfg.razon_social if cfg else "—" }}</h5>
+        <p class="mb-0 small">RUC: {{ cfg.ruc if cfg else "—" }} — {{ cfg.direccion_matriz if cfg else "" }}</p>
+        <h6 class="mt-2 mb-0">COMPROBANTE DE RETENCIÓN</h6>
+    </div>
+
+    <div class="row g-3 mb-3">
+        <div class="col-md-6">
+            <table class="table table-sm table-bordered mb-0">
+                <tr><th style="width:140px;">Sujeto retenido</th><td>{{ ret.sujeto_nombre() }}</td></tr>
+                <tr><th>Identificación</th><td>{{ ret.sujeto_identificacion() or "—" }}</td></tr>
+                <tr><th>Tipo</th><td>{{ ret.tipo_label() }}</td></tr>
+            </table>
+        </div>
+        <div class="col-md-6">
+            <table class="table table-sm table-bordered mb-0">
+                <tr><th>Fecha</th><td>{{ ret.fecha.strftime("%d/%m/%Y") }}</td></tr>
+                <tr><th>Período fiscal</th><td>{{ ret.periodo_fiscal or "—" }}</td></tr>
+                <tr><th>Ambiente</th><td>{{ cfg.ambiente_label() if cfg else "—" }}</td></tr>
+            </table>
+        </div>
+    </div>
+
+    <table class="table table-bordered">
+        <thead class="table-light"><tr><th>Impuesto</th><th class="text-end">Base</th><th class="text-end">%</th><th class="text-end">Valor retenido</th></tr></thead>
+        <tbody>
+            {% if ret.valor_iva_retenido and ret.valor_iva_retenido > 0 %}
+            <tr><td>IVA</td><td class="text-end">${{ "%.2f"|format(ret.base_imponible) }}</td><td class="text-end">{{ "%.2f"|format(ret.porcentaje_iva) }}%</td><td class="text-end">${{ "%.2f"|format(ret.valor_iva_retenido) }}</td></tr>
+            {% endif %}
+            {% if ret.valor_renta_retenido and ret.valor_renta_retenido > 0 %}
+            <tr><td>Renta {% if ret.codigo_renta %}(cód. {{ ret.codigo_renta }}){% endif %}</td><td class="text-end">${{ "%.2f"|format(ret.base_imponible) }}</td><td class="text-end">{{ "%.2f"|format(ret.porcentaje_renta) }}%</td><td class="text-end">${{ "%.2f"|format(ret.valor_renta_retenido) }}</td></tr>
+            {% endif %}
+        </tbody>
+        <tfoot><tr class="fw-bold"><td colspan="3" class="text-end">TOTAL RETENIDO</td><td class="text-end">${{ "%.2f"|format(ret.total_retenido) }}</td></tr></tfoot>
+    </table>
+
+    {% if ret.observaciones %}<p class="small text-muted"><strong>Observaciones:</strong> {{ ret.observaciones }}</p>{% endif %}
+    {% if ret.clave_acceso %}<p class="small text-muted">Clave de acceso: <code>{{ ret.clave_acceso }}</code></p>{% endif %}
+</div></div>
+
+<style>
+@media print {
+    @page { size: A4 portrait; margin: 10mm 12mm; }
+    .no-print, nav, .navbar, footer, .sidebar, .topbar, .btn { display: none !important; }
+    body { background: white !important; }
+    .card { border:1px solid #ccc !important; box-shadow:none !important; }
+}
+</style>
+
+{% endblock %}

@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Etiquetas de Código de Barras</title>
+    <style>
+        @page { margin: 8mm; }
+        body { font-family: Arial, sans-serif; margin: 0; padding: 8mm; }
+        .label {
+            display: inline-flex; flex-direction: column; align-items: center;
+            justify-content: center; width: 62mm; height: 28mm;
+            border: 1px dashed #999; border-radius: 3px; margin: 1mm;
+            padding: 2mm; box-sizing: border-box; overflow: hidden;
+            vertical-align: top;
+        }
+        .label .nombre { font-size: 9px; font-weight: bold; text-align: center; line-height: 1.1; margin-bottom: 1mm; }
+        .label .presentacion { font-size: 8px; color: #555; margin-bottom: 1mm; }
+        .label svg { max-width: 100%; height: auto; }
+        .label .num { font-size: 9px; letter-spacing: 1px; margin-top: 1mm; }
+        .no-label { padding: 20mm; text-align: center; font-family: Arial; color: #666; }
+        .print-btn { position: fixed; top: 10px; right: 10px; z-index: 10; }
+        @media print {
+            .print-btn { display: none; }
+            .label { border: none; }
+        }
+    </style>
+</head>
+<body>
+    <button class="print-btn" onclick="window.print()" style="padding:10px 20px; font-size:14px;">🖨️ Imprimir</button>
+
+    {% if items %}
+        <div id="labels">
+        {% set ns = namespace(i=0) %}
+        {% for item in items %}
+            {% for _ in range(item.qty) %}
+            {% set ns.i = ns.i + 1 %}
+            <div class="label">
+                <div class="nombre">{{ item.product.name }}</div>
+                <div class="presentacion">{{ item.product.presentacion or item.product.unit_measure or "" }}</div>
+                {% if item.svg %}
+                {{ item.svg | safe }}
+                {% else %}
+                <span class="text-muted" style="font-size:10px;">{{ item.codigo }}</span>
+                {% endif %}
+                <div class="num">{{ item.codigo }}</div>
+            </div>
+            {% endfor %}
+        {% endfor %}
+        </div>
+        <script>
+            window.onload = function () { window.print(); };
+        </script>
+    {% else %}
+        <div class="no-label">
+            <h3>No hay productos seleccionados.</h3>
+            <p>Cierra esta ventana y selecciona al menos un producto.</p>
+        </div>
+    {% endif %}
+</body>
+</html>

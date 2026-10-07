@@ -1,0 +1,352 @@
+{% extends "base.html" %}
+{% block title %}Ventas y Rentabilidad{% endblock %}
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="mb-0">📊 Ventas y Rentabilidad</h2>
+    <span id="last-update" class="text-muted small"></span>
+</div>
+
+<!-- Fila 1: KPIs principales -->
+<div class="row g-3 mb-3">
+    <div class="col-md-3">
+        <div class="card kpi-card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <div class="kpi-label">Ventas totales</div>
+                        <div class="kpi-value" id="kpi-ventas">—</div>
+                    </div>
+                    <div class="kpi-icon icon-1">💰</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card kpi-card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <div class="kpi-label">Utilidad total</div>
+                        <div class="kpi-value" id="kpi-utilidad">—</div>
+                    </div>
+                    <div class="kpi-icon icon-2">📈</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card kpi-card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <div class="kpi-label">Margen promedio</div>
+                        <div class="kpi-value" id="kpi-margen">—</div>
+                    </div>
+                    <div class="kpi-icon icon-3">📊</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card kpi-card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <div class="kpi-label"># Ventas registradas</div>
+                        <div class="kpi-value" id="kpi-num-ventas">—</div>
+                    </div>
+                    <div class="kpi-icon icon-4">🧾</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Fila 2: KPIs comparativos y operativos -->
+<div class="row g-3 mb-4">
+    <div class="col-md-3">
+        <div class="card kpi-card">
+            <div class="card-body">
+                <div class="kpi-label">Ventas de hoy</div>
+                <div class="kpi-value" id="kpi-ventas-hoy">—</div>
+                <div id="kpi-variacion" class="small fw-semibold mt-1">—</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card kpi-card">
+            <div class="card-body">
+                <div class="kpi-label">Ticket promedio</div>
+                <div class="kpi-value" id="kpi-ticket">—</div>
+                <div class="small text-muted mt-1">por venta</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card kpi-card">
+            <div class="card-body">
+                <div class="kpi-label">Valor del inventario</div>
+                <div class="kpi-value" id="kpi-valor-inv">—</div>
+                <div class="small text-muted mt-1">a precio de costo</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card kpi-card">
+            <a href="{{ url_for('alerts.alerts_page') }}" class="text-decoration-none text-reset">
+                <div class="card-body">
+                    <div class="kpi-label">Alertas activas</div>
+                    <div class="kpi-value" id="kpi-alertas">—</div>
+                    <div class="small text-muted mt-1">stock y créditos</div>
+                </div>
+            </a>
+        </div>
+    </div>
+</div>
+
+<div class="card mb-4 border-0 bg-transparent">
+    <div class="card-body px-0 py-2">
+        <span class="text-muted small">🏆 Mejor cliente histórico: </span>
+        <strong id="kpi-top-cliente">—</strong>
+    </div>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-md-7">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h6 class="card-title mb-0">Ventas por día</h6>
+                    <select id="rango-dias" class="form-select form-select-sm" style="width: auto;">
+                        <option value="7">Últimos 7 días</option>
+                        <option value="30" selected>Últimos 30 días</option>
+                        <option value="90">Últimos 90 días</option>
+                    </select>
+                </div>
+                <canvas id="chartTendencia" height="120"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-5">
+        <div class="card">
+            <div class="card-body">
+                <h6 class="card-title">Top productos por utilidad</h6>
+                <canvas id="chartTopProductos" height="140"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-md-7">
+        <div class="card">
+            <div class="card-body">
+                <h6 class="card-title">💳 Cuentas por cobrar (créditos pendientes)</h6>
+                <div class="table-responsive">
+                    <table class="table table-sm" id="tabla-cxc">
+                        <thead>
+                            <tr><th>Cliente</th><th>Vence</th><th>Saldo</th><th></th></tr>
+                        </thead>
+                        <tbody><tr><td colspan="4" class="text-muted">Cargando...</td></tr></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-5">
+        <div class="card" id="anomalias-box-wrapper">
+            <div class="card-body">
+                <h6 class="card-title">🚨 Anomalías detectadas</h6>
+                <div id="anomalias-box"><p class="text-muted small">Cargando...</p></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <h6 class="card-title">🗺️ Ventas por Provincia</h6>
+                <p class="text-muted small">Dónde están tus clientes que más compran (según la provincia registrada en su ficha).</p>
+                <div class="table-responsive">
+                    <table class="table table-sm" id="tabla-provincias">
+                        <thead>
+                            <tr><th>Provincia</th><th># Clientes</th><th>Total vendido</th></tr>
+                        </thead>
+                        <tbody><tr><td colspan="3" class="text-muted">Cargando...</td></tr></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<a href="{{ url_for('main.dashboard') }}" class="btn btn-secondary">← Volver al panel</a>
+
+<style>
+.kpi-card { min-height: 100%; }
+.kpi-label { font-size: 0.8rem; color: var(--color-muted, #6b7c85); text-transform: uppercase; letter-spacing: 0.4px; }
+.kpi-value { font-size: 1.6rem; font-weight: 700; color: var(--color-text, #23303a); margin-top: 2px; }
+.kpi-icon { width: 42px; height: 42px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; color: #fff; }
+.kpi-icon.icon-1 { background: linear-gradient(135deg, #1a3c63, #2c5a8f); }
+.kpi-icon.icon-2 { background: linear-gradient(135deg, #2ea36c, #238255); }
+.kpi-icon.icon-3 { background: linear-gradient(135deg, #2f8fc4, #1a3c63); }
+.kpi-icon.icon-4 { background: linear-gradient(135deg, #d99b2b, #c9463a); }
+</style>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script>
+let chartTendenciaInstance = null;
+let chartTopProductosInstance = null;
+
+async function fetchJSON(url) {
+    const res = await fetch(url);
+    return res.json();
+}
+
+async function cargarKPIs() {
+    const data = await fetchJSON("{{ url_for('dashboard.data_kpis') }}");
+    document.getElementById("kpi-ventas").textContent = "$" + data.total_ventas.toFixed(2);
+    document.getElementById("kpi-utilidad").textContent = "$" + data.total_utilidad.toFixed(2);
+    document.getElementById("kpi-margen").textContent = data.margen_pct + "%";
+    document.getElementById("kpi-num-ventas").textContent = data.num_ventas;
+}
+
+async function cargarKPIsExtra() {
+    const data = await fetchJSON("{{ url_for('dashboard.data_kpis_extra') }}");
+
+    document.getElementById("kpi-ventas-hoy").textContent = "$" + data.ventas_hoy.toFixed(2);
+
+    const variacionEl = document.getElementById("kpi-variacion");
+    const pct = data.variacion_pct;
+    if (pct > 0) {
+        variacionEl.innerHTML = `<span class="text-success">▲ ${pct}%</span> vs. ayer`;
+    } else if (pct < 0) {
+        variacionEl.innerHTML = `<span class="text-danger">▼ ${Math.abs(pct)}%</span> vs. ayer`;
+    } else {
+        variacionEl.innerHTML = `<span class="text-muted">— sin cambio</span> vs. ayer`;
+    }
+
+    document.getElementById("kpi-ticket").textContent = "$" + data.ticket_promedio.toFixed(2);
+    document.getElementById("kpi-valor-inv").textContent = "$" + data.valor_inventario.toFixed(2);
+
+    const alertasEl = document.getElementById("kpi-alertas");
+    alertasEl.textContent = data.alertas_activas;
+    alertasEl.className = "kpi-value " + (data.alertas_activas > 0 ? "text-danger" : "text-success");
+
+    document.getElementById("kpi-top-cliente").textContent =
+        data.top_cliente.nombre !== "—" ? `${data.top_cliente.nombre} ($${data.top_cliente.total.toFixed(2)} en compras)` : "Sin datos aún";
+
+    document.getElementById("last-update").textContent = "Actualizado: " + new Date().toLocaleTimeString();
+}
+
+async function cargarTendencia(dias = 30) {
+    const data = await fetchJSON(`{{ url_for('dashboard.data_tendencia') }}?dias=${dias}`);
+
+    if (chartTendenciaInstance) {
+        chartTendenciaInstance.data.labels = data.labels;
+        chartTendenciaInstance.data.datasets[0].data = data.valores;
+        chartTendenciaInstance.update();
+        return;
+    }
+
+    chartTendenciaInstance = new Chart(document.getElementById("chartTendencia"), {
+        type: "line",
+        data: {
+            labels: data.labels,
+            datasets: [{
+                label: "Ventas ($)",
+                data: data.valores,
+                borderColor: "#1a3c63",
+                backgroundColor: "rgba(20,83,105,0.1)",
+                fill: true,
+                tension: 0.3,
+            }]
+        },
+        options: { plugins: { legend: { display: false } } }
+    });
+}
+
+async function cargarTopProductos() {
+    const data = await fetchJSON("{{ url_for('dashboard.data_top_productos') }}");
+    chartTopProductosInstance = new Chart(document.getElementById("chartTopProductos"), {
+        type: "bar",
+        data: {
+            labels: data.map(p => p.nombre),
+            datasets: [{
+                label: "Utilidad ($)",
+                data: data.map(p => p.utilidad),
+                backgroundColor: "#2ea36c",
+            }]
+        },
+        options: {
+            indexAxis: "y",
+            plugins: { legend: { display: false } }
+        }
+    });
+}
+
+async function cargarCuentasPorCobrar() {
+    const data = await fetchJSON("{{ url_for('dashboard.data_cuentas_por_cobrar') }}");
+    const tbody = document.querySelector("#tabla-cxc tbody");
+    if (data.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" class="text-muted">No hay cuentas pendientes 🎉</td></tr>';
+        return;
+    }
+    tbody.innerHTML = data.map(c => `
+        <tr>
+            <td>${c.cliente}</td>
+            <td>${c.fecha_vencimiento}</td>
+            <td>$${c.saldo_pendiente.toFixed(2)}</td>
+            <td>${c.vencido ? '<span class="badge bg-danger">Vencido</span>' : '<span class="badge bg-warning text-dark">Pendiente</span>'}</td>
+        </tr>
+    `).join("");
+}
+
+async function cargarAnomalias() {
+    const data = await fetchJSON("{{ url_for('dashboard.data_anomalias') }}");
+    const box = document.getElementById("anomalias-box");
+    if (!data.anomalias || data.anomalias.length === 0) {
+        box.innerHTML = `<p class="text-success small mb-0">✅ ${data.mensaje || "No se detectaron anomalías."}</p>`;
+        return;
+    }
+    box.innerHTML = data.anomalias.map(a => `
+        <div class="alert alert-warning py-2 px-3 mb-2">
+            <strong>Venta #${a.sale_id}</strong> — ${a.cliente}<br>
+            <span class="small">${a.fecha} · $${a.total.toFixed(2)} · ${a.motivo}</span>
+        </div>
+    `).join("");
+}
+
+document.getElementById("rango-dias").addEventListener("change", (e) => {
+    cargarTendencia(parseInt(e.target.value));
+});
+
+async function cargarPorProvincia() {
+    const data = await fetchJSON("{{ url_for('dashboard.data_por_provincia') }}");
+    const tbody = document.querySelector("#tabla-provincias tbody");
+    if (data.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="3" class="text-muted">Aún no hay clientes con provincia registrada.</td></tr>';
+        return;
+    }
+    tbody.innerHTML = data.map(p => `
+        <tr>
+            <td>${p.provincia}</td>
+            <td>${p.num_clientes}</td>
+            <td>$${p.total_ventas.toFixed(2)}</td>
+        </tr>
+    `).join("");
+}
+
+cargarKPIs();
+cargarKPIsExtra();
+cargarTendencia();
+cargarTopProductos();
+cargarCuentasPorCobrar();
+cargarAnomalias();
+cargarPorProvincia();
+</script>
+
+{% endblock %}

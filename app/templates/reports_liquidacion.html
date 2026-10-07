@@ -1,0 +1,186 @@
+{% extends "base.html" %}
+{% block title %}Liquidación por Vendedor{% endblock %}
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-3 no-print">
+    <h2 class="mb-0">Liquidación por Vendedor</h2>
+    <button onclick="window.print()" class="btn btn-dark">🖨️ Imprimir</button>
+</div>
+
+<form method="GET" class="row g-2 mb-4 no-print bg-white p-3 rounded shadow-sm align-items-end">
+    <div class="col-md-3">
+        <label class="form-label small text-muted mb-1">Periodo</label>
+        <select name="periodo" class="form-select">
+            <option value="diario" {% if periodo == "diario" %}selected{% endif %}>Diario</option>
+            <option value="semanal" {% if periodo == "semanal" %}selected{% endif %}>Semanal</option>
+            <option value="mensual" {% if periodo == "mensual" %}selected{% endif %}>Mensual</option>
+            <option value="trimestral" {% if periodo == "trimestral" %}selected{% endif %}>Trimestral</option>
+            <option value="anual" {% if periodo == "anual" %}selected{% endif %}>Anual</option>
+        </select>
+    </div>
+    <div class="col-md-3">
+        <label class="form-label small text-muted mb-1">Fecha de referencia</label>
+        <input type="date" name="fecha" class="form-control" value="{{ fecha }}">
+    </div>
+    {% if vendedores %}
+    <div class="col-md-3">
+        <label class="form-label small text-muted mb-1">Vendedor</label>
+        <select name="vendedor_id" class="form-select">
+            <option value="">Todos los vendedores</option>
+            {% for v in vendedores %}
+            <option value="{{ v.user_id }}" {% if selected_vendedor == v.user_id|string %}selected{% endif %}>{{ v.full_name }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    {% endif %}
+    <div class="col-md-2">
+        <button type="submit" class="btn btn-primary w-100">Consultar</button>
+    </div>
+</form>
+
+<div id="printable-area">
+    <div class="d-none d-print-block mb-3">
+        <h3>Liquidación por Vendedor</h3>
+        <p class="text-muted small">Generado el {{ generated_at }} por {{ current_user.full_name }}</p>
+    </div>
+
+    <p class="text-muted">
+        Periodo: <strong>{{ periodo|capitalize }}</strong> —
+        del {{ fecha_inicio.strftime("%d/%m/%Y") }} al {{ fecha_fin.strftime("%d/%m/%Y") }}
+    </p>
+
+    <div class="table-responsive">
+        <table class="table table-bordered bg-white align-middle">
+            <thead class="table-dark">
+                <tr>
+                    <th>Vendedor</th>
+                    <th># Ventas</th>
+                    <th>Facturas</th>
+                    <th>Notas de Venta</th>
+                    <th>Canceladas</th>
+                    <th>Pendientes</th>
+                    <th>Total vendido</th>
+                    {% if current_user.is_admin() %}<th>Utilidad</th>{% endif %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for g in grupos %}
+                <tr>
+                    <td>{{ g.vendedor.full_name }}</td>
+                    <td>{{ g.num_ventas }}</td>
+                    <td>{{ g.facturas }}</td>
+                    <td>{{ g.notas_venta }}</td>
+                    <td><span class="badge bg-success">{{ g.canceladas }}</span></td>
+                    <td><span class="badge bg-warning text-dark">{{ g.pendientes }}</span></td>
+                    <td>${{ "%.2f"|format(g.total_ventas) }}</td>
+                    {% if current_user.is_admin() %}<td>${{ "%.2f"|format(g.total_utilidad) }}</td>{% endif %}
+                </tr>
+                {% else %}
+                <tr><td colspan="8" class="text-center text-muted py-4">No hay ventas liquidadas en este periodo.</td></tr>
+                {% endfor %}
+            </tbody>
+            {% if grupos %}
+            <tfoot>
+                <tr class="table-light fw-bold">
+                    <td colspan="6" class="text-end">Total general</td>
+                    <td>${{ "%.2f"|format(grand_total_ventas) }}</td>
+                    {% if current_user.is_admin() %}<td>${{ "%.2f"|format(grand_total_utilidad) }}</td>{% endif %}
+                </tr>
+            </tfoot>
+            {% endif %}
+        </table>
+    </div>
+
+    <h5 class="mt-5 mb-3">Detalle de ventas del periodo</h5>
+    <div class="table-responsive">
+        <table class="table table-bordered bg-white align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>#</th>
+                    <th>Fecha</th>
+                    <th>Cliente</th>
+                    <th>Documento</th>
+                    <th>Forma de pago</th>
+                    <th>Estado</th>
+                    <th>Total</th>
+                    {% if vendedores %}<th>Vendedor</th>{% endif %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for s in detalle_ventas %}
+                <tr>
+                    <td>#{{ s.sale_id }}</td>
+                    <td>{{ s.sale_date.strftime("%d/%m/%Y") }}</td>
+                    <td>{{ s.customer.full_name }}</td>
+                    <td>{{ s.document_type_label() }}</td>
+                    <td>
+                        {% if s.payment_type == "efectivo" %}
+                            <span class="badge bg-success">Efectivo</span>
+                        {% else %}
+                            <span class="badge bg-info text-dark">Crédito</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if s.status == "pagado" %}
+                            <span class="badge bg-success">Cancelada</span>
+                        {% elif s.status == "vencido" %}
+                            <span class="badge bg-danger">Vencido — falta de pago</span>
+                        {% else %}
+                            <span class="badge bg-warning text-dark">Pendiente — falta de pago</span>
+                        {% endif %}
+                    </td>
+                    <td>${{ "%.2f"|format(s.total_amount) }}</td>
+                    {% if vendedores %}<td>{{ s.seller.full_name }}</td>{% endif %}
+                </tr>
+                {% else %}
+                <tr><td colspan="8" class="text-center text-muted py-4">No hay ventas en este periodo.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <h5 class="mt-5 mb-3">Guías de Remisión pendientes de entrega</h5>
+    <div class="table-responsive">
+        <table class="table table-bordered bg-white align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>Guía #</th>
+                    <th>Fecha emisión</th>
+                    <th>Motivo</th>
+                    <th>Destino</th>
+                    <th class="no-print">Acción</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for g in guias_pendientes %}
+                <tr>
+                    <td><a href="{{ url_for('guides.guide_detail', guide_id=g.guide_id) }}">#{{ g.guide_id }}</a></td>
+                    <td>{{ g.fecha_emision.strftime("%d/%m/%Y") }}</td>
+                    <td>{{ g.motivo_label() }}</td>
+                    <td>
+                        {% if g.destination_branch %}{{ g.destination_branch.name }}
+                        {% elif g.customer %}{{ g.customer.full_name }}
+                        {% else %}{{ g.destination_address or "—" }}{% endif %}
+                    </td>
+                    <td class="no-print">
+                        <form method="POST" action="{{ url_for('guides.guide_marcar_entregada', guide_id=g.guide_id) }}">
+                            <button type="submit" class="btn btn-sm btn-success">✅ Marcar entregada</button>
+                        </form>
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="5" class="text-center text-muted py-4">No hay guías pendientes de entrega en este periodo. 👍</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<style>
+@media print {
+    .no-print, nav, .navbar { display: none !important; }
+    body { background: white !important; }
+}
+</style>
+
+{% endblock %}

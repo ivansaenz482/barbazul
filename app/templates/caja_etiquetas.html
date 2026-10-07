@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block title %}Etiquetas de Código de Barras{% endblock %}
+{% block content %}
+
+<h2 class="mb-1"><i class="bi bi-upc-scan me-2 text-primary"></i>Etiquetas de Código de Barras</h2>
+<p class="text-muted">Selecciona los productos y la cantidad de etiquetas de cada uno, luego imprime la hoja para pegar en el producto.</p>
+
+<form method="GET" action="{{ url_for('caja.caja_etiquetas_imprimir') }}" target="_blank" id="form-etiquetas">
+    <div class="table-responsive bg-white rounded shadow-sm">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-dark">
+                <tr>
+                    <th style="width: 40px;"></th>
+                    <th>Producto</th>
+                    <th>Presentación</th>
+                    <th>Código de barras</th>
+                    <th style="width: 120px;">Etiquetas</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in productos %}
+                <tr>
+                    <td><input type="checkbox" class="form-check-input etiqueta-check" value="{{ p.product_id }}" data-id="{{ p.product_id }}"></td>
+                    <td>{{ p.name }}</td>
+                    <td>{{ p.presentacion or "—" }}</td>
+                    <td>
+                        <div class="d-flex align-items-center gap-2">
+                            {% set codigo = p.barcode or p.sku or (p.product_id | string) %}
+                            <img src="{{ url_for('caja.caja_barcode', codigo=codigo) }}" alt="código de barras"
+                                 style="height: 26px; width: auto; background: #fff;">
+                            <code class="small">{{ codigo }}</code>
+                        </div>
+                    </td>
+                    <td><input type="number" min="1" max="200" value="1" class="form-control form-control-sm etiqueta-qty" data-id="{{ p.product_id }}" disabled></td>
+                </tr>
+                {% else %}
+                <tr><td colspan="5" class="text-center text-muted py-4">No hay productos activos.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="d-flex gap-2 mt-3 mb-4">
+        <button type="button" class="btn btn-outline-primary" onclick="seleccionarTodo(true)">Seleccionar todo</button>
+        <button type="button" class="btn btn-outline-secondary" onclick="seleccionarTodo(false)">Quitar todo</button>
+        <button type="submit" class="btn btn-primary ms-auto"><i class="bi bi-printer me-1"></i>Imprimir etiquetas</button>
+    </div>
+</form>
+
+<script>
+document.querySelectorAll('.etiqueta-check').forEach(cb => {
+    cb.addEventListener('change', () => {
+        const qty = document.querySelector(`.etiqueta-qty[data-id="${cb.value}"]`);
+        qty.disabled = !cb.checked;
+    });
+});
+
+function seleccionarTodo(estado) {
+    document.querySelectorAll('.etiqueta-check').forEach(cb => {
+        cb.checked = estado;
+        const qty = document.querySelector(`.etiqueta-qty[data-id="${cb.value}"]`);
+        qty.disabled = !estado;
+    });
+}
+
+document.getElementById('form-etiquetas').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const items = [];
+    document.querySelectorAll('.etiqueta-check:checked').forEach(cb => {
+        const qty = document.querySelector(`.etiqueta-qty[data-id="${cb.value}"]`);
+        items.push(cb.value + ':' + (parseInt(qty.value) || 1));
+    });
+    if (!items.length) {
+        alert('Selecciona al menos un producto.');
+        return;
+    }
+    window.open("{{ url_for('caja.caja_etiquetas_imprimir') }}?items=" + items.join(','), '_blank');
+});
+</script>
+
+{% endblock %}

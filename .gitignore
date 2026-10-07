@@ -1,0 +1,14 @@
+.env
+__pycache__/
+*.pyc
+venv/
+.venv/
+uploads/facturas/*
+!uploads/facturas/.gitkeep
+instance/
+backups/*.sql
+datos_iniciales.sql
+server.log
+server.err.log
+*.log
+requirements_sin_pymupdf.txt

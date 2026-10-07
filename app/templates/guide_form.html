@@ -1,0 +1,153 @@
+{% extends "base.html" %}
+{% block title %}Nueva Guía de Remisión{% endblock %}
+{% block content %}
+
+<h2>Nueva Guía de Remisión</h2>
+{% if sale %}
+<div class="alert alert-info">Generando guía a partir de la venta <strong>#{{ sale.sale_id }}</strong> — {{ sale.customer.full_name }}.</div>
+{% endif %}
+
+<form method="POST" class="bg-white p-4 rounded shadow-sm">
+    <div class="row g-3 mb-3">
+        <div class="col-md-4">
+            <label class="form-label">N° de guía (opcional)</label>
+            <input type="text" name="guide_number" class="form-control">
+        </div>
+        <div class="col-md-4">
+            <label class="form-label">Fecha de emisión *</label>
+            <input type="date" name="fecha_emision" class="form-control" value="{{ (sale.sale_date.strftime('%Y-%m-%d') if sale else '') }}" required>
+        </div>
+        <div class="col-md-4">
+            <label class="form-label">Motivo del traslado *</label>
+            <select name="motivo" class="form-select" required>
+                <option value="venta" {% if sale %}selected{% endif %}>Entrega por venta</option>
+                <option value="traslado_interno">Traslado interno entre locales</option>
+                <option value="devolucion">Devolución</option>
+                <option value="otro">Otro</option>
+            </select>
+        </div>
+    </div>
+
+    <hr>
+    <h6>Origen y destino</h6>
+    <div class="row g-3 mb-3">
+        <div class="col-md-4">
+            <label class="form-label">Local de origen</label>
+            <select name="origin_branch_id" class="form-select">
+                <option value="">-- No especificado --</option>
+                {% for b in branches %}
+                <option value="{{ b.branch_id }}">{{ b.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-4">
+            <label class="form-label">Local de destino <span class="text-muted small">(si es traslado interno)</span></label>
+            <select name="destination_branch_id" class="form-select">
+                <option value="">-- No especificado --</option>
+                {% for b in branches %}
+                <option value="{{ b.branch_id }}">{{ b.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-4">
+            <label class="form-label">Cliente <span class="text-muted small">(si es entrega a cliente)</span></label>
+            <select name="customer_id" class="form-select">
+                <option value="">-- No especificado --</option>
+                {% for c in customers %}
+                <option value="{{ c.customer_id }}" {% if sale and sale.customer_id == c.customer_id %}selected{% endif %}>{{ c.full_name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-12">
+            <label class="form-label">Dirección de destino (texto libre)</label>
+            <input type="text" name="destination_address" class="form-control" value="{{ sale.customer.address if sale else '' }}">
+        </div>
+    </div>
+
+    <hr>
+    <h6>Datos del transporte</h6>
+    <div class="row g-3 mb-3">
+        <div class="col-md-4">
+            <label class="form-label">Nombre del transportista</label>
+            <input type="text" name="transportista_nombre" class="form-control">
+        </div>
+        <div class="col-md-4">
+            <label class="form-label">Cédula/RUC del transportista</label>
+            <input type="text" name="transportista_identificacion" class="form-control">
+        </div>
+        <div class="col-md-4">
+            <label class="form-label">Placa del vehículo</label>
+            <input type="text" name="vehiculo_placa" class="form-control">
+        </div>
+    </div>
+
+    <hr>
+    <h6>Productos a trasladar</h6>
+    <table class="table" id="products-table">
+        <thead>
+            <tr><th style="width: 60%;">Producto</th><th style="width: 30%;">Cantidad</th><th></th></tr>
+        </thead>
+        <tbody id="products-body">
+            {% if sale %}
+                {% for d in sale.details %}
+                <tr>
+                    <td>
+                        <select name="product_id[]" class="form-select">
+                            {% for p in products %}
+                            <option value="{{ p.product_id }}" {% if p.product_id == d.product_id %}selected{% endif %}>{{ p.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </td>
+                    <td><input type="number" name="quantity[]" min="1" class="form-control" value="{{ d.quantity }}"></td>
+                    <td><button type="button" class="btn btn-sm btn-outline-danger" onclick="removeRow(this)">✕</button></td>
+                </tr>
+                {% endfor %}
+            {% else %}
+                <tr>
+                    <td>
+                        <select name="product_id[]" class="form-select">
+                            <option value="">-- Selecciona --</option>
+                            {% for p in products %}
+                            <option value="{{ p.product_id }}">{{ p.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </td>
+                    <td><input type="number" name="quantity[]" min="1" class="form-control"></td>
+                    <td><button type="button" class="btn btn-sm btn-outline-danger" onclick="removeRow(this)">✕</button></td>
+                </tr>
+            {% endif %}
+        </tbody>
+    </table>
+    <button type="button" class="btn btn-outline-secondary btn-sm mb-3" onclick="addRow()">+ Agregar producto</button>
+
+    <hr>
+    <div class="mb-3">
+        <label class="form-label">Observaciones</label>
+        <textarea name="observaciones" class="form-control" rows="2"></textarea>
+    </div>
+
+    <div class="mt-4 d-flex gap-2">
+        <button type="submit" class="btn btn-primary">Generar Guía</button>
+        <a href="{{ url_for('guides.guides_list') }}" class="btn btn-secondary">Cancelar</a>
+    </div>
+</form>
+
+<script>
+function addRow() {
+    const tbody = document.getElementById('products-body');
+    const newRow = tbody.rows[0].cloneNode(true);
+    newRow.querySelector('select').selectedIndex = 0;
+    newRow.querySelector('input').value = '';
+    tbody.appendChild(newRow);
+}
+function removeRow(btn) {
+    const tbody = document.getElementById('products-body');
+    if (tbody.rows.length > 1) {
+        btn.closest('tr').remove();
+    } else {
+        alert('Debe haber al menos un producto.');
+    }
+}
+</script>
+
+{% endblock %}

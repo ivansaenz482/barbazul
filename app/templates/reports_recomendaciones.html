@@ -1,0 +1,139 @@
+{% extends "base.html" %}
+{% block title %}Recomendaciones{% endblock %}
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-3 no-print">
+    <div>
+        <h2 class="mb-1"><i class="bi bi-lightbulb me-2 text-warning"></i>Recomendaciones para vender más</h2>
+        <p class="text-muted mb-0">Análisis de tus ventas para decidir qué ofertar, reponer o liquidar.</p>
+    </div>
+    <button onclick="window.print()" class="btn btn-dark">🖨️ Imprimir</button>
+</div>
+
+<form method="GET" class="row g-2 mb-4 no-print bg-white p-3 rounded shadow-sm align-items-end">
+    <div class="col-md-4">
+        <label class="form-label small text-muted mb-1">Periodo de análisis</label>
+        <select name="dias" class="form-select" onchange="this.form.submit()">
+            {% for d, label in [(7,'Últimos 7 días'),(15,'Últimos 15 días'),(30,'Últimos 30 días'),(60,'Últimos 60 días'),(90,'Últimos 90 días')] %}
+            <option value="{{ d }}" {% if dias == d %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="col-md-8 pt-4 text-muted small">Generado el {{ generated_at }}</div>
+</form>
+
+<div class="row g-3 mb-4">
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm h-100"><div class="card-body text-center">
+            <div class="text-muted small">Ventas del periodo ({{ num_ventas }})</div>
+            <div class="fs-4 fw-bold text-primary">${{ "%.2f"|format(total_ventas) }}</div>
+        </div></div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm h-100"><div class="card-body text-center">
+            <div class="text-muted small">Ganancia de las ventas</div>
+            <div class="fs-4 fw-bold text-success">${{ "%.2f"|format(total_ganancia) }}</div>
+        </div></div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm h-100"><div class="card-body text-center">
+            <div class="text-muted small">Capital en productos estancados</div>
+            <div class="fs-4 fw-bold text-danger">${{ "%.2f"|format(capital_estancado) }}</div>
+        </div></div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm h-100"><div class="card-body text-center">
+            <div class="text-muted small">Ganancia si se vende lo estancado</div>
+            <div class="fs-4 fw-bold text-info">${{ "%.2f"|format(ganancia_potencial) }}</div>
+        </div></div>
+    </div>
+</div>
+
+<div class="alert alert-warning">
+    <i class="bi bi-lightbulb me-1"></i>
+    <strong>Sugerencia:</strong>
+    {% if ofertar %} oferta más los <strong>{{ ofertar|length }}</strong> producto(s) con buen margen y baja venta (abajo);{% else %} no hay productos de bajo movimiento con buen margen;{% endif %}
+    {% if reponer %} repón <strong>{{ reponer|length }}</strong> producto(s) que se venden bien y están por agotarse;{% endif %}
+    {% if estancados %} y considera una <strong>oferta/promoción</strong> para mover <strong>{{ estancados|length }}</strong> producto(s) sin ventas que tienen stock detenido.{% endif %}
+</div>
+
+{% macro tabla(items, es_venta, vacio) %}
+<div class="table-responsive">
+    <table class="table table-sm table-hover bg-white align-middle mb-0">
+        <thead class="table-light">
+            <tr>
+                <th>Producto</th>
+                <th class="text-center">Vendidos</th>
+                <th class="text-end">{{ "Vendido" if es_venta else "Ganancia" }}</th>
+                <th class="text-end">Margen</th>
+                <th class="text-center">Stock</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for x in items %}
+            <tr>
+                <td>{{ x.product.name }}{% if x.product.sku %} <span class="text-muted small">({{ x.product.sku }})</span>{% endif %}</td>
+                <td class="text-center">{{ x.units }}</td>
+                <td class="text-end">${{ "%.2f"|format(x.revenue if es_venta else x.profit) }}</td>
+                <td class="text-end">{{ "%.1f"|format(x.margen) }}%</td>
+                <td class="text-center">{{ x.stock }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="5" class="text-center text-muted py-3">{{ vacio }}</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endmacro %}
+
+<div class="row g-3">
+    <div class="col-lg-6">
+        <div class="card h-100">
+            <div class="card-header" style="background:#fff3cd;"><h6 class="mb-0"><i class="bi bi-megaphone me-1"></i>Ofertar más (buen margen + poca venta)</h6></div>
+            <div class="card-body p-0">
+                {{ tabla(ofertar, false, "No hay productos para ofertar.") }}
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="card h-100">
+            <div class="card-header" style="background:#cfe2ff;"><h6 class="mb-0"><i class="bi bi-arrow-repeat me-1"></i>Reponer pronto (se vende bien + stock bajo)</h6></div>
+            <div class="card-body p-0">
+                {{ tabla(reponer, false, "No hay productos por reponer.") }}
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="card h-100">
+            <div class="card-header" style="background:#f8d7da;"><h6 class="mb-0"><i class="bi bi-box-seam me-1"></i>Estancados (con stock, sin ventas)</h6></div>
+            <div class="card-body p-0">
+                {{ tabla(estancados, false, "No hay productos estancados.") }}
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="card h-100">
+            <div class="card-header bg-light"><h6 class="mb-0"><i class="bi bi-trophy me-1"></i>Más rentables del periodo</h6></div>
+            <div class="card-body p-0">
+                {{ tabla(top_rentables, false, "Sin ventas en el periodo.") }}
+            </div>
+        </div>
+    </div>
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header bg-light"><h6 class="mb-0"><i class="bi bi-star me-1"></i>Más vendidos del periodo</h6></div>
+            <div class="card-body p-0">
+                {{ tabla(top_vendidos, true, "Sin ventas en el periodo.") }}
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+@media print {
+    .no-print, nav, .navbar, footer, .sidebar, .topbar, .btn { display: none !important; }
+    body { background: white !important; }
+}
+</style>
+
+{% endblock %}

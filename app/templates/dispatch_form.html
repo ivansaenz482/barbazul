@@ -1,0 +1,398 @@
+{% extends "base.html" %}
+{% block title %}Nueva Guía de Despacho (Consolidado){% endblock %}
+{% block content %}
+
+<h2 class="mb-1"><i class="bi bi-truck me-2 text-primary"></i>Guía de Despacho — Consolidado para Bodega</h2>
+<p class="text-muted">Selecciona los pedidos del día que se van a despachar y el sistema suma todos los productos en un solo listado. También puedes agregar productos sueltos por código.</p>
+
+<!-- Filtro de fecha: rango desde/hasta + muestra pedidos pendientes de pago -->
+<form method="GET" action="{{ url_for('despachos.despacho_nueva') }}" class="bg-white p-3 rounded shadow-sm mb-4 d-flex flex-wrap align-items-end gap-3">
+    <div>
+        <label class="form-label mb-1">Desde</label>
+        <input type="date" name="desde" value="{{ desde.strftime('%Y-%m-%d') }}" class="form-control">
+    </div>
+    <div>
+        <label class="form-label mb-1">Hasta</label>
+        <input type="date" name="hasta" value="{{ hasta.strftime('%Y-%m-%d') }}" class="form-control">
+    </div>
+    <button type="submit" class="btn btn-outline-primary">Cargar pedidos</button>
+    <div class="text-muted small ms-auto">
+        <span class="badge bg-info text-dark">{{ ventas|length }} pedido(s)</span> del {{ desde.strftime('%d/%m/%Y') }} al {{ hasta.strftime('%d/%m/%Y') }} sin despachar (incluye pendientes de pago)
+    </div>
+</form>
+
+<form method="POST" id="form-despacho">
+
+    <!-- 1. Pedidos del día -->
+    <div class="card mb-4">
+        <div class="card-header bg-white d-flex justify-content-between align-items-center">
+            <h6 class="mb-0"><i class="bi bi-receipt me-2 text-primary"></i>1. Pedidos a despachar</h6>
+            <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" id="toggle-todo" checked onchange="toggleTodos(this)">
+                <label class="form-check-label small" for="toggle-todo">Marcar / desmarcar todos</label>
+            </div>
+        </div>
+        <div class="card-body p-0">
+            {% if ventas %}
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="width: 40px;"></th>
+                            <th># Venta</th>
+                            <th>Cliente</th>
+                            <th>Documento</th>
+                            <th>Hora</th>
+                            <th>Estado</th>
+                            <th class="text-end">Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for s in ventas %}
+                        <tr>
+                            <td><input type="checkbox" name="sale_ids[]" value="{{ s.sale_id }}" class="form-check-input sale-check" checked></td>
+                            <td>#{{ s.sale_id }}</td>
+                            <td>{{ s.customer.full_name }} {% if s.customer.cedula %}<small class="text-muted">({{ s.customer.cedula }})</small>{% endif %}</td>
+                            <td>{{ s.document_type_label() }}</td>
+                            <td>{{ s.sale_date.strftime("%d/%m %H:%M") }}</td>
+                            <td>
+                                {% if s.status == "pagado" %}
+                                    <span class="badge bg-success">Pagado</span>
+                                {% elif s.status == "vencido" %}
+                                    <span class="badge bg-danger">Vencido</span>
+                                {% else %}
+                                    <span class="badge bg-warning text-dark">Pendiente</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-end fw-bold">${{ "%.2f"|format(s.total_amount) }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="p-4 text-center text-muted">No hay pedidos pendientes de despacho para esta fecha. Cambia la fecha o agrega productos manualmente por código.</div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- 2. Agregar productos por código -->
+    <div class="card mb-4">
+        <div class="card-header bg-white">
+            <h6 class="mb-0"><i class="bi bi-upc-scan me-2 text-primary"></i>2. Agregar producto por código</h6>
+        </div>
+        <div class="card-body">
+            <div class="row g-2 mb-3">
+                <div class="col-md-4">
+                    <label class="form-label small">Código / SKU</label>
+                    <input type="text" id="codigo-input" class="form-control" list="productos-list"
+                           placeholder="Ej. pae39 o 3" autocomplete="off">
+                    <datalist id="productos-list">
+                        {% for p in productos %}
+                        <option value="{{ p.sku or p.product_id }}">{{ p.name }} ({{ p.presentacion or p.unit_measure }})</option>
+                        {% endfor %}
+                    </datalist>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small">Cantidad</label>
+                    <input type="number" id="cantidad-input" min="1" value="1" class="form-control">
+                </div>
+                <div class="col-md-3 d-flex align-items-end">
+                    <button type="button" class="btn btn-primary w-100" onclick="agregarPorCodigo()"><i class="bi bi-plus-lg me-1"></i>Agregar</button>
+                </div>
+            </div>
+            <div id="msg-manual" class="alert alert-warning py-2 d-none"></div>
+            <table class="table table-sm d-none" id="tabla-manual">
+                <thead class="table-light">
+                    <tr><th>Producto</th><th>Presentación</th><th style="width: 120px;">Cantidad</th><th></th></tr>
+                </thead>
+                <tbody id="manual-body"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- 3. Consolidado -->
+    <div class="card mb-4">
+        <div class="card-header bg-white d-flex justify-content-between align-items-center">
+            <h6 class="mb-0"><i class="bi bi-boxes me-2 text-primary"></i>3. Consolidado para Bodega</h6>
+            <span class="badge bg-dark" id="badge-unidades">0 unidades</span>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-bordered align-middle mb-0">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>Código</th>
+                            <th>Producto</th>
+                            <th>Presentación</th>
+                            <th class="text-center">Unidades</th>
+                            <th class="text-center">Volumen total</th>
+                        </tr>
+                    </thead>
+                    <tbody id="consolidado-body">
+                        <tr><td colspan="5" class="text-center text-muted py-4">Sin productos. Marca pedidos o agrega por código.</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- 4. Datos de la guía -->
+    <div class="card mb-4">
+        <div class="card-header bg-white"><h6 class="mb-0"><i class="bi bi-truck me-2 text-primary"></i>4. Datos de la guía</h6></div>
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label">N° de guía (opcional)</label>
+                    <input type="text" name="dispatch_number" class="form-control">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Fecha de emisión</label>
+                    <input type="date" name="dispatch_date" class="form-control" value="{{ hasta.strftime('%Y-%m-%d') }}" required>
+                    <div class="form-text">Puede ser cualquier fecha que elijas.</div>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Local de origen</label>
+                    <select name="origin_branch_id" class="form-select">
+                        <option value="">-- No especificado --</option>
+                        {% for b in branches %}
+                        <option value="{{ b.branch_id }}">{{ b.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Transportista</label>
+                    <input type="text" name="transportista_nombre" class="form-control">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Identificación transportista</label>
+                    <input type="text" name="transportista_identificacion" class="form-control">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Placa del vehículo</label>
+                    <input type="text" name="vehiculo_placa" class="form-control">
+                </div>
+                <div class="col-12">
+                    <label class="form-label">Observaciones</label>
+                    <textarea name="observaciones" class="form-control" rows="2"></textarea>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="d-flex gap-2 mb-4">
+        <button type="submit" class="btn btn-primary btn-lg"><i class="bi bi-file-earmark-check me-1"></i>Generar Guía de Despacho</button>
+        <a href="{{ url_for('despachos.despachos_list') }}" class="btn btn-secondary btn-lg">Cancelar</a>
+    </div>
+</form>
+
+<script>
+const PRODUCTOS_DATA = {{ productos|tojson }};const VENTAS_DATA = [
+    {% for s in ventas %}
+    {
+        sale_id: {{ s.sale_id }},
+        items: [
+            {% for d in s.details %}
+            {
+                product_id: {{ d.product_id }},
+                quantity: {{ d.quantity }},
+                name: {{ d.product.name|tojson }},
+                sku: {{ (d.product.sku or '')|tojson }},
+                presentacion: {{ (d.product.presentacion or d.product.unit_measure or 'unidad')|tojson }},
+                unit_measure: {{ (d.product.unit_measure or 'unidad')|tojson }}
+            }{% if not loop.last %},{% endif %}
+            {% endfor %}
+        ]
+    }{% if not loop.last %},{% endif %}
+    {% endfor %}
+];
+
+function findProductoPorCodigo(codigo) {
+    codigo = String(codigo).trim();
+    if (!codigo) return null;
+    if (/^\d+$/.test(codigo)) {
+        const porId = PRODUCTOS_DATA.find(p => p.product_id === Number(codigo));
+        if (porId) return porId;
+    }
+    return PRODUCTOS_DATA.find(p => p.sku && p.sku.toLowerCase() === codigo.toLowerCase()) || null;
+}
+
+function encontrarProductoPorId(product_id) {
+    return PRODUCTOS_DATA.find(p => p.product_id === product_id) || null;
+}
+
+function volumenDisplay(cantidad, presentacion) {
+    const texto = String(presentacion || '').trim().toLowerCase();
+    if (!texto || texto === 'unidad' || texto === 'unidades') return '—';
+    const m = texto.match(/^\s*([\d.]+)\s*([a-z]+)/);
+    if (!m) return cantidad + ' x ' + presentacion;
+    const valor = parseFloat(m.group(1).replace(',', '.'));
+    if (isNaN(valor)) return cantidad + ' x ' + presentacion;
+    const unidad = m.group(2).replace('.', '');
+    const total = cantidad * valor;
+    if (unidad === 'ml' || unidad === 'mililitros' || unidad === 'mililitro') {
+        return total >= 1000
+            ? (Math.round(total)).toLocaleString('es-EC') + ' ml (' + (total / 1000).toFixed(2) + ' L)'
+            : (Math.round(total)).toLocaleString('es-EC') + ' ml';
+    }
+    if (unidad === 'l' || unidad === 'lt' || unidad === 'litros' || unidad === 'litro') {
+        return total.toFixed(2) + ' L';
+    }
+    return cantidad + ' x ' + presentacion;
+}
+
+function rebuildConsolidado() {
+    const mapa = new Map();
+    const agregar = (product_id, quantity) => {
+        if (!mapa.has(product_id)) {
+            const prod = encontrarProductoPorId(product_id);
+            mapa.set(product_id, {
+                product_id: product_id,
+                name: prod ? prod.name : '(sin datos)',
+                sku: prod ? (prod.sku || '') : '',
+                presentacion: prod ? (prod.presentacion || prod.unit_measure || 'unidad') : 'unidad',
+                quantity: 0
+            });
+        }
+        mapa.get(product_id).quantity += quantity;
+    };
+
+    document.querySelectorAll('.sale-check:checked').forEach(cb => {
+        const sale = VENTAS_DATA.find(s => s.sale_id === Number(cb.value));
+        if (sale) sale.items.forEach(item => agregar(item.product_id, item.quantity));
+    });
+
+    document.querySelectorAll('#manual-body tr').forEach(row => {
+        const sel = row.querySelector('.manual-product-select');
+        const qty = row.querySelector('.manual-qty');
+        if (sel && qty) {
+            const pid = Number(sel.value);
+            const cant = parseInt(qty.value) || 0;
+            if (pid && cant > 0) agregar(pid, cant);
+        }
+    });
+
+    const tbody = document.getElementById('consolidado-body');
+    const total = document.getElementById('badge-unidades');
+    if (mapa.size === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-4">Sin productos. Marca pedidos o agrega por código.</td></tr>';
+        total.textContent = '0 unidades';
+        return;
+    }
+
+    let unidades = 0;
+    let filas = '';
+    const items = Array.from(mapa.values()).sort((a, b) => a.name.localeCompare(b.name));
+    items.forEach(it => {
+        unidades += it.quantity;
+        filas += `<tr>
+            <td><code>${it.sku || it.product_id}</code></td>
+            <td class="fw-bold">${it.name}</td>
+            <td>${it.presentacion}</td>
+            <td class="text-center fw-bold fs-5">${it.quantity}</td>
+            <td class="text-center">${volumenDisplay(it.quantity, it.presentacion)}</td>
+        </tr>`;
+    });
+    tbody.innerHTML = filas;
+    total.textContent = unidades + ' unidades';
+}
+
+function agregarPorCodigo() {
+    const codigoInput = document.getElementById('codigo-input');
+    const cantidadInput = document.getElementById('cantidad-input');
+    const msg = document.getElementById('msg-manual');
+    const codigo = codigoInput.value.trim();
+    const cantidad = parseInt(cantidadInput.value) || 1;
+
+    if (!codigo) {
+        msg.textContent = 'Escribe un código de producto.';
+        msg.classList.remove('d-none');
+        codigoInput.focus();
+        return;
+    }
+
+    const prod = findProductoPorCodigo(codigo);
+    if (!prod) {
+        msg.textContent = `No se encontró el producto con código '${codigo}'.`;
+        msg.classList.remove('d-none');
+        codigoInput.focus();
+        return;
+    }
+
+    // Si ya existe una fila manual con ese producto, sumar la cantidad
+    const filaExistente = Array.from(document.querySelectorAll('#manual-body tr'))
+        .find(row => row.querySelector('.manual-product-select').value === String(prod.product_id));
+    if (filaExistente) {
+        const qty = filaExistente.querySelector('.manual-qty');
+        qty.value = (parseInt(qty.value) || 0) + cantidad;
+    } else {
+        agregarFilaManual(prod.product_id, cantidad);
+    }
+
+    msg.classList.add('d-none');
+    codigoInput.value = '';
+    cantidadInput.value = '1';
+    codigoInput.focus();
+    rebuildConsolidado();
+}
+
+function agregarFilaManual(product_id, cantidad) {
+    const tabla = document.getElementById('tabla-manual');
+    const tbody = document.getElementById('manual-body');
+    tabla.classList.remove('d-none');
+
+    const row = document.createElement('tr');
+    let options = '';
+    PRODUCTOS_DATA.forEach(p => {
+        options += `<option value="${p.product_id}" ${p.product_id === product_id ? 'selected' : ''}>${p.name}${p.sku ? ' (' + p.sku + ')' : ''}</option>`;
+    });
+    row.innerHTML = `
+        <td><select class="form-select form-select-sm manual-product-select" onchange="onManualChange(this)">${options}</select></td>
+        <td class="manual-presentacion">${productoActual(product_id).presentacion}</td>
+        <td><input type="number" min="1" value="${cantidad}" class="form-control form-control-sm manual-qty" onchange="rebuildConsolidado()" oninput="rebuildConsolidado()"></td>
+        <td><button type="button" class="btn btn-sm btn-outline-danger" onclick="eliminarFilaManual(this)">✕</button></td>`;
+    tbody.appendChild(row);
+}
+
+function productoActual(product_id) {
+    return PRODUCTOS_DATA.find(p => p.product_id === product_id) || { presentacion: 'unidad' };
+}
+
+function onManualChange(select) {
+    const prod = encontrarProductoPorId(Number(select.value));
+    const row = select.closest('tr');
+    row.querySelector('.manual-presentacion').textContent = prod ? (prod.presentacion || prod.unit_measure || 'unidad') : 'unidad';
+    rebuildConsolidado();
+}
+
+function eliminarFilaManual(btn) {
+    btn.closest('tr').remove();
+    const tbody = document.getElementById('manual-body');
+    if (tbody.rows.length === 0) document.getElementById('tabla-manual').classList.add('d-none');
+    rebuildConsolidado();
+}
+
+function toggleTodos(cb) {
+    document.querySelectorAll('.sale-check').forEach(c => { c.checked = cb.checked; });
+    rebuildConsolidado();
+}
+
+document.querySelectorAll('.sale-check').forEach(c => c.addEventListener('change', rebuildConsolidado));
+
+document.getElementById('codigo-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        agregarPorCodigo();
+    }
+});
+document.getElementById('cantidad-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        agregarPorCodigo();
+    }
+});
+
+rebuildConsolidado();
+</script>
+
+{% endblock %}

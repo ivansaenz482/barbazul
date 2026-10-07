@@ -1,0 +1,28 @@
+Flask>=3.0.3
+Flask-SQLAlchemy>=3.1.1
+Flask-Login>=0.6.3
+PyMySQL>=1.1.1
+python-dotenv>=1.0.1
+bcrypt>=4.2.0
+cryptography>=43.0.1
+waitress>=3.0.0
+gunicorn>=22.0.0
+openpyxl>=3.1.0
+
+# Modulo OCR de facturas (imagen/PDF)
+pytesseract>=0.3.13
+pdfplumber>=0.11.4
+Pillow>=11.0.0
+
+# Codigo de barras (imagenes SVG de EAN-13 / Code 128)
+python-barcode>=0.16.0
+
+# Firma electronica del SRI (facturacion electronica)
+lxml>=5.0.0
+signxml>=3.2.0
+requests>=2.31.0
+
+# PyMuPDF es OPCIONAL: solo se necesita para leer PDFs escaneados (imagen sin texto).
+# Si tu instalacion falla por "Unable to find Visual Studio", omite esta linea sin problema;
+# las fotos de factura (imagen) y los PDF con texto seguiran funcionando normalmente.
+PyMuPDF

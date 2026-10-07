@@ -1,0 +1,219 @@
+[
+  {
+    "product_id": 1,
+    "sku": "LUB-CAD",
+    "name": "LUBRICANTE DE CADENA",
+    "current_stock": 241,
+    "stock_matriz": 170
+  },
+  {
+    "product_id": 2,
+    "sku": "PAE39",
+    "name": "SPRAY DE PINTURA NEGRO BRILLANTE",
+    "current_stock": 1320,
+    "stock_matriz": 0
+  },
+  {
+    "product_id": 3,
+    "sku": "PAE4",
+    "name": "SPRAY DE PINTURA NEGRO MATE",
+    "current_stock": 2520,
+    "stock_matriz": 360
+  },
+  {
+    "product_id": 4,
+    "sku": "LMC03",
+    "name": "LIMPIADOR DE CARBURADOR MERCURY",
+    "current_stock": 240,
+    "stock_matriz": 180
+  },
+  {
+    "product_id": 5,
+    "sku": "AX100",
+    "name": "AX100 CARBURADOR",
+    "current_stock": 24,
+    "stock_matriz": 12
+  },
+  {
+    "product_id": 6,
+    "sku": "KAI-U1002",
+    "name": "CAUCHO AMARRAR BATERIA",
+    "current_stock": 120,
+    "stock_matriz": 20
+  },
+  {
+    "product_id": 7,
+    "sku": "X4125",
+    "name": "ELECTRICA YAMAHA 125",
+    "current_stock": 0,
+    "stock_matriz": 12
+  },
+  {
+    "product_id": 8,
+    "sku": "BH 60V32AH",
+    "name": "CARGADOR DE BATERIA ZOM BIKE",
+    "current_stock": 2,
+    "stock_matriz": 24
+  },
+  {
+    "product_id": 11,
+    "sku": "PAE1007",
+    "name": "SPRAY DE PINTURA BLANCO MATE",
+    "current_stock": 1200,
+    "stock_matriz": 180
+  },
+  {
+    "product_id": 12,
+    "sku": "PAE190",
+    "name": "SPRAY DE PINTURA LACA BRILLANTE",
+    "current_stock": 120,
+    "stock_matriz": 80
+  },
+  {
+    "product_id": 13,
+    "sku": "PAE29",
+    "name": "SPRAY DE PINTURA MARRON",
+    "current_stock": 1320,
+    "stock_matriz": 72
+  },
+  {
+    "product_id": 14,
+    "sku": "PAE4007",
+    "name": "SPRAY DE PINTURA PURPURA",
+    "current_stock": 120,
+    "stock_matriz": 36
+  },
+  {
+    "product_id": 15,
+    "sku": "PAE1200",
+    "name": "SPRAY DE PINTURA ALTA TEMPERATURA",
+    "current_stock": 1200,
+    "stock_matriz": 12
+  },
+  {
+    "product_id": 16,
+    "sku": "PAE36",
+    "name": "SPRAY DE PINTURA SILVER PLATA",
+    "current_stock": 1200,
+    "stock_matriz": 192
+  },
+  {
+    "product_id": 17,
+    "sku": "PAE125",
+    "name": "SPRAY DE PINTURA GRIS MAQUINA",
+    "current_stock": 1656,
+    "stock_matriz": 72
+  },
+  {
+    "product_id": 18,
+    "sku": "PAE1300",
+    "name": "SPRAY DE PINTURA ALTA TEMPERATURA SILVER",
+    "current_stock": 1200,
+    "stock_matriz": 12
+  },
+  {
+    "product_id": 19,
+    "sku": "PAE301",
+    "name": "SPRAY DE PINTURA GRIS OSCURO",
+    "current_stock": 1200,
+    "stock_matriz": 81
+  },
+  {
+    "product_id": 20,
+    "sku": "PAE14",
+    "name": "SPRAY DE PINTURA NARANJA",
+    "current_stock": 120,
+    "stock_matriz": 72
+  },
+  {
+    "product_id": 21,
+    "sku": "PAE35",
+    "name": "SPRAY DE PINTURA ORO",
+    "current_stock": 120,
+    "stock_matriz": 132
+  },
+  {
+    "product_id": 22,
+    "sku": "LMC02",
+    "name": "LUBRICANTE MULTIUSO 200 ML",
+    "current_stock": 240,
+    "stock_matriz": 48
+  },
+  {
+    "product_id": 23,
+    "sku": "LMR40",
+    "name": "LUBRICANTE MULTIUSO 450 ML TAPA ESPECIAL",
+    "current_stock": 120,
+    "stock_matriz": 48
+  },
+  {
+    "product_id": 24,
+    "sku": "PAE19",
+    "name": "PINTURA SPRAY CELESTE",
+    "current_stock": 240,
+    "stock_matriz": 12
+  },
+  {
+    "product_id": 25,
+    "sku": "PAE15",
+    "name": "SPRAY DE PINTURA AZUL CIELO",
+    "current_stock": 120,
+    "stock_matriz": 12
+  },
+  {
+    "product_id": 26,
+    "sku": "LMC01",
+    "name": "LIMPIA CONTACTO 200ML",
+    "current_stock": 240,
+    "stock_matriz": 48
+  },
+  {
+    "product_id": 27,
+    "sku": "PAE40",
+    "name": "SPRAY DE PINTURA BLANCO BRILLANTE",
+    "current_stock": 240,
+    "stock_matriz": 372
+  },
+  {
+    "product_id": 28,
+    "sku": "PAE41",
+    "name": "SPRAY DE PINTURA AMARILLO",
+    "current_stock": 120,
+    "stock_matriz": 72
+  },
+  {
+    "product_id": 29,
+    "sku": "PAE101",
+    "name": "SPRAY DE PINTURA VERDE JADE",
+    "current_stock": 120,
+    "stock_matriz": 72
+  },
+  {
+    "product_id": 30,
+    "sku": "PAE13",
+    "name": "SPRAY DE PINTURA VERDE BOSQUE",
+    "current_stock": 240,
+    "stock_matriz": 72
+  },
+  {
+    "product_id": 31,
+    "sku": "9934",
+    "name": "SILICON RTV GRIS",
+    "current_stock": 24,
+    "stock_matriz": 12
+  },
+  {
+    "product_id": 32,
+    "sku": "PAE21",
+    "name": "AZUL MEDIO",
+    "current_stock": 0,
+    "stock_matriz": 0
+  },
+  {
+    "product_id": 33,
+    "sku": "PAE219",
+    "name": "AZUL ESPAÑOL",
+    "current_stock": 0,
+    "stock_matriz": 0
+  }
+]

@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}Historial de Pagos{% endblock %}
+{% block content %}
+
+<h2 class="mb-3"><i class="bi bi-receipt me-2 text-success"></i>Historial de Pagos de Sueldo</h2>
+
+<form method="GET" class="row g-2 mb-3 bg-white p-3 rounded shadow-sm align-items-end">
+    <div class="col-md-4">
+        <label class="form-label small text-muted mb-1">Empleado</label>
+        <select name="employee_id" class="form-select">
+            <option value="">Todos</option>
+            {% for e in employees %}<option value="{{ e.employee_id }}" {% if selected_employee == e.employee_id|string %}selected{% endif %}>{{ e.name }}</option>{% endfor %}
+        </select>
+    </div>
+    <div class="col-md-3"><label class="form-label small text-muted mb-1">Desde</label><input type="date" name="desde" class="form-control" value="{{ desde }}"></div>
+    <div class="col-md-3"><label class="form-label small text-muted mb-1">Hasta</label><input type="date" name="hasta" class="form-control" value="{{ hasta }}"></div>
+    <div class="col-md-2 d-flex gap-2">
+        <button class="btn btn-primary">Filtrar</button>
+        <a href="{{ url_for('hr.hr_pagos') }}" class="btn btn-outline-secondary">✕</a>
+    </div>
+</form>
+
+<div class="alert alert-success d-flex justify-content-between">
+    <span>Total pagado (sueldos) en el filtro:</span>
+    <strong>${{ "%.2f"|format(total) }}</strong>
+</div>
+
+<div class="table-responsive">
+    <table class="table table-hover bg-white align-middle">
+        <thead class="table-dark">
+            <tr><th>Fecha</th><th>Empleado</th><th>Descripción</th><th>Forma de pago</th><th class="text-end">Monto</th></tr>
+        </thead>
+        <tbody>
+            {% for p in pagos %}
+            <tr>
+                <td>{{ p.expense_date.strftime("%d/%m/%Y") }}</td>
+                <td>{{ p.employee.name if p.employee else "—" }}</td>
+                <td class="small text-muted">{{ p.description or "" }}</td>
+                <td>{{ p.payment_method_label() }}</td>
+                <td class="text-end fw-bold">${{ "%.2f"|format(p.amount) }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="5" class="text-center text-muted py-4">No hay pagos de sueldo con esos filtros.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<p class="text-muted small">Los pagos se registran desde <a href="{{ url_for('expenses.expense_new', category='sueldos') }}">Gastos → Nuevo Gasto</a> con categoría <strong>Sueldos / Personal</strong>.</p>
+
+{% endblock %}

@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Panel Personal{% endblock %}
+{% block content %}
+
+<h2>Panel de Trabajo</h2>
+<p class="text-muted">Bienvenido, {{ user.full_name }}. Desde aquí puedes gestionar la caja, la liquidación del día y el stock de las bodegas.</p>
+
+<div class="row g-3 mt-2">
+    <div class="col-md-6 col-lg-4">
+        <div class="card quick-card h-100">
+            <div class="card-body d-flex flex-column">
+                <h6 class="quick-card-title mb-1">Caja</h6>
+                <p class="text-muted small mb-3">Registra ventas y cobros al momento.</p>
+                <a href="{{ url_for('caja.caja_index') }}" class="btn btn-sm btn-primary mt-auto">Abrir caja</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6 col-lg-4">
+        <div class="card quick-card h-100">
+            <div class="card-body d-flex flex-column">
+                <h6 class="quick-card-title mb-1">Liquidación del día</h6>
+                <p class="text-muted small mb-3">Control y cuadre de cobros del día.</p>
+                <a href="{{ url_for('sales.liquidacion_diaria') }}" class="btn btn-sm btn-success mt-auto">Ver liquidación</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6 col-lg-4">
+        <div class="card quick-card h-100">
+            <div class="card-body d-flex flex-column">
+                <h6 class="quick-card-title mb-1">Stock (Bodegas)</h6>
+                <p class="text-muted small mb-3">Consulta disponibilidad en bodega local y matriz.</p>
+                <a href="{{ url_for('products.products_list') }}" class="btn btn-sm btn-secondary mt-auto">Ver stock</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+{% block title %}Guía de Despacho Bodega{% endblock %}
+{% block content %}
+
+<style>
+@media print {
+    @page { size: A4 portrait; margin: 10mm 12mm 12mm 12mm; }
+    html, body { background: white !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+    .no-print, .btn-no-print, nav, .navbar, footer, .sidebar, .topbar, .app-footer, .alert, .btn { display: none !important; }
+    .app-body, .app-shell, .app-content, .app-main { display: block !important; background: white !important; padding: 0 !important; margin: 0 !important; }
+    .card { box-shadow: none !important; border: 1px solid #bbb !important; break-inside: avoid; margin: 0 !important; }
+    .card-body { padding: 12px 14px !important; }
+    h4, h5 { break-after: avoid; }
+    table { font-size: 8.5pt !important; }
+    .table th, .table td { padding: 0.3rem 0.45rem !important; }
+    a[href]:after { content: none !important; }
+}
+</style>
+<script>
+(function(){
+  const originalTitle = document.title;
+  window.addEventListener('beforeprint', () => { document.title = ' '; });
+  window.addEventListener('afterprint', () => { document.title = originalTitle; });
+})();
+</script>
+
+<div class="d-flex justify-content-between align-items-center mb-4 pb-3 border-bottom flex-wrap gap-2 btn-no-print">
+    <div>
+        <h2 class="h3 fw-bold text-dark mb-1">
+            <i class="bi bi-truck text-primary me-2"></i>Guía de Producto / Despacho para Bodega
+        </h2>
+        <p class="text-muted mb-0">Consolidado de productos y stock disponible para entrega y despacho desde bodega.</p>
+    </div>
+    <div class="d-flex gap-2">
+        <button class="btn btn-primary rounded-pill px-4" onclick="window.print()">
+            <i class="bi bi-printer-fill me-1"></i> Imprimir Guía de Bodega
+        </button>
+    </div>
+</div>
+
+<!-- Encabezado Imprimible -->
+<div class="card border-0 shadow-sm mb-4">
+    <div class="card-body p-4">
+        <div class="d-flex justify-content-between align-items-center mb-4 border-bottom pb-3">
+            <div>
+                <h4 class="fw-bold text-primary mb-1">GUÍA DE DESPACHO E INVENTARIO</h4>
+                <span class="text-muted">REPUESTOS Y ACCESORIOS DE MOTO Y BICICLETAS HUANG — RUC: 0963863014001</span><br>
+                <span class="text-muted">Calle 38 y Av. 0818 y Calle E — Cel: 0979698202 — almacenehuang88@gmail.com — Guayaquil, Ecuador</span>
+            </div>
+            <div class="text-end">
+                <div class="badge bg-dark px-3 py-2 fs-6">Generado: {{ generated_at }}</div>
+            </div>
+        </div>
+
+        <!-- Tabla Resumen de Productos para Bodega -->
+        <h5 class="fw-bold text-dark mb-3"><i class="bi bi-boxes me-2 text-primary"></i>Resumen Consolidado para Selección en Bodega</h5>
+        <div class="table-responsive mb-4">
+            <table class="table table-bordered align-middle">
+                <thead class="table-dark">
+                    <tr>
+                        <th>Código / SKU</th>
+                        <th>Producto</th>
+                        <th>Categoría</th>
+                        <th class="text-center">Cantidad Requerida</th>
+                        <th class="text-center">Stock Disponible</th>
+                        <th class="text-center">Estado Stock</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for p in productos_resumen %}
+                    <tr>
+                        <td><code>{{ p.product.sku or ('PROD-' ~ p.product.product_id) }}</code></td>
+                        <td class="fw-bold">{{ p.product.name }}</td>
+                        <td>{{ p.product.category.name if p.product.category else 'General' }}</td>
+                        <td class="text-center fw-bold fs-5 text-primary">{{ p.cantidad_total }} {{ p.product.unit_measure }}</td>
+                        <td class="text-center fw-bold fs-5 text-secondary">{{ p.stock_disponible }} {{ p.product.unit_measure }}</td>
+                        <td class="text-center">
+                            {% if p.stock_disponible >= p.cantidad_total %}
+                            <span class="badge bg-success px-3 py-1.5"><i class="bi bi-check-circle-fill me-1"></i> Stock Suficiente</span>
+                            {% else %}
+                            <span class="badge bg-danger px-3 py-1.5"><i class="bi bi-exclamation-triangle-fill me-1"></i> Faltante: {{ p.cantidad_total - p.stock_disponible }}</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Detalle de Facturas / Pedidos Incluidos -->
+        <h5 class="fw-bold text-dark mb-3"><i class="bi bi-receipt me-2 text-primary"></i>Facturas / Notas de Venta Incluidas</h5>
+        <div class="table-responsive mb-5">
+            <table class="table table-striped align-middle">
+                <thead>
+                    <tr>
+                        <th># Venta</th>
+                        <th>Cliente</th>
+                        <th>Fecha Emisión</th>
+                        <th>Fecha Entrega</th>
+                        <th>Monto Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for s in sales %}
+                    <tr>
+                        <td><strong>#{{ s.sale_id }}</strong></td>
+                        <td>{{ s.customer.full_name }} ({{ s.customer.cedula or 'S/N' }})</td>
+                        <td>{{ s.sale_date.strftime("%d/%m/%Y %H:%M") }}</td>
+                        <td>{{ s.delivery_date.strftime("%d/%m/%Y") if s.delivery_date else 'Hoy' }}</td>
+                        <td class="fw-bold">${{ "%.2f"|format(s.total_amount) }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Seccion de Firmas de Despacho — horizontal -->
+        <div class="d-flex justify-content-between gap-4 mt-5 pt-4">
+            <div class="flex-fill text-center">
+                <div style="border-top: 1.5px solid #333; width: 78%; margin: 0 auto; padding-top: 6px;">
+                    <strong style="font-size: 0.9rem;">Firma Encargado de Bodega</strong><br>
+                    <small class="text-muted">Entrega y Verificación de Stock</small>
+                </div>
+            </div>
+            <div class="flex-fill text-center">
+                <div style="border-top: 1.5px solid #333; width: 78%; margin: 0 auto; padding-top: 6px;">
+                    <strong style="font-size: 0.9rem;">Firma Chofer / Repartidor</strong><br>
+                    <small class="text-muted">Recepción de Mercadería</small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

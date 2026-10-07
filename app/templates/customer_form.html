@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% block title %}{{ "Editar" if customer else "Nuevo" }} Cliente{% endblock %}
+{% block content %}
+
+<h2>{{ "Editar" if customer else "Nuevo" }} Cliente</h2>
+
+<form method="POST" class="bg-white p-4 rounded shadow-sm" style="max-width: 760px;">
+    <div class="row g-3">
+        <div class="col-md-6">
+            <label class="form-label">Nombre completo *</label>
+            <input type="text" name="full_name" class="form-control" value="{{ customer.full_name if customer else '' }}" required autofocus>
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">Nombre del negocio <span class="text-muted small">(si aplica)</span></label>
+            <input type="text" name="business_name" class="form-control" placeholder="Ej. Tienda Don Pedro" value="{{ customer.business_name if customer else '' }}">
+        </div>
+
+        <div class="col-md-6">
+            <label class="form-label">Local <span class="text-muted small">(sucursal donde compra)</span></label>
+            <select name="branch_id" class="form-select">
+                <option value="">-- Sin local asignado --</option>
+                {% for b in branches %}
+                <option value="{{ b.branch_id }}" {% if customer and customer.branch_id == b.branch_id %}selected{% endif %}>{{ b.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">Cédula</label>
+            <input type="text" name="cedula" class="form-control" value="{{ customer.cedula if customer else '' }}">
+        </div>
+
+        <div class="col-md-6">
+            <label class="form-label">Teléfono / Celular</label>
+            <input type="text" name="phone" class="form-control" value="{{ customer.phone if customer else '' }}">
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">Email</label>
+            <input type="email" name="email" class="form-control" value="{{ customer.email if customer else '' }}">
+        </div>
+
+        <div class="col-12">
+            <label class="form-label">Dirección</label>
+            <input type="text" name="address" class="form-control" value="{{ customer.address if customer else '' }}">
+        </div>
+
+        <div class="col-md-6">
+            <label class="form-label">Provincia</label>
+            <select name="province" class="form-select">
+                <option value="">-- Selecciona --</option>
+                {% for p in provincias %}
+                <option value="{{ p }}" {% if customer and customer.province == p %}selected{% endif %}>{{ p }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">Ciudad</label>
+            <input type="text" name="city" class="form-control" list="ciudades-sugeridas" value="{{ customer.city if customer else '' }}">
+            <datalist id="ciudades-sugeridas">
+                {% for c in ciudades %}
+                <option value="{{ c }}">
+                {% endfor %}
+            </datalist>
+        </div>
+
+        <div class="col-12"><hr></div>
+
+        <div class="col-md-4">
+            <label class="form-label">Tipo de cliente *</label>
+            <select name="customer_type" id="customer_type" class="form-select" onchange="toggleCreditFields()">
+                <option value="efectivo" {% if not customer or customer.customer_type == "efectivo" %}selected{% endif %}>Efectivo</option>
+                <option value="credito" {% if customer and customer.customer_type == "credito" %}selected{% endif %}>Crédito</option>
+            </select>
+        </div>
+        <div class="col-md-4">
+            <label class="form-label">Lista de precios *</label>
+            <select name="price_list" class="form-select">
+                <option value="contado" {% if not customer or customer.price_list == "contado" %}selected{% endif %}>Contado</option>
+                <option value="credito" {% if customer and customer.price_list == "credito" %}selected{% endif %}>Crédito</option>
+                <option value="mayorista" {% if customer and customer.price_list == "mayorista" %}selected{% endif %}>Mayorista</option>
+            </select>
+            <div class="form-text">Precio que se usará por defecto al venderle.</div>
+        </div>
+        <div class="col-md-4" id="credit_limit_field">
+            <label class="form-label">Límite de crédito ($)</label>
+            <input type="number" step="0.01" min="0" name="credit_limit" class="form-control" value="{{ customer.credit_limit if customer else 0 }}">
+        </div>
+        <div class="col-md-4" id="credit_term_field">
+            <label class="form-label">Plazo de pago</label>
+            <select name="credit_term_days" class="form-select">
+                <option value="30" {% if customer and customer.credit_term_days == "30" %}selected{% endif %}>30 días</option>
+                <option value="60" {% if customer and customer.credit_term_days == "60" %}selected{% endif %}>60 días</option>
+                <option value="90" {% if customer and customer.credit_term_days == "90" %}selected{% endif %}>90 días</option>
+            </select>
+        </div>
+    </div>
+
+    <div class="mt-4 d-flex gap-2">
+        <button type="submit" class="btn btn-primary">Guardar</button>
+        <a href="{{ url_for('customers.customers_list') }}" class="btn btn-secondary">Cancelar</a>
+    </div>
+</form>
+
+<script>
+function toggleCreditFields() {
+    const isCredito = document.getElementById('customer_type').value === 'credito';
+    document.getElementById('credit_limit_field').style.display = isCredito ? 'block' : 'none';
+    document.getElementById('credit_term_field').style.display = isCredito ? 'block' : 'none';
+}
+document.addEventListener('DOMContentLoaded', toggleCreditFields);
+</script>
+
+{% endblock %}

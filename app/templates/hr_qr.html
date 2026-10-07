@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}QR de Asistencia{% endblock %}
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-3 no-print">
+    <div>
+        <h2 class="mb-1"><i class="bi bi-qr-code me-2 text-primary"></i>QR de Asistencia</h2>
+        <p class="text-muted mb-0">Imprime este código y ponlo en la entrada. El personal lo escanea con el celular para marcar entrada/salida.</p>
+    </div>
+    <button onclick="window.print()" class="btn btn-dark">🖨️ Imprimir</button>
+</div>
+
+<div class="alert alert-info no-print">
+    <i class="bi bi-info-circle me-1"></i>
+    El QR abre la página <code>{{ checkin_url }}</code> (funciona sin iniciar sesión, solo desde tu red/servidor).
+</div>
+
+<div class="card mb-4">
+    <div class="card-header bg-white"><h6 class="mb-0">QR general (recomendado para la entrada)</h6></div>
+    <div class="card-body text-center">
+        <div id="qr-general" class="d-inline-block p-2 border rounded bg-white"></div>
+        <p class="mt-2 mb-0 small text-muted">{{ checkin_url }}</p>
+    </div>
+</div>
+
+<h6 class="mb-3">QR por persona (opcional)</h6>
+<div class="row g-3">
+    {% for e, url in emp_urls %}
+    <div class="col-md-3 col-6 text-center">
+        <div class="card h-100">
+            <div class="card-body">
+                <div class="qr-emp d-inline-block p-1 border rounded" data-url="{{ url }}"></div>
+                <div class="small mt-2">{{ e.name }}</div>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <p class="text-muted">No hay personal activo.</p>
+    {% endfor %}
+</div>
+
+<script src="https://cdn.jsdelivr.net/gh/davidshimjs/qrcodejs/qrcode.min.js"></script>
+<script>
+new QRCode(document.getElementById("qr-general"), {
+    text: "{{ checkin_url }}", width: 220, height: 220, correctLevel: QRCode.CorrectLevel.M
+});
+document.querySelectorAll(".qr-emp").forEach(function (el) {
+    new QRCode(el, { text: el.getAttribute("data-url"), width: 130, height: 130, correctLevel: QRCode.CorrectLevel.M });
+});
+</script>
+
+<style>
+@media print {
+    .no-print, nav, .navbar, footer, .sidebar, .topbar, .btn { display: none !important; }
+    body { background: white !important; }
+}
+</style>
+
+{% endblock %}

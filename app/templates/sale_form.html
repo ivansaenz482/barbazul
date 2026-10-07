@@ -1,0 +1,378 @@
+{% extends "base.html" %}
+{% block title %}{{ "Editar Venta #" ~ sale.sale_id if sale else "Nueva Venta" }}{% endblock %}
+{% block content %}
+
+<h2>🧾 {{ "Editar Venta #" ~ sale.sale_id if sale else "Nueva Venta" }}</h2>
+
+<style>
+    .searchable-select { position: relative; width: 100%; }
+    .searchable-select .searchable-input { padding-right: 1.6rem; }
+    .searchable-select .ss-caret { position: absolute; right: .5rem; top: 50%; transform: translateY(-50%); pointer-events: none; color: #6c757d; }
+    .searchable-list {
+        position: fixed; display: none; z-index: 1050;
+        background: #fff; border: 1px solid #ced4da; border-radius: .375rem;
+        max-height: 240px; overflow-y: auto; box-shadow: 0 .5rem 1rem rgba(0,0,0,.15);
+    }
+    .searchable-item { display: block; padding: .45rem .65rem; cursor: pointer; font-size: .9rem; }
+    .searchable-item .ss-code { display: block; font-size: .72rem; color: #6c757d; }
+    .searchable-item:hover, .searchable-item.ss-ok { background: #e9ecef; }
+    .searchable-item.ss-empty { color: #6c757d; cursor: default; }
+</style>
+
+<form method="POST" class="bg-white p-4 rounded shadow-sm">
+    <div class="row g-3 mb-3">
+        <div class="col-md-6">
+            <label class="form-label">Cliente *</label>
+            <select name="customer_id" id="customer_select" class="form-select" data-searchable data-placeholder="Busca cliente por nombre o cédula..." required>
+                <option value="">-- Selecciona un cliente --</option>
+                {% for c in customers %}
+                <option value="{{ c.customer_id }}" data-codigo="{{ c.cedula or '' }}" data-price-list="{{ c.price_list or 'contado' }}" {% if sale and sale.customer_id == c.customer_id %}selected{% endif %}>
+                    {{ c.full_name }} {% if c.cedula %}({{ c.cedula }}){% endif %} — {{ c.customer_type|capitalize }} · Lista {{ (c.price_list or 'contado')|capitalize }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">Vendedor</label>
+            <select name="vendedor_id" class="form-select">
+                <option value="">-- Sin vendedor asignado --</option>
+                {% for v in sellers %}
+                <option value="{{ v.seller_id }}" {% if sale and sale.vendedor_id == v.seller_id %}selected{% endif %}>{{ v.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">Bodega (de dónde sale el stock)</label>
+            {% if current_user.ve_todas_bodegas() %}
+            <select name="bodega" id="bodega_select" class="form-select" onchange="aplicarBodegaATodas()">
+                <option value="local" {% if bodega == 'local' %}selected{% endif %}>Bodega Local</option>
+                <option value="matriz" {% if bodega == 'matriz' %}selected{% endif %}>Bodega Matriz</option>
+            </select>
+            {% else %}
+            <input type="text" class="form-control" value="{{ current_user.bodega_label() }}" readonly>
+            <input type="hidden" name="bodega" id="bodega_select" value="{{ current_user.bodega or 'local' }}">
+            <div class="form-text">Solo puedes vender desde tu bodega asignada.</div>
+            {% endif %}
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">Tipo de pago *</label>
+            <select name="payment_type" id="payment_type" class="form-select" required>
+                <option value="efectivo" {% if sale and sale.payment_type == "efectivo" %}selected{% endif %}>Efectivo (se marca pagado al instante)</option>
+                <option value="credito" {% if sale and sale.payment_type == "credito" %}selected{% endif %}>Crédito (según plazo del cliente)</option>
+            </select>
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">Tipo de documento *</label>
+            <select name="document_type" id="document_type" class="form-select" required onchange="toggleDocumentHint()">
+                {% if sale and sale.liquidada %}
+                <option value="nota_venta_autorizada" {% if sale.document_type == "nota_venta_autorizada" %}selected{% endif %}>Nota de Venta Autorizada</option>
+                <option value="factura" {% if sale.document_type == "factura" %}selected{% endif %}>Factura</option>
+                {% else %}
+                <option value="nota_pedido" {% if sale and sale.document_type == "nota_pedido" %}selected{% endif %}>Nota de Pedido</option>
+                <option value="nota_venta_autorizada" {% if sale and sale.document_type == "nota_venta_autorizada" %}selected{% endif %}>Nota de Venta Autorizada</option>
+                <option value="factura" {% if sale and sale.document_type == "factura" %}selected{% endif %}>Factura</option>
+                <option value="proforma" {% if sale and sale.document_type == "proforma" %}selected{% endif %}>Proforma (cotización, no descuenta stock)</option>
+                {% endif %}
+            </select>
+        </div>
+    </div>
+
+    <div id="proforma-hint" class="alert alert-info d-none">
+        Una <strong>Nota de Pedido</strong> o <strong>Proforma</strong> es solo un pedido/cotización:
+        no descuenta inventario ni se marca como pagada.
+        Cuando el cliente confirme la compra, la podrás <strong>autorizar</strong> desde el detalle de la venta,
+        convirtiéndola en Nota de Venta Autorizada o Factura real.
+    </div>
+
+    {% if not sale or not sale.liquidada %}
+    <div id="pago_inmediato_field" class="mb-3">
+        <div class="form-check">
+            <input class="form-check-input" type="checkbox" name="marcar_pagada" id="marcar_pagada" checked onchange="togglePagoInicialDetalle()">
+            <label class="form-check-label" for="marcar_pagada">
+                Marcar como <strong>Cancelada</strong> (pagada) de inmediato
+            </label>
+            <div class="form-text">Desmárcalo si el cliente va a pagar más tarde el mismo día o en los próximos días (fiado). Podrás registrar el pago después desde el detalle de la venta.</div>
+        </div>
+        <div id="pago_inicial_detalle" class="row g-2 mt-2">
+            <div class="col-md-4">
+                <label class="form-label small">Forma de pago</label>
+                <select name="initial_payment_method" class="form-select form-select-sm">
+                    <option value="efectivo">Efectivo</option>
+                    <option value="cheque">Cheque</option>
+                    <option value="transferencia">Transferencia</option>
+                    <option value="tarjeta">Tarjeta</option>
+                    <option value="otro">Otro</option>
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label small">N° de recibo (opcional)</label>
+                <input type="text" name="initial_receipt_number" class="form-control form-control-sm" placeholder="Ej. 00123">
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <hr>
+    <h5>Productos</h5>
+    <p class="text-muted small">El precio se completa automáticamente con el precio de lista, pero puedes editarlo antes de confirmar la venta.</p>
+
+    <table class="table" id="products-table">
+        <thead>
+            <tr>
+                <th style="width: 38%;">Producto</th>
+                <th style="width: 14%;">Cantidad</th>
+                <th style="width: 18%;">Precio final</th>
+                <th style="width: 18%;">Stock disponible</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody id="products-body">
+            {% if sale and sale.details %}
+                {% for d in sale.details %}
+                <tr>
+                    <td>
+                        <select name="product_id[]" class="form-select product-select" data-searchable data-placeholder="Busca producto por nombre o código..." onchange="onProductChange(this)">
+                            <option value="">-- Selecciona --</option>
+                            {% for p in products %}
+                            <option value="{{ p.product_id }}" data-stock-local="{{ p.current_stock }}" data-stock-matriz="{{ p.stock_matriz or 0 }}" data-price="{{ p.sale_price }}" data-price-contado="{{ p.sale_price }}" data-price-credito="{{ p.price_credito or p.sale_price }}" data-price-mayorista="{{ p.price_mayorista or p.sale_price }}" data-codigo="{{ p.sku or p.barcode or '' }}" {% if d.product_id == p.product_id %}selected{% endif %}>
+                                {{ p.name }} (${{ "%.2f"|format(p.sale_price) }})
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </td>
+                    <td><input type="number" name="quantity[]" min="1" class="form-control" value="{{ d.quantity }}" required></td>
+                    <td><input type="number" step="0.01" min="0" name="unit_price[]" class="form-control price-input" value="{{ "%.2f"|format(d.unit_price) }}"></td>
+                    <td class="stock-label text-muted">{{ d.product.current_stock if d.product else "—" }} disponibles</td>
+                    <td><button type="button" class="btn btn-sm btn-outline-danger" onclick="removeRow(this)">✕</button></td>
+                </tr>
+                {% endfor %}
+            {% else %}
+            <tr>
+                <td>
+                    <select name="product_id[]" class="form-select product-select" data-searchable data-placeholder="Busca producto por nombre o código..." onchange="onProductChange(this)">
+                        <option value="">-- Selecciona --</option>
+                        {% for p in products %}
+                        <option value="{{ p.product_id }}" data-stock-local="{{ p.current_stock }}" data-stock-matriz="{{ p.stock_matriz or 0 }}" data-price="{{ p.sale_price }}" data-price-contado="{{ p.sale_price }}" data-price-credito="{{ p.price_credito or p.sale_price }}" data-price-mayorista="{{ p.price_mayorista or p.sale_price }}" data-codigo="{{ p.sku or p.barcode or '' }}">
+                            {{ p.name }} (${{ "%.2f"|format(p.sale_price) }})
+                        </option>
+                        {% endfor %}
+                    </select>
+                </td>
+                <td><input type="number" name="quantity[]" min="1" class="form-control" required></td>
+                <td><input type="number" step="0.01" min="0" name="unit_price[]" class="form-control price-input"></td>
+                <td class="stock-label text-muted">—</td>
+                <td><button type="button" class="btn btn-sm btn-outline-danger" onclick="removeRow(this)">✕</button></td>
+            </tr>
+            {% endif %}
+        </tbody>
+    </table>
+
+    <button type="button" class="btn btn-outline-secondary btn-sm mb-3" onclick="addRow()">+ Agregar producto</button>
+
+    {% if not products %}
+    <div class="alert alert-warning">No tienes productos disponibles para vender. Contacta al administrador si crees que esto es un error (puede que tu acceso esté limitado a ciertas categorías).</div>
+    {% endif %}
+
+    <div class="mt-4 d-flex gap-2">
+        <button type="submit" class="btn btn-primary">{{ "Guardar Cambios" if sale else "Registrar Venta" }}</button>
+        <a href="{{ url_for('sales.sale_detail', sale_id=sale.sale_id) if sale else url_for('sales.sales_list') }}" class="btn btn-secondary">Cancelar</a>
+    </div>
+</form>
+
+<script>
+function togglePagoInicialDetalle() {
+    const marcado = document.getElementById('marcar_pagada').checked;
+    const detalle = document.getElementById('pago_inicial_detalle');
+    if (detalle) detalle.classList.toggle('d-none', !marcado);
+}
+document.addEventListener('DOMContentLoaded', togglePagoInicialDetalle);
+
+function toggleDocumentHint() {
+    const val = document.getElementById('document_type').value;
+    const isProforma = val === 'proforma' || val === 'nota_pedido';
+    const isCredito = document.getElementById('payment_type').value === 'credito';
+    const hint = document.getElementById('proforma-hint');
+    const campo = document.getElementById('pago_inmediato_field');
+    if (hint) hint.classList.toggle('d-none', !isProforma);
+    if (campo) campo.classList.toggle('d-none', isProforma || isCredito);
+}
+document.addEventListener('DOMContentLoaded', toggleDocumentHint);
+document.getElementById('payment_type').addEventListener('change', toggleDocumentHint);
+
+function listaActual() {
+    const sel = document.getElementById('customer_select');
+    if (!sel) return 'contado';
+    const opt = sel.options[sel.selectedIndex];
+    return (opt && opt.getAttribute('data-price-list')) || 'contado';
+}
+
+function precioDeProducto(option, lista) {
+    if (!option) return null;
+    if (lista === 'credito') return option.getAttribute('data-price-credito') || option.getAttribute('data-price');
+    if (lista === 'mayorista') return option.getAttribute('data-price-mayorista') || option.getAttribute('data-price');
+    return option.getAttribute('data-price');
+}
+
+function bodegaActual() {
+    const el = document.getElementById('bodega_select');
+    return el && el.value ? el.value : 'local';
+}
+function stockDeProducto(option) {
+    if (!option) return null;
+    return option.getAttribute('data-stock-' + bodegaActual()) || '0';
+}
+function onProductChange(select) {
+    const row = select.closest('tr');
+    const stockLabel = row.querySelector('.stock-label');
+    const priceInput = row.querySelector('.price-input');
+    const selectedOption = select.options[select.selectedIndex];
+    const stock = stockDeProducto(selectedOption);
+    const price = precioDeProducto(selectedOption, listaActual());
+
+    stockLabel.textContent = stock !== null && selectedOption.value !== "" ? stock + " disponibles" : "—";
+    priceInput.value = price !== null && selectedOption.value !== "" ? parseFloat(price).toFixed(2) : "";
+}
+
+function aplicarBodegaATodas() {
+    document.querySelectorAll('#products-body select.product-select').forEach(function (sel) {
+        const opt = sel.options[sel.selectedIndex];
+        if (!opt || sel.value === '') return;
+        const row = sel.closest('tr');
+        row.querySelector('.stock-label').textContent = stockDeProducto(opt) + " disponibles";
+    });
+}
+
+function aplicarListaATodas() {
+    const lista = listaActual();
+    document.querySelectorAll('#products-body select.product-select').forEach(function (sel) {
+        const opt = sel.options[sel.selectedIndex];
+        if (!opt || sel.value === '') return;
+        const row = sel.closest('tr');
+        const priceInput = row.querySelector('.price-input');
+        const price = precioDeProducto(opt, lista);
+        if (price !== null) priceInput.value = parseFloat(price).toFixed(2);
+    });
+}
+
+function addRow() {
+    const tbody = document.getElementById('products-body');
+    const newRow = tbody.rows[0].cloneNode(true);
+    newRow.querySelectorAll('input').forEach(el => el.value = '');
+    newRow.querySelectorAll('.searchable-select').forEach(w => w.remove());
+    const sel = newRow.querySelector('select.product-select');
+    delete sel.dataset.transformed;
+    sel.selectedIndex = 0;
+    newRow.querySelector('.stock-label').textContent = '—';
+    tbody.appendChild(newRow);
+    buildSearchable(sel);
+}
+
+function removeRow(btn) {
+    const tbody = document.getElementById('products-body');
+    if (tbody.rows.length > 1) {
+        btn.closest('tr').remove();
+    } else {
+        alert('Debe haber al menos un producto en la venta.');
+    }
+}
+
+function buildSearchable(select) {
+    if (select.dataset.transformed === '1') return;
+    select.dataset.transformed = '1';
+
+    const store = Array.from(select.options).map(opt => ({
+        value: opt.value,
+        text: opt.textContent.trim(),
+        codigo: opt.getAttribute('data-codigo') || '',
+        stock: opt.getAttribute('data-stock'),
+        price: opt.getAttribute('data-price'),
+    }));
+
+    select.style.display = 'none';
+
+    const wrap = document.createElement('div');
+    wrap.className = 'searchable-select';
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'form-control searchable-input';
+    input.placeholder = select.dataset.placeholder || 'Escribe para buscar...';
+    input.autocomplete = 'off';
+    const caret = document.createElement('i');
+    caret.className = 'bi bi-chevron-down ss-caret';
+    const list = document.createElement('div');
+    list.className = 'searchable-list';
+    list.style.display = 'none';
+
+    wrap.appendChild(input);
+    wrap.appendChild(caret);
+    wrap.appendChild(list);
+
+    const selected = select.options[select.selectedIndex];
+    if (selected && selected.value !== '') { input.value = selected.textContent.trim(); }
+
+    function render(term) {
+        const t = term.trim().toLowerCase();
+        list.innerHTML = '';
+        let any = false;
+        store.forEach(item => {
+            if (item.value === '') return;
+            const label = item.text.toLowerCase();
+            const codigo = item.codigo.toLowerCase();
+            if (t && label.indexOf(t) === -1 && codigo.indexOf(t) === -1) return;
+            any = true;
+            const el = document.createElement('div');
+            el.className = 'searchable-item';
+            el.textContent = item.text;
+            if (item.codigo) {
+                const code = document.createElement('span');
+                code.className = 'ss-code';
+                code.textContent = 'Código: ' + item.codigo;
+                el.appendChild(code);
+            }
+            el.addEventListener('click', () => {
+                select.value = item.value;
+                input.value = item.text;
+                list.style.display = 'none';
+                select.dispatchEvent(new Event('change'));
+            });
+            list.appendChild(el);
+        });
+        if (!any) {
+            const no = document.createElement('div');
+            no.className = 'searchable-item ss-empty';
+            no.textContent = 'Sin resultados';
+            list.appendChild(no);
+        }
+        list.style.display = 'block';
+        const rect = input.getBoundingClientRect();
+        const h = list.offsetHeight;
+        let top = rect.bottom;
+        if (top + h > window.innerHeight - 8) top = Math.max(8, rect.top - h);
+        list.style.top = top + 'px';
+        list.style.left = rect.left + 'px';
+        list.style.width = rect.width + 'px';
+    }
+
+    input.addEventListener('input', () => render(input.value));
+    input.addEventListener('focus', () => render(input.value));
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') list.style.display = 'none';
+        if (e.key === 'Enter' && list.querySelector('.searchable-item:not(.ss-empty)')) {
+            list.querySelector('.searchable-item:not(.ss-empty)').click();
+        }
+    });
+    input.addEventListener('blur', () => setTimeout(() => list.style.display = 'none', 200));
+
+    select.parentNode.insertBefore(wrap, select);
+}
+
+document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('select[data-searchable]').forEach(buildSearchable);
+    const customerSel = document.getElementById('customer_select');
+    if (customerSel) customerSel.addEventListener('change', aplicarListaATodas);
+    const firstInput = document.querySelector('.searchable-input');
+    if (firstInput) firstInput.focus();
+});
+</script>
+
+{% endblock %}

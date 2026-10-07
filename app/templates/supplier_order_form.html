@@ -1,0 +1,279 @@
+{% extends "base.html" %}
+{% block title %}{{ "Editar Pedido " ~ order.codigo() if order else "Nuevo Pedido a Proveedor" }}{% endblock %}
+{% block content %}
+
+<h2 class="mb-3"><i class="bi bi-clipboard-plus me-2 text-primary"></i>
+    {{ "Editar Pedido " ~ order.codigo() if order else "Nuevo Pedido a Proveedor" }}
+</h2>
+
+<style>
+    .searchable-select { position: relative; width: 100%; }
+    .searchable-select .ss-caret { position: absolute; right: .5rem; top: 50%; transform: translateY(-50%); pointer-events: none; color: #6c757d; }
+    .searchable-list {
+        position: fixed; display: none; z-index: 1050;
+        background: #fff; border: 1px solid #ced4da; border-radius: .375rem;
+        max-height: 240px; overflow-y: auto; box-shadow: 0 .5rem 1rem rgba(0,0,0,.15);
+    }
+    .searchable-item { display: block; padding: .45rem .65rem; cursor: pointer; font-size: .9rem; }
+    .searchable-item .ss-code { display: block; font-size: .72rem; color: #6c757d; }
+    .searchable-item:hover { background: #e9ecef; }
+    .searchable-item.ss-empty { color: #6c757d; cursor: default; }
+</style>
+
+<form method="POST" class="bg-white p-4 rounded shadow-sm">
+    <div class="row g-3 mb-3">
+        <div class="col-md-6">
+            <label class="form-label">Proveedor *</label>
+            <select name="supplier_id" class="form-select" required>
+                <option value="">-- Selecciona un proveedor --</option>
+                {% for s in suppliers %}
+                <option value="{{ s.supplier_id }}" {% if order and order.supplier_id == s.supplier_id %}selected{% endif %}>
+                    {{ s.name }}{% if s.ruc %} ({{ s.ruc }}){% endif %}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">N° de pedido</label>
+            <input type="text" name="order_number" class="form-control"
+                   value="{{ order.order_number if order and order.order_number else '' }}"
+                   placeholder="Se genera automático">
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">Fecha *</label>
+            <input type="date" name="order_date" class="form-control" required
+                   value="{{ order.order_date.strftime('%Y-%m-%d') if order else today }}">
+        </div>
+
+        <div class="col-md-6">
+            <label class="form-label">Bodega destino *</label>
+            <select name="bodega_destino" class="form-select">
+                <option value="local" {% if not order or order.bodega_destino == 'local' %}selected{% endif %}>Bodega Local (donde se vende)</option>
+                <option value="matriz" {% if order and order.bodega_destino == 'matriz' %}selected{% endif %}>Bodega Matriz (principal)</option>
+            </select>
+            <div class="form-text">El stock del pedido se sumará a esta bodega.</div>
+        </div>
+        {% if order %}
+        <div class="col-md-6">
+            <label class="form-label">Estado</label>
+            <select name="status" class="form-select">
+                <option value="borrador" {% if order.status == 'borrador' %}selected{% endif %}>Borrador</option>
+                <option value="enviado" {% if order.status == 'enviado' %}selected{% endif %}>Enviado</option>
+                <option value="recibido" {% if order.status == 'recibido' %}selected{% endif %}>Recibido</option>
+                <option value="anulado" {% if order.status == 'anulado' %}selected{% endif %}>Anulado</option>
+            </select>
+        </div>
+        {% endif %}
+    </div>
+
+    <hr>
+    <h5>Productos</h5>
+    <p class="text-muted small">Agrega los productos, cantidades y costo unitario. El total se calcula automáticamente.</p>
+
+    <table class="table" id="order-table">
+        <thead>
+            <tr>
+                <th style="width: 48%;">Producto</th>
+                <th style="width: 16%;">Cantidad</th>
+                <th style="width: 20%;">Costo unitario</th>
+                <th style="width: 16%;" class="text-end">Subtotal</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody id="order-body">
+            {% if order and order.details %}
+                {% for d in order.details %}
+                <tr>
+                    <td>
+                        <select name="product_id[]" class="form-select" data-searchable data-placeholder="Busca producto por nombre o código..." onchange="onProductChange(this)">
+                            <option value="">-- Selecciona --</option>
+                            {% for p in products %}
+                            <option value="{{ p.product_id }}" data-cost="{{ p.cost_price }}" data-codigo="{{ p.sku or p.barcode or '' }}" {% if d.product_id == p.product_id %}selected{% endif %}>
+                                {{ p.name }}{% if p.sku %} ({{ p.sku }}){% endif %}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </td>
+                    <td><input type="number" name="quantity[]" min="1" class="form-control" value="{{ d.quantity }}" oninput="recalcular()" required></td>
+                    <td><input type="number" step="0.01" min="0" name="unit_cost[]" class="form-control cost-input" value="{{ '%.2f'|format(d.unit_cost) }}" oninput="recalcular()" required></td>
+                    <td class="text-end subtotal-cell fw-bold">$0.00</td>
+                    <td><button type="button" class="btn btn-sm btn-outline-danger" onclick="removeRow(this)">✕</button></td>
+                </tr>
+                {% endfor %}
+            {% else %}
+            <tr>
+                <td>
+                    <select name="product_id[]" class="form-select" data-searchable data-placeholder="Busca producto por nombre o código..." onchange="onProductChange(this)">
+                        <option value="">-- Selecciona --</option>
+                        {% for p in products %}
+                        <option value="{{ p.product_id }}" data-cost="{{ p.cost_price }}" data-codigo="{{ p.sku or p.barcode or '' }}">
+                            {{ p.name }}{% if p.sku %} ({{ p.sku }}){% endif %}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </td>
+                <td><input type="number" name="quantity[]" min="1" class="form-control" oninput="recalcular()" required></td>
+                <td><input type="number" step="0.01" min="0" name="unit_cost[]" class="form-control cost-input" oninput="recalcular()" required></td>
+                <td class="text-end subtotal-cell fw-bold">$0.00</td>
+                <td><button type="button" class="btn btn-sm btn-outline-danger" onclick="removeRow(this)">✕</button></td>
+            </tr>
+            {% endif %}
+        </tbody>
+        <tfoot>
+            <tr>
+                <td colspan="3" class="text-end fw-bold">TOTAL</td>
+                <td class="text-end fw-bold" id="total-cell">$0.00</td>
+                <td></td>
+            </tr>
+        </tfoot>
+    </table>
+
+    <button type="button" class="btn btn-outline-secondary btn-sm mb-3" onclick="addRow()">+ Agregar producto</button>
+
+    <div class="mb-3">
+        <label class="form-label">Observaciones</label>
+        <textarea name="notes" class="form-control" rows="2" placeholder="Notas para el proveedor...">{{ order.notes if order and order.notes else '' }}</textarea>
+    </div>
+
+    <div class="d-flex gap-2">
+        <button type="submit" class="btn btn-primary">{{ "Guardar Cambios" if order else "Crear Pedido" }}</button>
+        <a href="{{ url_for('supplier_orders.order_detail', order_id=order.order_id) if order else url_for('supplier_orders.orders_list') }}" class="btn btn-secondary">Cancelar</a>
+    </div>
+</form>
+
+<script>
+function precioSugerido(select) {
+    const opt = select.options[select.selectedIndex];
+    const cost = opt ? opt.getAttribute('data-cost') : null;
+    return cost;
+}
+function onProductChange(select) {
+    const row = select.closest('tr');
+    const costInput = row.querySelector('.cost-input');
+    const cost = precioSugerido(select);
+    if (cost !== null && select.value !== '' && !costInput.value) {
+        costInput.value = parseFloat(cost).toFixed(2);
+    }
+    recalcular();
+}
+function addRow() {
+    const tbody = document.getElementById('order-body');
+    const newRow = tbody.rows[0].cloneNode(true);
+    newRow.querySelectorAll('input').forEach(el => el.value = '');
+    newRow.querySelectorAll('.searchable-select').forEach(w => w.remove());
+    const sel = newRow.querySelector('select[name="product_id[]"]');
+    delete sel.dataset.transformed;
+    sel.selectedIndex = 0;
+    newRow.querySelector('.subtotal-cell').textContent = '$0.00';
+    tbody.appendChild(newRow);
+    buildSearchable(sel);
+    recalcular();
+}
+function removeRow(btn) {
+    const tbody = document.getElementById('order-body');
+    if (tbody.rows.length > 1) {
+        btn.closest('tr').remove();
+    } else {
+        alert('Debe haber al menos un producto en el pedido.');
+    }
+    recalcular();
+}
+function buildSearchable(select) {
+    if (select.dataset.transformed === '1') return;
+    select.dataset.transformed = '1';
+
+    const store = Array.from(select.options).map(opt => ({
+        value: opt.value,
+        text: opt.textContent.trim(),
+        codigo: opt.getAttribute('data-codigo') || '',
+    }));
+
+    select.style.display = 'none';
+    const wrap = document.createElement('div');
+    wrap.className = 'searchable-select';
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'form-control';
+    input.placeholder = select.dataset.placeholder || 'Escribe para buscar...';
+    input.autocomplete = 'off';
+    const caret = document.createElement('i');
+    caret.className = 'bi bi-chevron-down ss-caret';
+    const list = document.createElement('div');
+    list.className = 'searchable-list';
+    wrap.appendChild(input); wrap.appendChild(caret); wrap.appendChild(list);
+
+    const selected = select.options[select.selectedIndex];
+    if (selected && selected.value !== '') input.value = selected.textContent.trim();
+
+    function render(term) {
+        const t = term.trim().toLowerCase();
+        list.innerHTML = '';
+        let any = false;
+        store.forEach(item => {
+            if (item.value === '') return;
+            const label = item.text.toLowerCase();
+            const codigo = item.codigo.toLowerCase();
+            if (t && label.indexOf(t) === -1 && codigo.indexOf(t) === -1) return;
+            any = true;
+            const el = document.createElement('div');
+            el.className = 'searchable-item';
+            el.textContent = item.text;
+            if (item.codigo) {
+                const c = document.createElement('span');
+                c.className = 'ss-code';
+                c.textContent = 'Código: ' + item.codigo;
+                el.appendChild(c);
+            }
+            el.addEventListener('click', () => {
+                select.value = item.value;
+                input.value = item.text;
+                list.style.display = 'none';
+                select.dispatchEvent(new Event('change'));
+            });
+            list.appendChild(el);
+        });
+        if (!any) {
+            const no = document.createElement('div');
+            no.className = 'searchable-item ss-empty';
+            no.textContent = 'Sin resultados';
+            list.appendChild(no);
+        }
+        list.style.display = 'block';
+        const rect = input.getBoundingClientRect();
+        const h = list.offsetHeight;
+        let top = rect.bottom;
+        if (top + h > window.innerHeight - 8) top = Math.max(8, rect.top - h);
+        list.style.top = top + 'px';
+        list.style.left = rect.left + 'px';
+        list.style.width = rect.width + 'px';
+    }
+
+    input.addEventListener('input', () => render(input.value));
+    input.addEventListener('focus', () => render(input.value));
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') list.style.display = 'none';
+        if (e.key === 'Enter' && list.querySelector('.searchable-item:not(.ss-empty)')) {
+            list.querySelector('.searchable-item:not(.ss-empty)').click();
+        }
+    });
+    input.addEventListener('blur', () => setTimeout(() => list.style.display = 'none', 200));
+    select.parentNode.insertBefore(wrap, select);
+}
+function recalcular() {
+    let total = 0;
+    document.querySelectorAll('#order-body tr').forEach(row => {
+        const qty = parseFloat(row.querySelector('input[name="quantity[]"]').value) || 0;
+        const cost = parseFloat(row.querySelector('.cost-input').value) || 0;
+        const sub = qty * cost;
+        row.querySelector('.subtotal-cell').textContent = '$' + sub.toFixed(2);
+        total += sub;
+    });
+    document.getElementById('total-cell').textContent = '$' + total.toFixed(2);
+}
+document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('#order-body select[data-searchable]').forEach(buildSearchable);
+    recalcular();
+});
+</script>
+
+{% endblock %}

@@ -1,0 +1,414 @@
+{% extends "base.html" %}
+{% block title %}Caja — Venta Rápida{% endblock %}
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <h2 class="mb-1"><i class="bi bi-cash-coin me-2 text-success"></i>Caja — Venta Rápida</h2>
+        <p class="text-muted mb-0">Escanea el código de barras o escribe el producto (código / SKU / nombre).</p>
+    </div>
+    <div class="text-end d-flex align-items-center gap-2 justify-content-end">
+        {% if current_user.ve_todas_bodegas() %}
+        <select onchange="location.search='?bodega='+this.value" class="form-select form-select-sm" style="width:auto;">
+            <option value="local" {% if bodega == 'local' %}selected{% endif %}>Bodega Local</option>
+            <option value="matriz" {% if bodega == 'matriz' %}selected{% endif %}>Bodega Matriz</option>
+        </select>
+        {% else %}
+        <span class="badge bg-secondary">{{ current_user.bodega_label() }}</span>
+        {% endif %}
+        <span class="badge bg-dark fs-6">Ventas de hoy: ${{ "%.2f"|format(total_hoy) }}</span>
+    </div>
+</div>
+
+<div class="row g-4">
+    <!-- Columna izquierda: ingreso y carrito -->
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header bg-white py-3 position-relative">
+                <div class="d-flex align-items-center gap-2">
+                    {% if company_logo_url %}
+                    <img src="{{ company_logo_url }}" alt="Logo" style="height: 46px; width: auto; object-fit: contain;">
+                    {% endif %}
+                    <div class="input-group input-group-lg">
+                        <span class="input-group-text"><i class="bi bi-upc-scan"></i></span>
+                        <input type="text" id="busqueda-input" class="form-control form-control-lg"
+                               placeholder="Código de barras, SKU o nombre... (enter para agregar)"
+                               autocomplete="off" autofocus>
+                        <button class="btn btn-outline-secondary" type="button" onclick="limpiarCarrito()" title="Vaciar carrito">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </div>
+                </div>
+                <div id="sugerencias" class="list-group position-absolute w-100 d-none" style="z-index: 1050;"></div>
+            </div>
+            <div class="card-body p-0">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Producto</th>
+                            <th class="text-center" style="width: 90px;">Precio</th>
+                            <th class="text-center" style="width: 90px;">Cant.</th>
+                            <th class="text-center" style="width: 110px;">Subtotal</th>
+                            <th style="width: 40px;"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="cart-body">
+                        <tr><td colspan="5" class="text-center text-muted py-4">Carrito vacío. Escanea o escribe un producto.</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Columna derecha: cobro -->
+    <div class="col-lg-4">
+        <form method="POST" action="{{ url_for('caja.caja_registrar') }}" id="form-caja">
+            <input type="hidden" name="bodega" value="{{ bodega }}">
+            <div id="cart-fields"></div>
+            <div class="card">
+                <div class="card-header bg-white"><h6 class="mb-0"><i class="bi bi-credit-card me-2 text-primary"></i>Cobro</h6></div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label">Cliente</label>
+                        <select name="customer_id" id="cliente-select" class="form-select">
+                            <option value="consumidor_final" selected>Consumidor Final</option>
+                            <option value="">Venta de mostrador</option>
+                            {% for c in clientes %}
+                            {% if c.full_name != 'Venta de Mostrador' and c.full_name != 'Consumidor Final' %}
+                            <option value="{{ c.customer_id }}">{{ c.full_name }}</option>
+                            {% endif %}
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="row g-2">
+                        <div class="col-6">
+                            <label class="form-label">Documento</label>
+                            <select name="document_type" class="form-select">
+                                <option value="nota_pedido">Nota de Pedido</option>
+                                <option value="nota_venta_autorizada" selected>Nota de Venta Autorizada</option>
+                                <option value="factura">Factura</option>
+                            </select>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label">Tipo de pago</label>
+                            <select name="payment_type" id="payment-type" class="form-select" onchange="actualizarPago()">
+                                <option value="efectivo">Efectivo</option>
+                                <option value="credito">Crédito</option>
+                            </select>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label">Forma de pago</label>
+                            <select name="payment_method" class="form-select">
+                                <option value="efectivo">Efectivo</option>
+                                <option value="cheque">Cheque</option>
+                                <option value="transferencia">Transferencia</option>
+                                <option value="tarjeta">Tarjeta</option>
+                                <option value="otro">Otro</option>
+                            </select>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label">N° recibo</label>
+                            <input type="text" name="receipt_number" class="form-control" placeholder="Opcional">
+                        </div>
+                    </div>
+
+                    <div class="form-check mt-3">
+                        <input class="form-check-input" type="checkbox" name="marcar_pagada" id="marcar-pagada" checked onchange="actualizarPago()">
+                        <label class="form-check-label" for="marcar-pagada">Cobrar de inmediato</label>
+                        <div class="form-text">Desmárcalo si el pago queda fiado (se cobra después).</div>
+                    </div>
+
+                    <div id="recibido-field" class="mt-3">
+                        <label class="form-label">Recibido</label>
+                        <div class="input-group">
+                            <span class="input-group-text">$</span>
+                            <input type="number" step="0.01" min="0" id="recibido-input" class="form-control form-control-lg" value="" oninput="actualizarPago()">
+                        </div>
+                        <div class="d-flex justify-content-between mt-2">
+                            <span class="text-muted">Total:</span>
+                            <span class="fw-bold fs-5" id="total-label">$0.00</span>
+                        </div>
+                        <div class="d-flex justify-content-between">
+                            <span class="text-muted">Vuelto:</span>
+                            <span class="fw-bold fs-5 text-success" id="vuelto-label">$0.00</span>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-success btn-lg w-100 mt-3" id="btn-registrar"><i class="bi bi-check-lg me-1"></i>Registrar venta</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Ventas de hoy -->
+<div class="card mt-4">
+    <div class="card-header bg-white"><h6 class="mb-0"><i class="bi bi-clock-history me-2 text-primary"></i>Ventas registradas hoy</h6></div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>#</th>
+                        <th>Hora</th>
+                        <th>Cliente</th>
+                        <th>Documento</th>
+                        <th class="text-end">Total</th>
+                        <th>Estado</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for s in ventas_hoy %}
+                    <tr>
+                        <td>#{{ s.sale_id }}</td>
+                        <td>{{ s.sale_date.strftime("%H:%M") }}</td>
+                        <td>{{ s.customer.full_name }}</td>
+                        <td>{{ s.document_type_label() }}</td>
+                        <td class="text-end fw-bold">${{ "%.2f"|format(s.total_amount) }}</td>
+                        <td>
+                            {% if s.status == 'pagado' %}<span class="badge bg-success">Cancelada</span>
+                            {% elif s.status == 'vencido' %}<span class="badge bg-danger">Vencida</span>
+                            {% else %}<span class="badge bg-warning text-dark">Pendiente</span>{% endif %}
+                        </td>
+                        <td>
+                            <div class="d-flex gap-1 justify-content-end">
+                                <a href="{{ url_for('caja.caja_recibo', sale_id=s.sale_id) }}" target="_blank" class="btn btn-sm btn-outline-dark" title="Imprimir recibo"><i class="bi bi-printer"></i></a>
+                                <a href="{{ url_for('sales.sale_detail', sale_id=s.sale_id) }}" class="btn btn-sm btn-outline-primary">Ver</a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="7" class="text-center text-muted py-3">Aún no hay ventas registradas hoy.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Diálogo: ¿imprimir recibo? -->
+<div class="modal fade" id="modal-imprimir" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-white">
+                <h5 class="modal-title"><i class="bi bi-receipt me-2 text-success"></i>Venta registrada</h5>
+            </div>
+            <div class="modal-body">
+                La venta <strong>#<span id="imprimir-venta"></span></strong> se registró correctamente.
+                <br>¿Deseas imprimir el recibo?
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" id="btn-no-imprimir">No imprimir</button>
+                <button type="button" class="btn btn-dark" id="btn-imprimir"><i class="bi bi-printer me-1"></i>Imprimir recibo</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+const PRODUCTOS = {{ productos|tojson }};
+let CART = [];
+
+function formatear(n) {
+    return '$' + n.toFixed(2);
+}
+
+function buscarProducto(texto) {
+    texto = String(texto).trim();
+    if (!texto) return null;
+    const t = texto.toLowerCase();
+    let p = PRODUCTOS.find(x => x.barcode && x.barcode === texto);
+    if (!p) p = PRODUCTOS.find(x => x.sku && x.sku.toLowerCase() === t);
+    if (!p && /^\d+$/.test(texto)) p = PRODUCTOS.find(x => x.product_id === Number(texto));
+    return p || null;
+}
+
+function buscarPorNombre(texto) {
+    const t = String(texto).trim().toLowerCase();
+    if (!t) return [];
+    return PRODUCTOS.filter(x => x.name.toLowerCase().includes(t) ||
+                                (x.sku && x.sku.toLowerCase().includes(t)) ||
+                                (x.barcode && x.barcode.includes(t)));
+}
+
+function agregarAlCarrito(producto, qty) {
+    qty = parseInt(qty) || 1;
+    if (qty <= 0) return;
+    if (producto.current_stock <= 0) {
+        alert(`'${producto.name}' no tiene stock disponible.`);
+        return;
+    }
+    const existente = CART.find(c => c.product_id === producto.product_id);
+    if (existente) {
+        existente.qty = Math.min(existente.qty + qty, producto.current_stock);
+    } else {
+        const item = {...producto, qty: Math.min(qty, producto.current_stock)};
+        item.price = item.price != null ? item.price : item.sale_price;
+        CART.push(item);
+    }
+    renderCarrito();
+}
+
+function renderCarrito() {
+    const tbody = document.getElementById('cart-body');
+    const fields = document.getElementById('cart-fields');
+    const input = document.getElementById('busqueda-input');
+
+    if (CART.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-4">Carrito vacío. Escanea o escribe un producto.</td></tr>';
+        fields.innerHTML = '';
+    } else {
+        tbody.innerHTML = CART.map((c, i) => `
+            <tr>
+                <td>
+                    <div class="d-flex align-items-center gap-2">
+                        ${c.image_url ? `<img src="${c.image_url}" alt="" style="width: 34px; height: 34px; object-fit: cover;" class="rounded border flex-shrink-0">` : ''}
+                        <div>
+                            <div class="fw-bold">${c.name}</div>
+                            <small class="text-muted">${c.presentacion}${c.barcode ? ' · ' + c.barcode : ''}${c.sku ? ' · ' + c.sku : ''}</small>
+                        </div>
+                    </div>
+                </td>
+                <td class="text-center"><input type="number" step="0.01" min="0" value="${c.price.toFixed(2)}" class="form-control form-control-sm text-end price-input" onchange="cambiarPrecio(${i}, this)"></td>
+                <td class="text-center"><input type="number" min="1" value="${c.qty}" max="${c.current_stock}" class="form-control form-control-sm text-center qty-input" onchange="cambiarCantidad(${i}, this)"></td>
+                <td class="text-center fw-bold">${formatear(c.price * c.qty)}</td>
+                <td class="text-center"><button type="button" class="btn btn-sm btn-outline-danger" onclick="eliminarItem(${i})">✕</button></td>
+            </tr>`).join('');
+
+        fields.innerHTML = CART.map(c =>
+            `<input type="hidden" name="product_id[]" value="${c.product_id}">
+             <input type="hidden" name="quantity[]" value="${c.qty}">
+             <input type="hidden" name="unit_price[]" value="${c.price.toFixed(2)}">`).join('');
+    }
+
+    const total = CART.reduce((s, c) => s + c.price * c.qty, 0);
+    document.getElementById('total-label').textContent = formatear(total);
+    actualizarPago();
+    input.focus();
+}
+
+function cambiarPrecio(idx, el) {
+    CART[idx].price = Math.max(0, parseFloat(el.value) || 0);
+    renderCarrito();
+}
+function cambiarCantidad(idx, el) {
+    CART[idx].qty = Math.min(Math.max(1, parseInt(el.value) || 1), CART[idx].current_stock);
+    renderCarrito();
+}
+function eliminarItem(idx) {
+    CART.splice(idx, 1);
+    renderCarrito();
+}
+function limpiarCarrito() {
+    if (CART.length && !confirm('¿Vaciar el carrito?')) return;
+    CART = [];
+    renderCarrito();
+}
+
+function actualizarPago() {
+    const total = CART.reduce((s, c) => s + c.price * c.qty, 0);
+    const esEfectivo = document.getElementById('payment-type').value === 'efectivo';
+    const cobraAhora = document.getElementById('marcar-pagada').checked;
+    const recibidoField = document.getElementById('recibido-field');
+    const recibido = parseFloat(document.getElementById('recibido-input').value) || 0;
+
+    recibidoField.style.display = (esEfectivo && cobraAhora) ? '' : 'none';
+    if (esEfectivo && cobraAhora) {
+        const vuelto = recibido - total;
+        document.getElementById('vuelto-label').textContent = formatear(vuelto > 0 ? vuelto : 0);
+        if (recibido > 0 && recibido < total) {
+            document.getElementById('vuelto-label').classList.add('text-danger');
+            document.getElementById('vuelto-label').classList.remove('text-success');
+        } else {
+            document.getElementById('vuelto-label').classList.remove('text-danger');
+            document.getElementById('vuelto-label').classList.add('text-success');
+        }
+    }
+}
+
+// Ingreso por teclado / lector de barras
+const input = document.getElementById('busqueda-input');
+const sugerencias = document.getElementById('sugerencias');
+
+function limpiarSugerencias() {
+    sugerencias.classList.add('d-none');
+    sugerencias.innerHTML = '';
+}
+
+function mostrarSugerencias(lista) {
+    if (!lista.length) { limpiarSugerencias(); return; }
+    sugerencias.innerHTML = lista.map(p =>
+        `<button type="button" class="list-group-item list-group-item-action" onclick="agregarDesdeSugerencia(${p.product_id})">
+            <div class="d-flex align-items-center gap-2">
+                ${p.image_url ? `<img src="${p.image_url}" alt="" style="width: 30px; height: 30px; object-fit: cover;" class="rounded border flex-shrink-0">` : ''}
+                <span>
+                    <strong>${p.name}</strong> <span class="badge bg-secondary">${p.presentacion}</span>
+                    <span class="text-muted">· ${formatear(p.sale_price)} · Stock ${p.current_stock}</span>
+                </span>
+            </div>
+        </button>`).join('');
+    sugerencias.classList.remove('d-none');
+}
+
+function agregarDesdeSugerencia(product_id) {
+    const p = PRODUCTOS.find(x => x.product_id === product_id);
+    if (p) { agregarAlCarrito(p, 1); }
+    input.value = '';
+    limpiarSugerencias();
+}
+
+input.addEventListener('input', () => {
+    const texto = input.value;
+    if (texto.length < 2) { limpiarSugerencias(); return; }
+    if (buscarProducto(texto)) { limpiarSugerencias(); return; }
+    mostrarSugerencias(buscarPorNombre(texto));
+});
+
+input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        const texto = input.value;
+        const exacto = buscarProducto(texto);
+        if (exacto) {
+            agregarAlCarrito(exacto, 1);
+            input.value = '';
+            limpiarSugerencias();
+            return;
+        }
+        const coincidencias = buscarPorNombre(texto);
+        if (coincidencias.length === 1) {
+            agregarAlCarrito(coincidencias[0], 1);
+            input.value = '';
+            limpiarSugerencias();
+        } else if (coincidencias.length > 1) {
+            mostrarSugerencias(coincidencias);
+        } else if (texto) {
+            alert('Producto no encontrado: ' + texto);
+        }
+    }
+});
+
+document.addEventListener('click', (e) => {
+    if (!sugerencias.contains(e.target) && e.target !== input) limpiarSugerencias();
+});
+
+// Preguntar si se imprime el recibo tras registrar una venta
+const ULTIMA_VENTA = {{ ultima_venta_id or 'null' }};
+if (ULTIMA_VENTA) {
+    const modal = new bootstrap.Modal(document.getElementById('modal-imprimir'));
+    document.getElementById('imprimir-venta').textContent = ULTIMA_VENTA;
+    document.getElementById('btn-imprimir').addEventListener('click', () => {
+        const url = "{{ url_for('caja.caja_recibo', sale_id=999999) }}".replace('999999', ULTIMA_VENTA);
+        window.open(url, '_blank');
+        modal.hide();
+    });
+    document.getElementById('btn-no-imprimir').addEventListener('click', () => modal.hide());
+    modal.show();
+    history.replaceState(null, '', window.location.pathname);
+}
+
+renderCarrito();
+</script>
+
+{% endblock %}

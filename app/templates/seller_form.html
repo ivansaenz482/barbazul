@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}{{ "Editar" if seller else "Nuevo" }} Vendedor{% endblock %}
+{% block content %}
+
+<h2 class="mb-3"><i class="bi bi-person-badge me-2 text-primary"></i>{{ "Editar" if seller else "Nuevo" }} Vendedor</h2>
+
+<form method="POST" class="bg-white p-4 rounded shadow-sm" style="max-width: 600px;">
+    <div class="row g-3">
+        <div class="col-md-8">
+            <label class="form-label">Nombre del vendedor *</label>
+            <input type="text" name="name" class="form-control" value="{{ seller.name if seller else '' }}" required autofocus>
+        </div>
+        <div class="col-md-4">
+            <label class="form-label">Teléfono</label>
+            <input type="text" name="phone" class="form-control" value="{{ seller.phone if seller else '' }}">
+        </div>
+        <div class="col-md-4">
+            <label class="form-label">% Comisión sobre ventas</label>
+            <input type="number" step="0.01" min="0" max="100" name="commission_percent" class="form-control" value="{{ seller.commission_percent if seller else 0 }}">
+            <div class="form-text">Se usa para calcular la comisión del vendedor.</div>
+        </div>
+        {% if seller %}
+        <div class="col-12">
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" name="active" id="active" {% if seller.active %}checked{% endif %}>
+                <label class="form-check-label" for="active">Activo</label>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="mt-4 d-flex gap-2">
+        <button type="submit" class="btn btn-primary">Guardar</button>
+        <a href="{{ url_for('sellers.sellers_list') }}" class="btn btn-secondary">Cancelar</a>
+    </div>
+</form>
+
+{% endblock %}

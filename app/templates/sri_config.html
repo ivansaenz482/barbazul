@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{% block title %}Configuración SRI{% endblock %}
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <h2 class="mb-1"><i class="bi bi-buildings me-2 text-primary"></i>Configuración del SRI</h2>
+        <p class="text-muted mb-0">Datos del emisor y certificado para facturación electrónica.</p>
+    </div>
+    <a href="{{ url_for('sri.facturas_sri') }}" class="btn btn-outline-secondary">← Facturas SRI</a>
+</div>
+
+{% if not cfg or not cfg.cert_path %}
+<div class="alert alert-warning">
+    <i class="bi bi-exclamation-triangle me-1"></i>
+    Aún no hay <strong>certificado digital</strong> cargado. Puedes llenar los datos y generar el XML,
+    pero la <strong>firma y el envío al SRI</strong> se activan cuando subas tu archivo <code>.p12</code>/<code>.pfx</code>.
+</div>
+{% endif %}
+
+<form method="POST" enctype="multipart/form-data" class="bg-white p-4 rounded shadow-sm">
+    <h5>Datos del emisor</h5>
+    <div class="row g-3 mb-3">
+        <div class="col-md-4">
+            <label class="form-label">RUC *</label>
+            <input type="text" name="ruc" class="form-control" maxlength="13" value="{{ cfg.ruc if cfg else '' }}" required>
+        </div>
+        <div class="col-md-8">
+            <label class="form-label">Razón social *</label>
+            <input type="text" name="razon_social" class="form-control" value="{{ cfg.razon_social if cfg else '' }}">
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">Nombre comercial</label>
+            <input type="text" name="nombre_comercial" class="form-control" value="{{ cfg.nombre_comercial if cfg else '' }}">
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">Dirección matriz</label>
+            <input type="text" name="direccion_matriz" class="form-control" value="{{ cfg.direccion_matriz if cfg else '' }}">
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">Establecimiento</label>
+            <input type="text" name="establecimiento" class="form-control" maxlength="3" value="{{ cfg.establecimiento if cfg else '001' }}">
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">Punto de emisión</label>
+            <input type="text" name="punto_emision" class="form-control" maxlength="3" value="{{ cfg.punto_emision if cfg else '001' }}">
+        </div>
+        <div class="col-md-4">
+            <label class="form-label">Teléfono</label>
+            <input type="text" name="telefono" class="form-control" value="{{ cfg.telefono if cfg else '' }}">
+        </div>
+        <div class="col-md-4">
+            <label class="form-label">Email</label>
+            <input type="email" name="email" class="form-control" value="{{ cfg.email if cfg else '' }}">
+        </div>
+        <div class="col-md-4">
+            <label class="form-label">Régimen</label>
+            {% set reg = cfg.regimen if cfg else '' %}
+            <select name="regimen" class="form-select">
+                <option value="">-- Selecciona --</option>
+                <option value="GENERAL" {% if reg == 'GENERAL' %}selected{% endif %}>General</option>
+                <option value="RIMPE_POPULAR" {% if reg == 'RIMPE_POPULAR' %}selected{% endif %}>RIMPE Negocio Popular</option>
+                <option value="RIMPE_EMPRENDEDOR" {% if reg == 'RIMPE_EMPRENDEDOR' %}selected{% endif %}>RIMPE Emprendedor</option>
+            </select>
+        </div>
+        <div class="col-md-4">
+            <label class="form-label">% IVA</label>
+            <input type="number" min="0" max="30" name="iva_porcentaje" class="form-control" value="{{ cfg.iva_porcentaje if cfg else 15 }}">
+        </div>
+        <div class="col-md-4">
+            <label class="form-label">Ambiente</label>
+            {% set amb = cfg.ambiente if cfg else '1' %}
+            <select name="ambiente" class="form-select">
+                <option value="1" {% if amb == '1' %}selected{% endif %}>1 — Pruebas</option>
+                <option value="2" {% if amb == '2' %}selected{% endif %}>2 — Producción</option>
+            </select>
+        </div>
+        <div class="col-md-4 d-flex align-items-end">
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" name="obligado_contabilidad" id="obligado" {% if cfg and cfg.obligado_contabilidad %}checked{% endif %}>
+                <label class="form-check-label" for="obligado">Obligado a llevar contabilidad</label>
+            </div>
+        </div>
+    </div>
+
+    <h5 class="mt-4">Certificado digital</h5>
+    <div class="row g-3">
+        <div class="col-md-6">
+            <label class="form-label">Archivo .p12 / .pfx</label>
+            <input type="file" name="certificado" class="form-control" accept=".p12,.pfx">
+            {% if cfg and cfg.cert_path %}<div class="form-text text-success"><i class="bi bi-check-circle"></i> Certificado cargado.</div>{% endif %}
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">Contraseña del certificado</label>
+            <input type="password" name="cert_password" class="form-control" placeholder="{{ '•••••• (dejar vacío para no cambiar)' if cfg and cfg.cert_password else '' }}">
+        </div>
+    </div>
+
+    <div class="mt-4 d-flex gap-2">
+        <button type="submit" class="btn btn-primary">Guardar configuración</button>
+        <a href="{{ url_for('sri.facturas_sri') }}" class="btn btn-secondary">Cancelar</a>
+    </div>
+</form>
+
+{% endblock %}

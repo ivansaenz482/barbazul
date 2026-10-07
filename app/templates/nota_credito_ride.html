@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block title %}Nota de Crédito #{{ nc.nc_id }}{% endblock %}
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-3 no-print">
+    <h2 class="mb-0">Nota de Crédito #{{ nc.nc_id }}</h2>
+    <div class="d-flex gap-2">
+        <a href="{{ url_for('sri.nota_credito_xml', nc_id=nc.nc_id) }}" class="btn btn-outline-dark btn-sm">XML</a>
+        <button onclick="window.print()" class="btn btn-dark btn-sm">🖨️ Imprimir / Guardar PDF</button>
+        <a href="{{ url_for('sri.notas_credito_list') }}" class="btn btn-secondary btn-sm">← Volver</a>
+    </div>
+</div>
+
+<div class="card"><div class="card-body">
+    <div class="text-center mb-3" style="border-bottom:2px solid #1a3c63; padding-bottom:8px;">
+        <h5 class="mb-0" style="color:#1a3c63;">{{ cfg.razon_social if cfg else "—" }}</h5>
+        <p class="mb-0 small">RUC: {{ cfg.ruc if cfg else "—" }} — {{ cfg.direccion_matriz if cfg else "" }}</p>
+        <h6 class="mt-2 mb-0">NOTA DE CRÉDITO</h6>
+    </div>
+
+    <div class="row g-3 mb-3">
+        <div class="col-md-6">
+            <table class="table table-sm table-bordered mb-0">
+                <tr><th style="width:140px;">Cliente</th><td>{{ nc.customer.full_name if nc.customer else "—" }}</td></tr>
+                <tr><th>Identificación</th><td>{{ nc.customer.cedula if nc.customer else "—" }}</td></tr>
+                <tr><th>Bodega</th><td>{{ "Matriz" if nc.bodega == "matriz" else "Local" }}</td></tr>
+            </table>
+        </div>
+        <div class="col-md-6">
+            <table class="table table-sm table-bordered mb-0">
+                <tr><th>Fecha</th><td>{{ nc.fecha.strftime("%d/%m/%Y") }}</td></tr>
+                <tr><th>Documento sustento</th><td>Factura #{{ nc.sale_id }}</td></tr>
+                <tr><th>Motivo</th><td>{{ nc.motivo_label() }}</td></tr>
+            </table>
+        </div>
+    </div>
+
+    {% if nc.sri_clave_acceso %}
+    <p class="small text-muted mb-2">Clave de acceso: <code>{{ nc.sri_clave_acceso }}</code></p>
+    {% endif %}
+
+    <table class="table table-bordered">
+        <thead class="table-light"><tr><th>Código</th><th>Descripción</th><th class="text-center">Cant.</th><th class="text-end">P. Unit.</th><th class="text-end">Subtotal</th></tr></thead>
+        <tbody>
+            {% for d in nc.details %}
+            <tr>
+                <td>{{ d.product.sku if d.product else "—" }}</td>
+                <td>{{ d.product.name if d.product else "—" }}</td>
+                <td class="text-center">{{ d.quantity }}</td>
+                <td class="text-end">${{ "%.2f"|format(d.unit_price) }}</td>
+                <td class="text-end">${{ "%.2f"|format(d.subtotal) }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+        <tfoot>
+            <tr><td colspan="4" class="text-end">Subtotal (sin IVA)</td><td class="text-end">${{ "%.2f"|format(nc.subtotal) }}</td></tr>
+            <tr><td colspan="4" class="text-end">IVA</td><td class="text-end">${{ "%.2f"|format(nc.valor_iva) }}</td></tr>
+            <tr class="fw-bold"><td colspan="4" class="text-end">TOTAL</td><td class="text-end">${{ "%.2f"|format(nc.total) }}</td></tr>
+        </tfoot>
+    </table>
+
+    {% if nc.observaciones %}<p class="small text-muted"><strong>Observaciones:</strong> {{ nc.observaciones }}</p>{% endif %}
+</div></div>
+
+<style>
+@media print {
+    @page { size: A4 portrait; margin: 10mm 12mm; }
+    .no-print, nav, .navbar, footer, .sidebar, .topbar, .btn { display: none !important; }
+    body { background: white !important; }
+    .card { border:1px solid #ccc !important; box-shadow:none !important; }
+}
+</style>
+
+{% endblock %}
