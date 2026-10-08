@@ -25,3 +25,30 @@ self.addEventListener("fetch", (event) => {
       .catch(() => caches.match(event.request))
   );
 });
+
+/* --- Notificaciones push --- */
+self.addEventListener("push", (event) => {
+  let data = { title: "Sistema de Facturación", body: "Nuevo aviso", url: "/dashboard" };
+  try { data = event.data.json(); } catch (e) {}
+  event.waitUntil(
+    self.registration.showNotification(data.title || "Aviso", {
+      body: data.body || "",
+      icon: "/static/img/icon-192.png",
+      badge: "/static/img/icon-192.png",
+      data: { url: data.url || "/dashboard" },
+    })
+  );
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const url = (event.notification.data && event.notification.data.url) || "/dashboard";
+  event.waitUntil(
+    clients.matchAll({ type: "window" }).then((list) => {
+      for (const c of list) {
+        if ("focus" in c) { c.focus(); return; }
+      }
+      if (clients.openWindow) return clients.openWindow(url);
+    })
+  );
+});

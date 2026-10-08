@@ -38,6 +38,13 @@ class Config:
     # Zona horaria del negocio (horas respecto a UTC). Ecuador = -5 (sin horario de verano).
     TIMEZONE_OFFSET = int(os.getenv("TIMEZONE_OFFSET", "-5"))
 
+    # Notificaciones push (Web Push / VAPID). Se pueden sobreescribir por .env.
+    VAPID_PUBLIC_KEY = os.getenv("VAPID_PUBLIC_KEY",
+                                 "BJdJrzsAp3V4gsj-gkgaGVtJdUqYrfE88IMDOvU8h1GM9UGkyzH9sI4oXv0BC8Fteu68Ed64kEWANA6B86RIZxY")
+    VAPID_PRIVATE_KEY = os.getenv("VAPID_PRIVATE_KEY",
+                                  "MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgZrKqZf8e_RwyghpZYtp6qplvo1EpGHPpxVFfFm-JSDahRANCAASXSa87AKd1eILI_oJIGhlbSXVKmK3xPPCDAzr1PIdRjPVBpMsx_bCOKF79AQvBbXruvBHeuJBFgDQOgfOkSGcW")
+    VAPID_SUBJECT = os.getenv("VAPID_SUBJECT", "mailto:admin@barbazul.local")
+
     # Carpeta donde se guardan las facturas (PDF/imagen) subidas
     UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "uploads", "facturas")
     MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16 MB max por archivo

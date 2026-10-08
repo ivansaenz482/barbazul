@@ -8,6 +8,7 @@ from app.models.expenses import Employee, Expense, Attendance, LeaveRequest, Adv
 from app.models.sri import SriConfig, Retencion
 from app.models.notas_credito import NotaCredito, NotaCreditoDetail
 from app.models.audit import AuditLog
+from app.models.push import PushSubscription
 
 __all__ = [
     "Role", "User", "Supplier", "Category", "Product", "Customer", "Branch", "CompanySetting", "Seller", "CommissionPayment", "SalesGoal",
@@ -19,5 +20,5 @@ __all__ = [
     "Employee", "Expense", "Attendance", "LeaveRequest", "Advance",
     "SriConfig", "Retencion",
     "NotaCredito", "NotaCreditoDetail",
-    "AuditLog",
+    "AuditLog", "PushSubscription",
 ]

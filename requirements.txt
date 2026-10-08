@@ -22,6 +22,9 @@ lxml>=5.0.0
 signxml>=3.2.0
 requests>=2.31.0
 
+# Notificaciones push (Web Push / VAPID)
+pywebpush>=2.0.0
+
 # PyMuPDF es OPCIONAL: solo se necesita para leer PDFs escaneados (imagen sin texto).
 # Si tu instalacion falla por "Unable to find Visual Studio", omite esta linea sin problema;
 # las fotos de factura (imagen) y los PDF con texto seguiran funcionando normalmente.

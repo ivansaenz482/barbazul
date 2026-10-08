@@ -187,11 +187,20 @@ def build_reminders_body():
 
 def send_reminders_email():
     """Envia el correo de recordatorios (impuestos, stock, créditos, pagos)."""
-    if not _smtp_configurado():
-        return False, ("El envío de correo no está configurado. Completa las variables SMTP_* "
-                       "en tu archivo .env para activarlo.")
     cuerpo = build_reminders_body()
     if cuerpo is None:
         return True, "No hay recordatorios pendientes en este momento."
+
+    # Notificacion push a los dispositivos suscritos (no depende del correo)
+    try:
+        from app.push_utils import enviar_push_a_todos
+        enviar_push_a_todos("Recordatorios del Sistema",
+                            "Tienes avisos pendientes (impuestos, stock, créditos).",
+                            "/alertas/")
+    except Exception:
+        pass
+
+    if not _smtp_configurado():
+        return False, ("Notificaciones push enviadas. Para el correo, completa las variables SMTP_* en tu .env.")
     destino = current_app.config.get("ALERT_EMAIL_TO", "").strip()
     return _enviar(destino, "Recordatorios — Sistema de Facturación", cuerpo)

@@ -31,6 +31,7 @@ def create_app():
     from app.routes.employees import employees_bp
     from app.routes.expenses import expenses_bp
     from app.routes.hr import hr_bp
+    from app.routes.push import push_bp
     from app.routes.alerts import alerts_bp
     from app.routes.backups import backups_bp
     from app.routes.users import users_bp
@@ -52,6 +53,7 @@ def create_app():
     app.register_blueprint(employees_bp)
     app.register_blueprint(expenses_bp)
     app.register_blueprint(hr_bp)
+    app.register_blueprint(push_bp)
     app.register_blueprint(alerts_bp)
     app.register_blueprint(backups_bp)
     app.register_blueprint(users_bp)
