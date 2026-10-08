@@ -1226,6 +1226,89 @@ def meta_eliminar(goal_id):
 
 
 # =====================================================================
+# CUENTAS POR COBRAR / PAGAR (antiguedad de saldos)
+# =====================================================================
+
+BUCKETS = ["al_dia", "d1_30", "d31_60", "d61_90", "mas90"]
+BUCKET_LABELS = {
+    "al_dia": "Al día",
+    "d1_30": "1-30 días",
+    "d31_60": "31-60 días",
+    "d61_90": "61-90 días",
+    "mas90": "+90 días",
+}
+
+
+def _bucket_de(dias):
+    if dias <= 0:
+        return "al_dia"
+    if dias <= 30:
+        return "d1_30"
+    if dias <= 60:
+        return "d31_60"
+    if dias <= 90:
+        return "d61_90"
+    return "mas90"
+
+
+@reports_bp.route("/cuentas")
+@login_required
+@role_required("administrador")
+def cuentas():
+    hoy = date.today()
+
+    # --- Por cobrar (clientes) ---
+    cobrar = {}
+    for v in Sale.query.filter(Sale.liquidada == True, Sale.status != "pagado").all():  # noqa: E712
+        saldo = v.saldo_pendiente()
+        if saldo <= 0.009:
+            continue
+        ref = v.due_date or (v.sale_date.date() if v.sale_date else hoy)
+        dias = (hoy - ref).days
+        e = cobrar.setdefault(v.customer_id, {
+            "nombre": v.customer.full_name if v.customer else "—",
+            "total": 0.0, "vencido": 0.0, "buckets": {k: 0.0 for k in BUCKETS},
+        })
+        e["total"] += saldo
+        e["buckets"][_bucket_de(dias)] += saldo
+        if dias > 0:
+            e["vencido"] += saldo
+    cobrar_lista = sorted(cobrar.values(), key=lambda x: -x["total"])
+
+    # --- Por pagar (proveedores) ---
+    pagar = {}
+    for p in PurchaseInvoice.query.filter(PurchaseInvoice.status != "pagado").all():
+        saldo = p.saldo_pendiente()
+        if saldo <= 0.009:
+            continue
+        ref = p.due_date or p.invoice_date or hoy
+        dias = (hoy - ref).days
+        e = pagar.setdefault(p.supplier_id, {
+            "nombre": p.supplier.name if p.supplier else "—",
+            "total": 0.0, "vencido": 0.0, "buckets": {k: 0.0 for k in BUCKETS},
+        })
+        e["total"] += saldo
+        e["buckets"][_bucket_de(dias)] += saldo
+        if dias > 0:
+            e["vencido"] += saldo
+    pagar_lista = sorted(pagar.values(), key=lambda x: -x["total"])
+
+    def _totales(lista):
+        return {
+            "total": sum(x["total"] for x in lista),
+            "vencido": sum(x["vencido"] for x in lista),
+            "buckets": {k: sum(x["buckets"][k] for x in lista) for k in BUCKETS},
+        }
+
+    return render_template("reports_cuentas.html",
+                           cobrar=cobrar_lista, pagar=pagar_lista,
+                           totales_cobrar=_totales(cobrar_lista),
+                           totales_pagar=_totales(pagar_lista),
+                           buckets=BUCKETS, bucket_labels=BUCKET_LABELS,
+                           generated_at=datetime.now().strftime("%d/%m/%Y %H:%M"))
+
+
+# =====================================================================
 # PANEL DEL DUENO (indicadores avanzados)
 # =====================================================================
 def _mes_menos(n_meses, ref):
