@@ -1,8 +1,30 @@
-from flask import Blueprint, jsonify, render_template, redirect, url_for, current_app, send_from_directory
+from flask import Blueprint, jsonify, render_template, redirect, url_for, current_app, send_from_directory, request
 from flask_login import login_required, current_user
-from app.models import Product, Customer, Role
+from app.models import Product, Customer, Role, Category, CompanySetting, SriConfig
 
 main_bp = Blueprint("main", __name__)
+
+
+@main_bp.route("/catalogo")
+def catalogo():
+    """Catalogo publico de productos (sin iniciar sesion). Los clientes ven precios y consultan."""
+    q = request.args.get("q", "").strip()
+    cat = request.args.get("categoria", "").strip()
+
+    query = Product.query.filter_by(active=True)
+    if q:
+        like = f"%{q}%"
+        query = query.filter((Product.name.ilike(like)) | (Product.sku.ilike(like)) | (Product.barcode.ilike(like)))
+    if cat.isdigit():
+        query = query.filter(Product.category_id == int(cat))
+    productos = query.order_by(Product.name).all()
+
+    company = CompanySetting.actual()
+    sri = SriConfig.actual()
+    telefono = (sri.telefono if sri and sri.telefono else None)
+    return render_template("catalogo.html", productos=productos,
+                           categorias=Category.query.order_by(Category.name).all(),
+                           company=company, telefono=telefono, q=q, selected_cat=cat)
 
 
 @main_bp.route("/manifest.webmanifest")
