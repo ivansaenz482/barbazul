@@ -109,7 +109,7 @@ def guide_marcar_entregada(guide_id):
         return redirect(request.referrer or url_for("guides.guides_list"))
 
     guide.entregada = True
-    guide.entregada_at = datetime.utcnow()
+    guide.entregada_at = datetime.now()
     guide.entregada_by = current_user.user_id
     db.session.commit()
     flash(f"Guía #{guide.guide_id} marcada como entregada.", "success")

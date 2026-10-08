@@ -30,7 +30,7 @@ class User(db.Model, UserMixin):
     phone = db.Column(db.String(20))
     role_id = db.Column(db.Integer, db.ForeignKey("roles.role_id"), nullable=False)
     active = db.Column(db.Boolean, default=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=datetime.now)
     avatar_path = db.Column(db.String(300))
 
     # Bodega/sucursal asignada. "local" o "matriz". Si es NULL (ej. admin),
@@ -242,7 +242,7 @@ class Seller(db.Model):
     phone = db.Column(db.String(20))
     commission_percent = db.Column(db.Numeric(5, 2), default=0)  # % de comision sobre las ventas
     active = db.Column(db.Boolean, default=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=datetime.now)
 
 
 class CommissionPayment(db.Model):
@@ -256,7 +256,7 @@ class CommissionPayment(db.Model):
     periodo = db.Column(db.String(30))
     notas = db.Column(db.String(255))
     created_by = db.Column(db.Integer, db.ForeignKey("users.user_id"))
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=datetime.now)
 
     seller = db.relationship("Seller")
 
@@ -272,7 +272,7 @@ class SalesGoal(db.Model):
     seller_id = db.Column(db.Integer, db.ForeignKey("sellers.seller_id"))  # NULL = todos los vendedores
     bodega = db.Column(db.Enum("local", "matriz"))                        # NULL = ambas bodegas
     created_by = db.Column(db.Integer, db.ForeignKey("users.user_id"))
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=datetime.now)
 
     seller = db.relationship("Seller")
 

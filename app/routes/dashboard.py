@@ -31,7 +31,7 @@ def data_kpis():
 
     num_ventas = db.session.query(func.count(Sale.sale_id)).scalar()
 
-    hoy = datetime.utcnow().date()
+    hoy = datetime.now().date()
     treinta_dias = hoy - timedelta(days=30)
     ventas_recientes = (
         db.session.query(func.coalesce(func.sum(Sale.total_amount), 0))
@@ -54,7 +54,7 @@ def data_kpis():
 @role_required("administrador")
 def data_kpis_extra():
     """KPIs adicionales: comparativa dia a dia, ticket promedio, valor de inventario, mejor cliente"""
-    hoy = datetime.utcnow().date()
+    hoy = datetime.now().date()
     ayer = hoy - timedelta(days=1)
 
     ventas_hoy = float(
@@ -120,7 +120,7 @@ def data_tendencia():
     if dias not in (7, 30, 90):
         dias = 30
 
-    hoy = datetime.utcnow().date()
+    hoy = datetime.now().date()
     desde = hoy - timedelta(days=dias - 1)
 
     resultados = (
@@ -180,7 +180,7 @@ def data_top_productos():
 @role_required("administrador")
 def data_cuentas_por_cobrar():
     """Ventas a credito pendientes de cobro, marcando vencidas"""
-    hoy = datetime.utcnow().date()
+    hoy = datetime.now().date()
 
     ventas_credito = (
         Sale.query

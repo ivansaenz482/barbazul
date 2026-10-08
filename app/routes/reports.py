@@ -958,7 +958,7 @@ def recomendaciones():
         dias = 30
     if dias not in (7, 15, 30, 60, 90):
         dias = 30
-    desde = datetime.utcnow() - timedelta(days=dias)
+    desde = datetime.now() - timedelta(days=dias)
 
     ventas = Sale.query.filter(Sale.liquidada == True, Sale.sale_date >= desde).all()  # noqa: E712
 

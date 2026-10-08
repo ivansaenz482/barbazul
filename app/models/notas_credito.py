@@ -23,7 +23,7 @@ class NotaCredito(db.Model):
     sri_clave_acceso = db.Column(db.String(80))
     sri_status = db.Column(db.Enum("pendiente", "autorizada", "rechazada"), default="pendiente")
     created_by = db.Column(db.Integer, db.ForeignKey("users.user_id"))
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=datetime.now)
 
     sale = db.relationship("Sale")
     customer = db.relationship("Customer")

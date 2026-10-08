@@ -14,7 +14,7 @@ class Employee(db.Model):
     phone = db.Column(db.String(20))
     base_salary = db.Column(db.Numeric(12, 2), default=0)
     active = db.Column(db.Boolean, default=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=datetime.now)
 
     expenses = db.relationship("Expense", backref="employee")
 
@@ -42,7 +42,7 @@ class Expense(db.Model):
     employee_id = db.Column(db.Integer, db.ForeignKey("employees.employee_id"))
     payment_method = db.Column(db.Enum("efectivo", "transferencia", "cheque", "otro"), default="efectivo")
     created_by = db.Column(db.Integer, db.ForeignKey("users.user_id"), nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=datetime.now)
 
     creator = db.relationship("User", foreign_keys=[created_by])
 
@@ -77,7 +77,7 @@ class Attendance(db.Model):
     check_out = db.Column(db.Time)
     notes = db.Column(db.String(255))
     created_by = db.Column(db.Integer, db.ForeignKey("users.user_id"))
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=datetime.now)
 
     employee = db.relationship("Employee", backref="attendance")
 
@@ -104,7 +104,7 @@ class LeaveRequest(db.Model):
     reason = db.Column(db.String(255))
     status = db.Column(db.Enum("pendiente", "aprobado", "rechazado"), default="pendiente")
     created_by = db.Column(db.Integer, db.ForeignKey("users.user_id"))
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=datetime.now)
 
     employee = db.relationship("Employee", backref="leaves")
 
@@ -135,7 +135,7 @@ class Advance(db.Model):
     description = db.Column(db.String(255))
     status = db.Column(db.Enum("pendiente", "descontado"), default="pendiente")
     created_by = db.Column(db.Integer, db.ForeignKey("users.user_id"))
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=datetime.now)
 
     employee = db.relationship("Employee", backref="advances")
 

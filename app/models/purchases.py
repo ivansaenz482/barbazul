@@ -17,7 +17,7 @@ class PurchaseInvoice(db.Model):
     due_date = db.Column(db.Date)
     status = db.Column(db.Enum("pendiente", "pagado", "vencido"), default="pendiente")
     registered_by = db.Column(db.Integer, db.ForeignKey("users.user_id"), nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=datetime.now)
 
     supplier = db.relationship("Supplier", backref="purchase_invoices")
     registered_by_user = db.relationship("User", backref="purchase_invoices")
@@ -67,7 +67,7 @@ class SupplierPayment(db.Model):
 
     payment_id = db.Column(db.Integer, primary_key=True)
     invoice_id = db.Column(db.Integer, db.ForeignKey("purchase_invoices.invoice_id"), nullable=False)
-    payment_date = db.Column(db.DateTime, default=datetime.utcnow)
+    payment_date = db.Column(db.DateTime, default=datetime.now)
     amount = db.Column(db.Numeric(12, 2), nullable=False)
     payment_method = db.Column(db.Enum("efectivo", "cheque", "transferencia", "tarjeta", "otro"), default="efectivo")
     receipt_number = db.Column(db.String(50))
@@ -103,8 +103,8 @@ class SupplierOrder(db.Model):
     notes = db.Column(db.Text)
     total_amount = db.Column(db.Numeric(12, 2), default=0)
     created_by = db.Column(db.Integer, db.ForeignKey("users.user_id"), nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=datetime.now)
+    updated_at = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now)
 
     # Si el pedido ya fue convertido en una factura de compra
     purchase_invoice_id = db.Column(db.Integer, db.ForeignKey("purchase_invoices.invoice_id"))

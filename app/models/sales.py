@@ -11,7 +11,7 @@ class Sale(db.Model):
     vendedor_id = db.Column(db.Integer, db.ForeignKey("sellers.seller_id"))
     # Bodega/sucursal desde la que se hizo la venta (de donde se descuenta el stock)
     bodega = db.Column(db.Enum("local", "matriz"), default="local")
-    sale_date = db.Column(db.DateTime, default=datetime.utcnow)
+    sale_date = db.Column(db.DateTime, default=datetime.now)
     payment_type = db.Column(db.Enum("efectivo", "credito"), nullable=False)
     document_type = db.Column(
         db.Enum("factura", "nota_venta_autorizada", "nota_pedido", "proforma"),
@@ -83,7 +83,7 @@ class Payment(db.Model):
 
     payment_id = db.Column(db.Integer, primary_key=True)
     sale_id = db.Column(db.Integer, db.ForeignKey("sales.sale_id"), nullable=False)
-    payment_date = db.Column(db.DateTime, default=datetime.utcnow)
+    payment_date = db.Column(db.DateTime, default=datetime.now)
     amount = db.Column(db.Numeric(12, 2), nullable=False)
     payment_method = db.Column(db.Enum("efectivo", "cheque", "transferencia", "tarjeta", "otro"), default="efectivo")
     receipt_number = db.Column(db.String(50))
@@ -99,7 +99,7 @@ class InventoryMovement(db.Model):
     quantity = db.Column(db.Integer, nullable=False)
     reference_type = db.Column(db.Enum("compra", "venta", "ajuste_manual", "pedido_proveedor", "nota_credito"), nullable=False)
     reference_id = db.Column(db.Integer)
-    movement_date = db.Column(db.DateTime, default=datetime.utcnow)
+    movement_date = db.Column(db.DateTime, default=datetime.now)
     user_id = db.Column(db.Integer, db.ForeignKey("users.user_id"), nullable=False)
     notes = db.Column(db.String(255))
 

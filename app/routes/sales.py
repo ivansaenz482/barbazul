@@ -135,7 +135,7 @@ def _ejecutar_entrega(sale, descontar_stock=True, marcar_pagada=True, payment_me
 
     if sale.payment_type == "credito":
         days = int(sale.customer.credit_term_days) if sale.customer.credit_term_days and sale.customer.credit_term_days != "0" else 30
-        sale.due_date = (datetime.utcnow() + timedelta(days=days)).date()
+        sale.due_date = (datetime.now() + timedelta(days=days)).date()
         sale.status = "pendiente"
     elif marcar_pagada:
         sale.status = "pagado"
@@ -152,7 +152,7 @@ def _ejecutar_entrega(sale, descontar_stock=True, marcar_pagada=True, payment_me
 
     sale.liquidada = True
     sale.liquidated_by = current_user.user_id
-    sale.liquidated_at = datetime.utcnow()
+    sale.liquidated_at = datetime.now()
     return True, None
 
 
@@ -365,7 +365,7 @@ def sale_edit(sale_id):
         if sale.liquidada:
             if sale.payment_type == "credito":
                 days = int(sale.customer.credit_term_days) if sale.customer.credit_term_days and sale.customer.credit_term_days != "0" else 30
-                sale.due_date = (datetime.utcnow() + timedelta(days=days)).date()
+                sale.due_date = (datetime.now() + timedelta(days=days)).date()
                 sale.status = "pendiente"
             else:
                 sale.due_date = None
@@ -442,7 +442,7 @@ def _dentro_de_plazo_edicion(sale):
     if current_user.is_admin():
         return True
     referencia = sale.liquidated_at or sale.sale_date
-    return (datetime.utcnow() - referencia).days <= DIAS_LIMITE_EDICION
+    return (datetime.now() - referencia).days <= DIAS_LIMITE_EDICION
 
 
 @sales_bp.route("/<int:sale_id>/estado-pago", methods=["POST"])
@@ -550,9 +550,9 @@ def liquidacion_diaria():
     """
     fecha_param = request.args.get("fecha")
     try:
-        fecha = datetime.strptime(fecha_param, "%Y-%m-%d") if fecha_param else datetime.utcnow()
+        fecha = datetime.strptime(fecha_param, "%Y-%m-%d") if fecha_param else datetime.now()
     except ValueError:
-        fecha = datetime.utcnow()
+        fecha = datetime.now()
 
     inicio = fecha.replace(hour=0, minute=0, second=0, microsecond=0)
     fin = inicio + timedelta(days=1)

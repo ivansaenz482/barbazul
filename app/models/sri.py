@@ -23,7 +23,7 @@ class SriConfig(db.Model):
     tipo_emision = db.Column(db.Enum("1"), default="1")  # 1=Normal
     cert_path = db.Column(db.String(300))
     cert_password = db.Column(db.String(255))
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now)
 
     @classmethod
     def actual(cls):
@@ -68,7 +68,7 @@ class Retencion(db.Model):
     clave_acceso = db.Column(db.String(80))
     estado = db.Column(db.Enum("borrador", "autorizada", "anulada"), default="borrador")
     created_by = db.Column(db.Integer, db.ForeignKey("users.user_id"))
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=datetime.now)
 
     supplier = db.relationship("Supplier")
     customer = db.relationship("Customer")

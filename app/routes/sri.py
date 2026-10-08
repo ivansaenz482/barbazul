@@ -160,7 +160,7 @@ def factura_autorizar(sale_id):
     clave = request.form.get("clave_acceso", "").strip() or sale.sri_clave_acceso
     sale.sri_status = "autorizada"
     sale.sri_clave_acceso = clave
-    sale.sri_autorizado_at = datetime.utcnow()
+    sale.sri_autorizado_at = datetime.now()
     sale.sri_autorizado_by = current_user.user_id
     db.session.commit()
     flash(f"Factura #{sale.sale_id} marcada como AUTORIZADA para el SRI.", "success")
@@ -173,7 +173,7 @@ def factura_autorizar(sale_id):
 def factura_rechazar(sale_id):
     sale = Sale.query.get_or_404(sale_id)
     sale.sri_status = "rechazada"
-    sale.sri_autorizado_at = datetime.utcnow()
+    sale.sri_autorizado_at = datetime.now()
     sale.sri_autorizado_by = current_user.user_id
     db.session.commit()
     flash(f"Factura #{sale.sale_id} marcada como RECHAZADA.", "warning")
@@ -227,7 +227,7 @@ def factura_enviar(sale_id):
         estado_a, numero, fecha_a, mensajes_a = consultar_autorizacion(clave, cfg)
         if estado_a == "AUTORIZADO":
             sale.sri_status = "autorizada"
-            sale.sri_autorizado_at = datetime.utcnow()
+            sale.sri_autorizado_at = datetime.now()
             sale.sri_autorizado_by = current_user.user_id
             flash(f"✅ Factura #{sale.sale_id} AUTORIZADA por el SRI. N° {numero or ''}", "success")
         else:

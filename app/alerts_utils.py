@@ -25,14 +25,14 @@ def get_overstock_products():
 
 def get_overdue_credits():
     """Ventas a credito, no pagadas, cuya fecha de vencimiento ya paso"""
-    hoy = datetime.utcnow().date()
+    hoy = datetime.now().date()
     ventas = Sale.query.filter(Sale.payment_type == "credito", Sale.status != "pagado").all()
     return [s for s in ventas if s.due_date is not None and s.due_date < hoy]
 
 
 def get_upcoming_supplier_payments(days=15):
     """Facturas de compra a crédito próximas a vencer (dentro de `days` días, con saldo pendiente)"""
-    hoy = datetime.utcnow().date()
+    hoy = datetime.now().date()
     limite = hoy + timedelta(days=days)
     invoices = PurchaseInvoice.query.filter(
         PurchaseInvoice.payment_type == "credito",
@@ -46,7 +46,7 @@ def get_upcoming_supplier_payments(days=15):
 
 def get_overdue_supplier_payments():
     """Facturas de compra a crédito vencidas con saldo pendiente"""
-    hoy = datetime.utcnow().date()
+    hoy = datetime.now().date()
     invoices = PurchaseInvoice.query.filter(
         PurchaseInvoice.payment_type == "credito",
         PurchaseInvoice.due_date.isnot(None),

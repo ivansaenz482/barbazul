@@ -21,7 +21,7 @@ class DispatchGuide(db.Model):
     vehiculo_placa = db.Column(db.String(20))
     observaciones = db.Column(db.String(300))
     created_by = db.Column(db.Integer, db.ForeignKey("users.user_id"), nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=datetime.now)
     entregada = db.Column(db.Boolean, nullable=False, default=False)
     entregada_at = db.Column(db.DateTime)
     entregada_by = db.Column(db.Integer, db.ForeignKey("users.user_id"))

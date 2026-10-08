@@ -249,7 +249,7 @@ def despacho_entregar(dispatch_id):
         flash("Esta guía ya estaba marcada como entregada.", "info")
         return redirect(request.referrer or url_for("despachos.despachos_list"))
     guia.entregada = True
-    guia.entregada_at = datetime.utcnow()
+    guia.entregada_at = datetime.now()
     guia.entregada_by = current_user.user_id
     db.session.commit()
     flash(f"Guía de Despacho #{guia.dispatch_id} marcada como entregada.", "success")
