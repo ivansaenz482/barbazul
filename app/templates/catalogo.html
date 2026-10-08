@@ -80,7 +80,8 @@
                         {% endif %}
                     </div>
                     <button type="button" class="btn btn-outline-primary btn-sm mt-auto"
-                            onclick="agregarCarrito('{{ p.product_id }}', {{ p.name|tojson }}, {{ (p.sale_price or 0)|float }})">
+                            data-id="{{ p.product_id }}" data-name="{{ p.name }}" data-price="{{ p.sale_price or 0 }}"
+                            onclick="agregarCarrito(this)">
                         <i class="bi bi-cart-plus me-1"></i>Agregar
                     </button>
                 </div>
@@ -137,13 +138,16 @@ try { CARRITO = JSON.parse(localStorage.getItem('barbazul_cart') || '[]'); } cat
 function guardar() { try { localStorage.setItem('barbazul_cart', JSON.stringify(CARRITO)); } catch (e) {} }
 function total() { return CARRITO.reduce((s, x) => s + x.price * x.qty, 0); }
 
-function agregarCarrito(id, nombre, precio) {
+function agregarCarrito(btn) {
+    const id = btn.dataset.id;
+    const nombre = btn.dataset.name;
+    const precio = parseFloat(btn.dataset.price) || 0;
     const item = CARRITO.find(x => x.id == id);
     if (item) { item.qty += 1; } else { CARRITO.push({ id: id, name: nombre, price: precio, qty: 1 }); }
     guardar(); renderCarrito();
-    // feedback breve
-    const btn = event && event.currentTarget;
-    if (btn) { const t = btn.innerHTML; btn.innerHTML = '<i class="bi bi-check2"></i> Agregado'; setTimeout(() => btn.innerHTML = t, 900); }
+    const t = btn.innerHTML;
+    btn.innerHTML = '<i class="bi bi-check2"></i> Agregado';
+    setTimeout(() => { btn.innerHTML = t; }, 900);
 }
 
 function cambiarQty(id, delta) {
