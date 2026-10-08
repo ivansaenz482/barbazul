@@ -149,3 +149,47 @@ el navegador con su usuario y contraseña.
 - `.env.produccion` — variables de entorno de ejemplo.
 - `deploy/nginx.conf` — configuración del proxy inverso.
 - `requirements.txt` — ya incluye `gunicorn`.
+
+---
+
+## Clonar el sistema para un NUEVO CLIENTE (venderlo)
+
+No necesitas otro repositorio en GitHub: usa **el mismo repo** y crea **un proyecto de Railway por cliente** (así los datos quedan separados).
+
+### Paso a paso (5–10 min por cliente)
+1. En Railway: **New Project → Deploy from GitHub repo** → elige el mismo repo (`barbazul`).
+2. **+ New → Database → Add MySQL**.
+3. En el servicio web → **Variables**:
+   - `DATABASE_URL` = `${{ MySQL.MYSQL_PRIVATE_URL }}`
+   - `SECRET_KEY` = una clave nueva y larga
+   - `BEHIND_PROXY` = `1`
+   - `TZ` = `America/Guayaquil`
+4. **Settings → Deploy → Start command**:
+   ```
+   gunicorn wsgi:app --bind 0.0.0.0:$PORT --workers 3 --threads 4 --timeout 120
+   ```
+   **Healthcheck Path**: `/login`
+5. Pulsa **Deploy** y espera **Success**.
+6. **Crear el usuario admin del cliente** (base nueva y vacía):
+   - Opción A: importar un `datos_iniciales.sql` de plantilla (con datos de ejemplo).
+   - Opción B: entrar y crear el administrador. (Si la base está vacía no hay usuarios; se crea con `crear_admin.py` o importando un respaldo base.)
+   - Nota: en el entorno actual, la forma práctica es importar un `datos_iniciales.sql` que ya traiga el usuario `admin`.
+7. **Nombre y logo del cliente**: entra como admin → **Administración → Logo / Configuración** → cambia el **Nombre del sistema** y sube su **logo**.
+8. **Dominio**:
+   - Gratis: **Settings → Networking → Generate Domain**.
+   - Propio: **Custom Domain** → escribes `facturacion-cliente.com` y pones el **CNAME** en tu proveedor de dominio.
+9. (Opcional) En **Configuración SRI** cargas el RUC y el certificado del cliente.
+
+### Ver TODAS las instalaciones desde un solo lugar
+- Crea un **Team/Workspace** en Railway y mete ahí todos los proyectos (uno por cliente).
+- En el Team ves, de cada cliente: estado, logs, métricas, consumo y dominio.
+- Tu cuenta controla todo; cada cliente solo ve **su** sistema (su URL y su base).
+
+### Truco: Template de Railway (1 clic por cliente)
+- En Railway, guarda este proyecto como **Template**. Al desplegar el template para un cliente nuevo, se crea la app + base + variables solos; solo importas datos y cambias nombre/logo.
+
+### Personalización por cliente (sin tocar código)
+- **Nombre del sistema**: Configuración → Nombre del sistema.
+- **Logo**: Configuración → subir logo.
+- **Datos fiscales** (RUC, razón social): Configuración SRI.
+

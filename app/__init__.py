@@ -72,15 +72,19 @@ def create_app():
         from datetime import datetime
         from flask import url_for
         logo_url = None
+        system_name = "Sistema de Facturación"
         try:
             from app.models import CompanySetting
             from app.utils import resolver_ruta_upload
             company = CompanySetting.actual()
             if company and resolver_ruta_upload(company.logo_path, app.config["LOGO_FOLDER"]):
                 logo_url = url_for("settings.company_logo")
+            if company and company.system_name:
+                system_name = company.system_name
         except Exception:
             logo_url = None
-        return {"current_year": datetime.now().year, "company_logo_url": logo_url}
+        return {"current_year": datetime.now().year, "company_logo_url": logo_url,
+                "system_name": system_name}
 
     return app
 

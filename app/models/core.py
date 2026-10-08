@@ -226,6 +226,7 @@ class CompanySetting(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     logo_path = db.Column(db.String(300))
+    system_name = db.Column(db.String(120))  # Nombre del sistema (marca) por instalacion/cliente
 
     @classmethod
     def actual(cls):

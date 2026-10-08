@@ -26,6 +26,20 @@ def settings_page():
     return render_template("settings_page.html", company=company)
 
 
+@settings_bp.route("/nombre", methods=["POST"])
+@login_required
+@role_required("administrador")
+def save_name():
+    company = CompanySetting.actual()
+    if not company:
+        company = CompanySetting()
+        db.session.add(company)
+    company.system_name = request.form.get("system_name", "").strip() or None
+    db.session.commit()
+    flash("Nombre del sistema actualizado.", "success")
+    return redirect(url_for("settings.settings_page"))
+
+
 @settings_bp.route("/logo", methods=["GET"])
 @login_required
 def company_logo():
