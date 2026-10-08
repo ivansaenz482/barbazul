@@ -1,9 +1,30 @@
 from functools import wraps
 import os
+from datetime import datetime, timezone, timedelta
 from flask import abort
 from flask_login import current_user
 import barcode
 from barcode.writer import SVGWriter
+
+
+def ahora_local():
+    """Hora actual en la zona horaria del negocio (Ecuador = UTC-5 por defecto)."""
+    try:
+        from flask import current_app
+        offset = int(current_app.config.get("TIMEZONE_OFFSET", -5))
+    except Exception:
+        offset = -5
+    return datetime.now(timezone(timedelta(hours=offset)))
+
+
+def hora_local():
+    """Hora (time) actual local, sin zona ni microsegundos, para guardar en la BD."""
+    return ahora_local().time().replace(microsecond=0, tzinfo=None)
+
+
+def fecha_local():
+    """Fecha (date) actual local del negocio."""
+    return ahora_local().date()
 
 
 def resolver_ruta_upload(ruta_guardada, carpeta_actual):

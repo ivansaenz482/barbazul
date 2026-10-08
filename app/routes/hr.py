@@ -5,7 +5,7 @@ from flask_login import login_required, current_user
 
 from app.extensions import db
 from app.models import Employee, Expense, Attendance, LeaveRequest, Advance
-from app.utils import role_required
+from app.utils import role_required, hora_local, fecha_local
 
 hr_bp = Blueprint("hr", __name__, url_prefix="/rrhh")
 
@@ -43,7 +43,7 @@ def _parse_date(valor):
 @role_required("administrador")
 def hr_home():
     total_personal = Employee.query.filter_by(active=True).count()
-    asistencia_hoy = Attendance.query.filter_by(date=date.today()).count()
+    asistencia_hoy = Attendance.query.filter_by(date=fecha_local()).count()
     vacaciones_pend = LeaveRequest.query.filter_by(status="pendiente").count()
     adelantos_pend = Advance.query.filter_by(status="pendiente").count()
     return render_template("hr_home.html",
@@ -75,7 +75,7 @@ def hr_asistencia():
 
     registros = query.order_by(Attendance.date.desc(), Attendance.attendance_id.desc()).limit(300).all()
     return render_template("hr_asistencia.html", registros=registros, employees=_employees(),
-                           selected_employee=employee_id, desde=desde, hasta=hasta, today=date.today().isoformat())
+                           selected_employee=employee_id, desde=desde, hasta=hasta, today=fecha_local().isoformat())
 
 
 @hr_bp.route("/asistencia/nueva", methods=["POST"])
@@ -83,7 +83,7 @@ def hr_asistencia():
 @role_required("administrador")
 def hr_asistencia_nueva():
     employee = Employee.query.get(request.form.get("employee_id")) if request.form.get("employee_id") else None
-    fecha = _parse_date(request.form.get("date")) or date.today()
+    fecha = _parse_date(request.form.get("date")) or fecha_local()
     if not employee:
         flash("Selecciona un empleado.", "danger")
         return redirect(url_for("hr.hr_asistencia"))
@@ -122,7 +122,7 @@ def hr_asistencia_eliminar(reg_id):
 def hr_vacaciones():
     registros = LeaveRequest.query.order_by(LeaveRequest.start_date.desc(), LeaveRequest.leave_id.desc()).limit(300).all()
     return render_template("hr_vacaciones.html", registros=registros, employees=_employees(),
-                           tipos=LEAVE_TYPES, today=date.today().isoformat())
+                           tipos=LEAVE_TYPES, today=fecha_local().isoformat())
 
 
 @hr_bp.route("/vacaciones/nueva", methods=["POST"])
@@ -186,7 +186,7 @@ def hr_adelantos():
     registros = Advance.query.order_by(Advance.date.desc(), Advance.advance_id.desc()).limit(300).all()
     total_pend = sum(float(a.amount) for a in registros if a.status == "pendiente")
     return render_template("hr_adelantos.html", registros=registros, employees=_employees(),
-                           total_pendiente=total_pend, today=date.today().isoformat())
+                           total_pendiente=total_pend, today=fecha_local().isoformat())
 
 
 @hr_bp.route("/adelantos/nuevo", methods=["POST"])
@@ -194,7 +194,7 @@ def hr_adelantos():
 @role_required("administrador")
 def hr_adelantos_nuevo():
     employee = Employee.query.get(request.form.get("employee_id")) if request.form.get("employee_id") else None
-    fecha = _parse_date(request.form.get("date")) or date.today()
+    fecha = _parse_date(request.form.get("date")) or fecha_local()
     try:
         monto = float(request.form.get("amount") or 0)
     except (TypeError, ValueError):
@@ -268,7 +268,7 @@ def hr_pagos():
 # =====================================================================
 
 def _estado_hoy(employee_id):
-    hoy = date.today()
+    hoy = fecha_local()
     reg = (Attendance.query.filter_by(employee_id=employee_id, date=hoy)
            .order_by(Attendance.attendance_id.desc()).first())
     if reg and reg.check_in and not reg.check_out:
@@ -295,8 +295,8 @@ def hr_checkin_marcar():
         flash("Empleado no válido.", "danger")
         return redirect(url_for("hr.hr_checkin"))
 
-    hoy = date.today()
-    ahora = datetime.now().time().replace(microsecond=0)
+    hoy = fecha_local()
+    ahora = hora_local()
     reg = (Attendance.query.filter_by(employee_id=emp.employee_id, date=hoy)
            .order_by(Attendance.attendance_id.desc()).first())
 

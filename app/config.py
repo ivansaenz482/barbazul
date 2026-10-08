@@ -35,6 +35,9 @@ class Config:
     # Poner en 1 cuando el sistema corre detras de un proxy con HTTPS (Nginx/Railway).
     BEHIND_PROXY = os.getenv("BEHIND_PROXY", "0") == "1"
 
+    # Zona horaria del negocio (horas respecto a UTC). Ecuador = -5 (sin horario de verano).
+    TIMEZONE_OFFSET = int(os.getenv("TIMEZONE_OFFSET", "-5"))
+
     # Carpeta donde se guardan las facturas (PDF/imagen) subidas
     UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "uploads", "facturas")
     MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16 MB max por archivo
