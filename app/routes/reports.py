@@ -7,7 +7,7 @@ from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment
 from openpyxl.utils import get_column_letter
 
-from app.models import Sale, Customer, User, DeliveryGuide, Payment, Product, Category, Supplier, PurchaseInvoice, SupplierPayment, Seller, Expense, Employee, CommissionPayment
+from app.models import Sale, Customer, User, DeliveryGuide, Payment, Product, Category, Supplier, PurchaseInvoice, SupplierPayment, Seller, Expense, Employee, CommissionPayment, SalesGoal
 from app.extensions import db
 from app.utils import role_required, perm_required
 
@@ -1120,6 +1120,109 @@ def comision_pago_eliminar(payment_id):
     db.session.commit()
     flash("Pago de comisión eliminado.", "info")
     return redirect(url_for("reports.comisiones"))
+
+
+# =====================================================================
+# METAS Y OBJETIVOS DE VENTAS
+# =====================================================================
+
+MESES_NOMBRE = ["", "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio",
+                "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
+
+
+def _ventas_de_meta(anio, mes, seller_id, bodega):
+    inicio = datetime(anio, mes, 1)
+    fin = datetime(anio + 1, 1, 1) if mes == 12 else datetime(anio, mes + 1, 1)
+    q = Sale.query.filter(Sale.liquidada == True,  # noqa: E712
+                          Sale.sale_date >= inicio, Sale.sale_date < fin)
+    if seller_id:
+        q = q.filter(Sale.vendedor_id == seller_id)
+    if bodega in ("local", "matriz"):
+        q = q.filter(Sale.bodega == bodega)
+    return sum(float(s.total_amount or 0) for s in q.all())
+
+
+@reports_bp.route("/metas")
+@login_required
+@role_required("administrador")
+def metas():
+    try:
+        anio = int(request.args.get("anio", date.today().year))
+    except (TypeError, ValueError):
+        anio = date.today().year
+
+    hoy = date.today()
+    goals = SalesGoal.query.filter_by(anio=anio).order_by(SalesGoal.mes, SalesGoal.goal_id).all()
+
+    filas = []
+    for g in goals:
+        vendido = _ventas_de_meta(anio, g.mes, g.seller_id, g.bodega)
+        meta = float(g.meta or 0)
+        pct = round(vendido / meta * 100, 1) if meta else 0
+
+        proyeccion = None
+        if anio == hoy.year and g.mes == hoy.month and hoy.day > 0:
+            dias_mes = monthrange(anio, g.mes)[1]
+            proyeccion = round(vendido / hoy.day * dias_mes, 2)
+
+        filas.append({
+            "goal": g, "mes_nombre": MESES_NOMBRE[g.mes], "vendido": round(vendido, 2),
+            "meta": meta, "pct": pct, "saldo": round(max(0, meta - vendido), 2),
+            "proyeccion": proyeccion,
+        })
+
+    totales = {
+        "meta": sum(f["meta"] for f in filas),
+        "vendido": sum(f["vendido"] for f in filas),
+    }
+    totales["pct"] = round(totales["vendido"] / totales["meta"] * 100, 1) if totales["meta"] else 0
+
+    return render_template("reports_metas.html", filas=filas, anio=anio, totales=totales,
+                           sellers=Seller.query.order_by(Seller.name).all(),
+                           meses=MESES_NOMBRE, hoy=hoy,
+                           generated_at=datetime.now().strftime("%d/%m/%Y %H:%M"))
+
+
+@reports_bp.route("/metas/nueva", methods=["POST"])
+@login_required
+@role_required("administrador")
+def meta_nueva():
+    try:
+        anio = int(request.form.get("anio") or date.today().year)
+        mes = int(request.form.get("mes") or date.today().month)
+        meta = float(request.form.get("meta") or 0)
+    except (TypeError, ValueError):
+        flash("Datos de la meta inválidos.", "danger")
+        return redirect(url_for("reports.metas"))
+
+    seller_id = request.form.get("seller_id") or None
+    bodega = request.form.get("bodega") or None
+    if bodega not in ("local", "matriz"):
+        bodega = None
+    if meta <= 0:
+        flash("La meta debe ser mayor a cero.", "danger")
+        return redirect(url_for("reports.metas", anio=anio))
+
+    db.session.add(SalesGoal(
+        anio=anio, mes=max(1, min(12, mes)), meta=meta,
+        seller_id=int(seller_id) if seller_id else None,
+        bodega=bodega, created_by=current_user.user_id,
+    ))
+    db.session.commit()
+    flash(f"Meta de ${meta:.2f} registrada para {MESES_NOMBRE[max(1, min(12, mes))]} {anio}.", "success")
+    return redirect(url_for("reports.metas", anio=anio))
+
+
+@reports_bp.route("/metas/<int:goal_id>/eliminar", methods=["POST"])
+@login_required
+@role_required("administrador")
+def meta_eliminar(goal_id):
+    goal = SalesGoal.query.get_or_404(goal_id)
+    anio = goal.anio
+    db.session.delete(goal)
+    db.session.commit()
+    flash("Meta eliminada.", "info")
+    return redirect(url_for("reports.metas", anio=anio))
 
 
 # =====================================================================

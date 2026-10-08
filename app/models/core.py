@@ -259,3 +259,25 @@ class CommissionPayment(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     seller = db.relationship("Seller")
+
+
+class SalesGoal(db.Model):
+    """Meta de ventas por mes. Puede ser global, por vendedor o por bodega."""
+    __tablename__ = "sales_goals"
+
+    goal_id = db.Column(db.Integer, primary_key=True)
+    anio = db.Column(db.Integer, nullable=False)
+    mes = db.Column(db.Integer, nullable=False)
+    meta = db.Column(db.Numeric(12, 2), nullable=False, default=0)
+    seller_id = db.Column(db.Integer, db.ForeignKey("sellers.seller_id"))  # NULL = todos los vendedores
+    bodega = db.Column(db.Enum("local", "matriz"))                        # NULL = ambas bodegas
+    created_by = db.Column(db.Integer, db.ForeignKey("users.user_id"))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    seller = db.relationship("Seller")
+
+    def alcance_label(self):
+        partes = []
+        partes.append(self.seller.name if self.seller else "Todos los vendedores")
+        partes.append("Bodega Matriz" if self.bodega == "matriz" else ("Bodega Local" if self.bodega == "local" else "Ambas bodegas"))
+        return " · ".join(partes)
