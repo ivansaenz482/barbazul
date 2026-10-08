@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}Auditoría{% endblock %}
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-3 no-print">
+    <div>
+        <h2 class="mb-1"><i class="bi bi-shield-check me-2 text-primary"></i>Auditoría — Registro de acciones</h2>
+        <p class="text-muted mb-0">Quién hizo qué y cuándo (ventas, precios, usuarios, compras, etc.).</p>
+    </div>
+    <button onclick="window.print()" class="btn btn-dark">🖨️ Imprimir</button>
+</div>
+
+<form method="GET" class="row g-2 mb-3 no-print bg-white p-3 rounded shadow-sm align-items-end">
+    <div class="col-md-2"><label class="form-label small text-muted mb-1">Usuario</label><input type="text" name="usuario" class="form-control" value="{{ usuario }}"></div>
+    <div class="col-md-3"><label class="form-label small text-muted mb-1">Acción</label><input type="text" name="accion" class="form-control" value="{{ accion }}" placeholder="ej. venta, precio, usuario"></div>
+    <div class="col-md-2"><label class="form-label small text-muted mb-1">Desde</label><input type="date" name="desde" class="form-control" value="{{ desde }}"></div>
+    <div class="col-md-2"><label class="form-label small text-muted mb-1">Hasta</label><input type="date" name="hasta" class="form-control" value="{{ hasta }}"></div>
+    <div class="col-md-3 d-flex gap-2">
+        <button class="btn btn-primary">Filtrar</button>
+        <a href="{{ url_for('reports.auditoria') }}" class="btn btn-outline-secondary">Restablecer</a>
+    </div>
+</form>
+
+<div class="table-responsive">
+    <table class="table table-sm table-hover bg-white align-middle">
+        <thead class="table-dark">
+            <tr><th>Fecha</th><th>Usuario</th><th>Acción</th><th>Entidad</th><th>Detalle</th><th>IP</th></tr>
+        </thead>
+        <tbody>
+            {% for l in logs %}
+            <tr>
+                <td class="text-nowrap">{{ l.fecha_str() }}</td>
+                <td>{{ l.username or "—" }}</td>
+                <td><span class="badge bg-secondary">{{ l.accion }}</span></td>
+                <td>{{ l.entidad or "" }}{% if l.entidad_id %} #{{ l.entidad_id }}{% endif %}</td>
+                <td class="small">{{ l.detalle or "" }}</td>
+                <td class="small text-muted">{{ l.ip or "" }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="6" class="text-center text-muted py-4">No hay registros con esos filtros.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<p class="text-muted small">Mostrando hasta 500 registros. Generado el {{ generated_at }}.</p>
+
+<style>
+@media print {
+    .no-print, nav, .navbar, footer, .sidebar, .topbar, .btn { display: none !important; }
+    body { background: white !important; }
+    .table { font-size: 8.5pt !important; }
+}
+</style>
+
+{% endblock %}

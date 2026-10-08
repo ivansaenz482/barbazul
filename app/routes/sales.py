@@ -3,6 +3,7 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash
 from flask_login import login_required, current_user
 from app.extensions import db
 from app.models import Product, Customer, Sale, SaleDetail, Payment, InventoryMovement, Seller
+from app.audit import registrar
 from app.utils import role_required, perm_required
 
 sales_bp = Blueprint("sales", __name__, url_prefix="/ventas")
@@ -247,6 +248,7 @@ def sale_new():
             sale.liquidada = False
             db.session.commit()
             flash(f"{sale.document_type_label()} #{sale.sale_id} guardada. Aún no afecta el inventario hasta que se autorice.", "info")
+            registrar("venta_creada", detalle=f"{sale.document_type_label()} #{sale.sale_id} por ${float(sale.total_amount):.2f}", entidad="venta", entidad_id=sale.sale_id)
         else:
             ok, error = _ejecutar_entrega(sale, marcar_pagada=marcar_pagada,
                                            payment_method=payment_method_inicial, receipt_number=receipt_number_inicial)
@@ -256,6 +258,7 @@ def sale_new():
                 return render_template("sale_form.html", customers=customers, products=products, sellers=sellers, bodega=bodega)
             db.session.commit()
             flash(f"{sale.document_type_label()} #{sale.sale_id} registrada correctamente por ${sale.total_amount:.2f}.", "success")
+            registrar("venta_creada", detalle=f"{sale.document_type_label()} #{sale.sale_id} por ${float(sale.total_amount):.2f}", entidad="venta", entidad_id=sale.sale_id)
 
         return redirect(url_for("sales.sale_detail", sale_id=sale.sale_id))
 
@@ -376,6 +379,7 @@ def sale_edit(sale_id):
 
         db.session.commit()
         flash(f"Venta #{sale.sale_id} actualizada correctamente.", "success")
+        registrar("venta_editada", detalle=f"Venta #{sale.sale_id} por ${float(sale.total_amount):.2f}", entidad="venta", entidad_id=sale.sale_id)
         return redirect(url_for("sales.sale_detail", sale_id=sale.sale_id))
 
     return render_template("sale_form.html", sale=sale, customers=customers, products=products, sellers=sellers, bodega=bodega)
@@ -390,6 +394,7 @@ def sale_delete(sale_id):
     db.session.delete(sale)  # borra tambien detalles y pagos (cascade)
     db.session.commit()
     flash(f"Venta #{sale.sale_id} eliminada correctamente. Stock devuelto a inventario.", "info")
+    registrar("venta_eliminada", detalle=f"Venta #{sale_id} eliminada", entidad="venta", entidad_id=sale_id)
     return redirect(url_for("sales.sales_list"))
 
 

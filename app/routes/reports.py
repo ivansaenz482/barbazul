@@ -7,7 +7,7 @@ from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment
 from openpyxl.utils import get_column_letter
 
-from app.models import Sale, Customer, User, DeliveryGuide, Payment, Product, Category, Supplier, PurchaseInvoice, SupplierPayment, Seller, Expense, Employee, CommissionPayment, SalesGoal
+from app.models import Sale, Customer, User, DeliveryGuide, Payment, Product, Category, Supplier, PurchaseInvoice, SupplierPayment, Seller, Expense, Employee, CommissionPayment, SalesGoal, AuditLog
 from app.extensions import db
 from app.utils import role_required, perm_required
 
@@ -1305,6 +1305,41 @@ def cuentas():
                            totales_cobrar=_totales(cobrar_lista),
                            totales_pagar=_totales(pagar_lista),
                            buckets=BUCKETS, bucket_labels=BUCKET_LABELS,
+                           generated_at=datetime.now().strftime("%d/%m/%Y %H:%M"))
+
+
+# =====================================================================
+# AUDITORIA (log de acciones)
+# =====================================================================
+
+@reports_bp.route("/auditoria")
+@login_required
+@role_required("administrador")
+def auditoria():
+    usuario = request.args.get("usuario", "").strip()
+    accion = request.args.get("accion", "").strip()
+    desde = request.args.get("desde", "").strip()
+    hasta = request.args.get("hasta", "").strip()
+
+    q = AuditLog.query
+    if usuario:
+        q = q.filter(AuditLog.username.ilike(f"%{usuario}%"))
+    if accion:
+        q = q.filter(AuditLog.accion.ilike(f"%{accion}%"))
+    if desde:
+        try:
+            q = q.filter(AuditLog.created_at >= datetime.strptime(desde, "%Y-%m-%d"))
+        except ValueError:
+            pass
+    if hasta:
+        try:
+            q = q.filter(AuditLog.created_at <= datetime.strptime(hasta, "%Y-%m-%d").replace(hour=23, minute=59, second=59))
+        except ValueError:
+            pass
+
+    logs = q.order_by(AuditLog.id.desc()).limit(500).all()
+    return render_template("audit_list.html", logs=logs, usuario=usuario, accion=accion,
+                           desde=desde, hasta=hasta,
                            generated_at=datetime.now().strftime("%d/%m/%Y %H:%M"))
 
 

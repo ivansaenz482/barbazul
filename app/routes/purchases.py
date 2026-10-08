@@ -10,6 +10,7 @@ from app.extensions import db
 from app.models import Supplier, Product, PurchaseInvoice, PurchaseInvoiceDetail, SupplierPayment, InventoryMovement, SupplierOrder
 from app.ocr_utils import extract_text, configure_tesseract, OCRNotAvailableError
 from app.utils import role_required
+from app.audit import registrar
 
 purchases_bp = Blueprint("purchases", __name__, url_prefix="/compras")
 
@@ -264,6 +265,7 @@ def purchase_new():
 
             estado_txt = "Pendiente de pago" if invoice.status == "pendiente" else "Pagada"
             flash(f"Factura de compra #{invoice.invoice_id} registrada ({estado_txt}, {payment_type}, vencimiento {due_date.strftime('%d/%m/%Y') if due_date else '—'}). Stock actualizado (bodega {bodega_destino}).", "success")
+            registrar("compra_creada", detalle=f"Compra #{invoice.invoice_id} por ${float(invoice.total_amount or 0):.2f}", entidad="compra", entidad_id=invoice.invoice_id)
             return redirect(url_for("purchases.purchase_detail", invoice_id=invoice.invoice_id))
 
     return render_template("purchase_form.html", **context)
@@ -520,6 +522,7 @@ def purchase_delete(invoice_id):
     db.session.delete(invoice)
     db.session.commit()
     flash(f"Factura de compra #{invoice.invoice_id} eliminada. Stock revertido.", "info")
+    registrar("compra_eliminada", detalle=f"Compra #{invoice_id} eliminada", entidad="compra", entidad_id=invoice_id)
     return redirect(url_for("purchases.purchases_list"))
 
 

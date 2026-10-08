@@ -6,6 +6,7 @@ from flask_login import login_required, current_user
 from app.extensions import db
 from app.models import Expense, Employee
 from app.utils import role_required
+from app.audit import registrar
 
 expenses_bp = Blueprint("expenses", __name__, url_prefix="/gastos")
 
@@ -108,6 +109,7 @@ def expense_new():
         db.session.add(gasto)
         db.session.commit()
         flash(f"Gasto de ${datos['amount']:.2f} registrado.", "success")
+        registrar("gasto_creado", detalle=f"Gasto {datos['category']} ${datos['amount']:.2f}", entidad="gasto", entidad_id=gasto.expense_id)
         return redirect(url_for("expenses.expenses_list"))
 
     return render_template("expense_form.html", expense=None, employees=employees,
@@ -148,4 +150,5 @@ def expense_delete(expense_id):
     db.session.delete(gasto)
     db.session.commit()
     flash(f"Gasto de ${monto:.2f} eliminado.", "info")
+    registrar("gasto_eliminado", detalle=f"Gasto de ${monto:.2f} eliminado", entidad="gasto", entidad_id=expense_id)
     return redirect(url_for("expenses.expenses_list"))

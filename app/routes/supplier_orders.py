@@ -10,6 +10,7 @@ from app.extensions import db
 from app.models import (Supplier, Product, SupplierOrder, SupplierOrderDetail,
                         InventoryMovement, PurchaseInvoice, PurchaseInvoiceDetail)
 from app.utils import role_required
+from app.audit import registrar
 
 supplier_orders_bp = Blueprint("supplier_orders", __name__, url_prefix="/pedidos-proveedor")
 
@@ -172,6 +173,7 @@ def order_new():
 
         db.session.commit()
         flash(f"Pedido a proveedor {order.codigo()} creado. Stock sumado a {order.bodega_label()}.", "success")
+        registrar("pedido_creado", detalle=f"Pedido {order.codigo()} por ${float(order.total_amount or 0):.2f}", entidad="pedido", entidad_id=order.order_id)
         return redirect(url_for("supplier_orders.order_detail", order_id=order.order_id))
 
     return render_template("supplier_order_form.html", suppliers=suppliers, products=products, today=date.today().isoformat())
@@ -278,6 +280,7 @@ def order_delete(order_id):
     db.session.delete(order)
     db.session.commit()
     flash(f"Pedido a proveedor {codigo} eliminado. Stock devuelto.", "info")
+    registrar("pedido_eliminado", detalle=f"Pedido {codigo} eliminado", entidad="pedido", entidad_id=order_id)
     return redirect(url_for("supplier_orders.orders_list"))
 
 
@@ -395,6 +398,7 @@ def order_convert(order_id):
         db.session.commit()
         flash(f"Pedido {order.codigo()} convertido en Compra #{invoice.invoice_id}. "
               f"Stock registrado en bodega {bodega}.", "success")
+        registrar("pedido_convertido", detalle=f"Pedido {order.codigo()} -> Compra #{invoice.invoice_id}", entidad="pedido", entidad_id=order.order_id)
         return redirect(url_for("purchases.purchase_detail", invoice_id=invoice.invoice_id))
 
     return render_template("supplier_order_convert.html", order=order,

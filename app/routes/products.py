@@ -6,6 +6,7 @@ from werkzeug.utils import secure_filename
 from app.extensions import db
 from app.models import Product, Category, Supplier, InventoryMovement
 from app.utils import role_required, perm_required, generar_ean13, resolver_ruta_upload
+from app.audit import registrar
 
 products_bp = Blueprint("products", __name__, url_prefix="/productos")
 
@@ -286,6 +287,7 @@ def product_new():
         _guardar_imagen_producto(product, request.files.get("imagen"))
         db.session.commit()
         flash(f"Producto '{name}' creado correctamente.", "success")
+        registrar("producto_creado", detalle=f"Producto '{name}'", entidad="producto", entidad_id=product.product_id)
         return redirect(url_for("products.products_list"))
 
     return render_template("product_form.html", product=None, categories=categories, suppliers=suppliers)
@@ -300,6 +302,7 @@ def product_edit(product_id):
     suppliers = Supplier.query.order_by(Supplier.name).all()
 
     if request.method == "POST":
+        precio_antes = float(product.sale_price or 0)
         sku = request.form.get("sku", "").strip() or None
         if sku and sku != product.sku and Product.query.filter_by(sku=sku).first():
             flash(f"Ya existe otro producto con el SKU '{sku}'.", "danger")
@@ -325,6 +328,9 @@ def product_edit(product_id):
         _guardar_imagen_producto(product, request.files.get("imagen"))
         db.session.commit()
         flash("Producto actualizado.", "success")
+        registrar("producto_editado",
+                  detalle=f"'{product.name}' precio contado ${precio_antes:.2f} -> ${float(product.sale_price or 0):.2f}",
+                  entidad="producto", entidad_id=product.product_id)
         return redirect(url_for("products.products_list"))
 
     return render_template("product_form.html", product=product, categories=categories, suppliers=suppliers)
@@ -338,6 +344,7 @@ def product_delete(product_id):
     product.active = False  # borrado logico: conserva historial de ventas/compras
     db.session.commit()
     flash(f"Producto '{product.name}' desactivado.", "info")
+    registrar("producto_desactivado", detalle=f"Producto '{product.name}'", entidad="producto", entidad_id=product.product_id)
     return redirect(url_for("products.products_list"))
 
 

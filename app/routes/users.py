@@ -7,6 +7,7 @@ from werkzeug.utils import secure_filename
 from app.extensions import db
 from app.models import User, Category, Role
 from app.utils import role_required, resolver_ruta_upload
+from app.audit import registrar
 
 users_bp = Blueprint("users", __name__, url_prefix="/usuarios")
 
@@ -68,6 +69,7 @@ def user_new():
         db.session.add(new_user)
         db.session.commit()
         flash(f"Usuario '{username}' creado correctamente.", "success")
+        registrar("usuario_creado", detalle=f"Usuario '{username}'", entidad="usuario", entidad_id=new_user.user_id)
         return redirect(url_for("users.users_list"))
 
     return render_template("user_form.html", roles=roles, user=None)
@@ -112,6 +114,7 @@ def user_edit(user_id):
 
         db.session.commit()
         flash(f"Usuario '{user.username}' actualizado correctamente.", "success")
+        registrar("usuario_editado", detalle=f"Usuario '{user.username}'", entidad="usuario", entidad_id=user.user_id)
         return redirect(url_for("users.users_list"))
 
     return render_template("user_form.html", roles=roles, user=user)
@@ -135,6 +138,7 @@ def user_permisos_edit(user_id):
         user.perm_reporte_caja = request.form.get("perm_reporte_caja") == "on"
         db.session.commit()
         flash(f"Permisos de '{user.full_name}' actualizados correctamente.", "success")
+        registrar("permisos_cambiados", detalle=f"Permisos de '{user.username}'", entidad="usuario", entidad_id=user.user_id)
         return redirect(url_for("users.users_list"))
 
     return render_template("user_permisos_form.html", user=user)
