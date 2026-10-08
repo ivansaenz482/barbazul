@@ -11,11 +11,16 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
     <style>
-        body { background: #f4f6f9; }
+        body { background: #f4f6f9; padding-bottom: 90px; }
         .cat-header { background: linear-gradient(95deg, #0d2540, #1a3c63, #2c5a8f); color: #fff; padding: 1.2rem 0; }
         .cat-header img { height: 54px; background: #fff; border-radius: 10px; padding: 3px; }
-        .product-card img { height: 160px; object-fit: cover; }
-        .price { font-size: 1.25rem; font-weight: 700; color: #198754; }
+        .product-card img { height: 150px; object-fit: cover; }
+        .price { font-size: 1.2rem; font-weight: 700; color: #198754; }
+        .cart-float {
+            position: fixed; right: 18px; bottom: 18px; z-index: 1080;
+            border-radius: 50px; box-shadow: 0 6px 20px rgba(0,0,0,.25);
+        }
+        .cat-footer { text-align: center; color: #6c757d; font-size: .8rem; padding: 1.5rem 0; }
     </style>
 </head>
 <body>
@@ -58,7 +63,7 @@
                 {% if p.image_path %}
                 <img src="{{ url_for('products.product_image', product_id=p.product_id) }}" class="card-img-top" alt="{{ p.name }}">
                 {% else %}
-                <div class="bg-light d-flex align-items-center justify-content-center" style="height:160px;">
+                <div class="bg-light d-flex align-items-center justify-content-center" style="height:150px;">
                     <i class="bi bi-box-seam text-secondary" style="font-size:2.5rem;"></i>
                 </div>
                 {% endif %}
@@ -74,12 +79,10 @@
                             <span class="badge bg-secondary">Agotado</span>
                         {% endif %}
                     </div>
-                    {% set digits = (telefono or '')|replace(' ','')|replace('-','')|replace('+','') %}
-                    {% set msg = "Hola, me interesa: " ~ p.name ~ " ($" ~ "%.2f"|format(p.sale_price or 0) ~ ")" %}
-                    <a class="btn btn-outline-success btn-sm mt-auto"
-                       href="https://wa.me/{{ digits }}?text={{ msg|urlencode }}" target="_blank" rel="noopener">
-                        <i class="bi bi-whatsapp me-1"></i>Consultar
-                    </a>
+                    <button type="button" class="btn btn-outline-primary btn-sm mt-auto"
+                            onclick="agregarCarrito('{{ p.product_id }}', {{ p.name|tojson }}, {{ (p.sale_price or 0)|float }})">
+                        <i class="bi bi-cart-plus me-1"></i>Agregar
+                    </button>
                 </div>
             </div>
         </div>
@@ -89,9 +92,108 @@
     </div>
 </div>
 
-<footer class="text-center text-muted small py-4">
+<footer class="cat-footer">
     {{ system_name }} — Catálogo informativo. Precios sujetos a cambio.
 </footer>
 
+<!-- Boton flotante del carrito -->
+<button class="btn btn-success cart-float px-3 py-3" type="button" data-bs-toggle="offcanvas" data-bs-target="#cartPanel">
+    <i class="bi bi-cart3"></i>
+    <span id="cart-count" class="badge bg-light text-success ms-1">0</span>
+</button>
+
+<!-- Panel del carrito -->
+<div class="offcanvas offcanvas-end" tabindex="-1" id="cartPanel">
+    <div class="offcanvas-header">
+        <h5 class="offcanvas-title"><i class="bi bi-cart3 me-2"></i>Mi pedido</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
+    </div>
+    <div class="offcanvas-body d-flex flex-column">
+        <div id="cart-items" class="flex-grow-1"></div>
+        <hr>
+        <div class="d-flex justify-content-between fs-5 fw-bold mb-3">
+            <span>TOTAL</span><span id="cart-total">$0.00</span>
+        </div>
+        <div class="mb-2">
+            <input type="text" id="cliente-nombre" class="form-control" placeholder="Tu nombre (opcional)">
+        </div>
+        <div class="mb-2">
+            <input type="text" id="cliente-nota" class="form-control" placeholder="Nota o dirección (opcional)">
+        </div>
+        <button id="btn-whatsapp" class="btn btn-success btn-lg" onclick="enviarPedido()">
+            <i class="bi bi-whatsapp me-1"></i>Enviar pedido por WhatsApp
+        </button>
+        <button class="btn btn-outline-danger btn-sm mt-2" onclick="vaciarCarrito()">Vaciar carrito</button>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+const TELEFONO = "{{ (telefono or '')|replace(' ','')|replace('-','')|replace('+','') }}";
+const NEGOCIO = {{ system_name|tojson }};
+let CARRITO = [];
+try { CARRITO = JSON.parse(localStorage.getItem('barbazul_cart') || '[]'); } catch (e) { CARRITO = []; }
+
+function guardar() { try { localStorage.setItem('barbazul_cart', JSON.stringify(CARRITO)); } catch (e) {} }
+function total() { return CARRITO.reduce((s, x) => s + x.price * x.qty, 0); }
+
+function agregarCarrito(id, nombre, precio) {
+    const item = CARRITO.find(x => x.id == id);
+    if (item) { item.qty += 1; } else { CARRITO.push({ id: id, name: nombre, price: precio, qty: 1 }); }
+    guardar(); renderCarrito();
+    // feedback breve
+    const btn = event && event.currentTarget;
+    if (btn) { const t = btn.innerHTML; btn.innerHTML = '<i class="bi bi-check2"></i> Agregado'; setTimeout(() => btn.innerHTML = t, 900); }
+}
+
+function cambiarQty(id, delta) {
+    const item = CARRITO.find(x => x.id == id);
+    if (!item) return;
+    item.qty += delta;
+    if (item.qty <= 0) CARRITO = CARRITO.filter(x => x.id != id);
+    guardar(); renderCarrito();
+}
+
+function quitar(id) { CARRITO = CARRITO.filter(x => x.id != id); guardar(); renderCarrito(); }
+
+function vaciarCarrito() { if (confirm('¿Vaciar el carrito?')) { CARRITO = []; guardar(); renderCarrito(); } }
+
+function renderCarrito() {
+    const cont = document.getElementById('cart-items');
+    const count = CARRITO.reduce((s, x) => s + x.qty, 0);
+    document.getElementById('cart-count').textContent = count;
+    document.getElementById('cart-total').textContent = '$' + total().toFixed(2);
+    if (!CARRITO.length) { cont.innerHTML = '<p class="text-muted text-center py-4">Tu pedido está vacío. Agrega productos.</p>'; return; }
+    cont.innerHTML = CARRITO.map(x => `
+        <div class="d-flex align-items-center mb-2 border-bottom pb-2">
+            <div class="flex-grow-1">
+                <div class="fw-bold small">${x.name}</div>
+                <div class="text-muted small">$${x.price.toFixed(2)}</div>
+            </div>
+            <div class="btn-group btn-group-sm me-2">
+                <button class="btn btn-outline-secondary" onclick="cambiarQty('${x.id}',-1)">−</button>
+                <button class="btn btn-outline-secondary disabled">${x.qty}</button>
+                <button class="btn btn-outline-secondary" onclick="cambiarQty('${x.id}',1)">+</button>
+            </div>
+            <button class="btn btn-sm btn-outline-danger" onclick="quitar('${x.id}')">✕</button>
+        </div>`).join('');
+}
+
+function enviarPedido() {
+    if (!CARRITO.length) { alert('Tu pedido está vacío.'); return; }
+    const nombre = (document.getElementById('cliente-nombre').value || '').trim();
+    const nota = (document.getElementById('cliente-nota').value || '').trim();
+    let msg = "*Pedido — " + NEGOCIO + "*\n";
+    if (nombre) msg += "Cliente: " + nombre + "\n";
+    msg += "\n";
+    CARRITO.forEach((x, i) => { msg += `${i + 1}. ${x.name} x${x.qty} = $${(x.price * x.qty).toFixed(2)}\n`; });
+    msg += "\n*TOTAL: $" + total().toFixed(2) + "*";
+    if (nota) msg += "\nNota: " + nota;
+    const url = "https://wa.me/" + TELEFONO + "?text=" + encodeURIComponent(msg);
+    window.open(url, "_blank");
+}
+
+renderCarrito();
+</script>
 </body>
 </html>
