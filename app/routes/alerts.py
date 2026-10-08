@@ -1,6 +1,8 @@
 from flask import Blueprint, render_template, jsonify, flash, redirect, url_for
 from flask_login import login_required, current_user
-from app.alerts_utils import get_low_stock_products, get_overstock_products, get_overdue_credits, get_alerts_summary, get_upcoming_supplier_payments, get_overdue_supplier_payments
+from app.alerts_utils import (get_low_stock_products, get_overstock_products, get_overdue_credits,
+                              get_alerts_summary, get_upcoming_supplier_payments,
+                              get_overdue_supplier_payments, get_upcoming_credits, get_tax_reminder)
 from app.utils import role_required
 
 alerts_bp = Blueprint("alerts", __name__, url_prefix="/alertas")
@@ -13,16 +15,20 @@ def alerts_page():
     sobre_stock = get_overstock_products()
     # Los creditos vencidos son informacion financiera: solo el administrador los ve aqui
     creditos_vencidos = get_overdue_credits() if current_user.is_admin() else []
+    creditos_por_vencer = get_upcoming_credits(7) if current_user.is_admin() else []
     pagos_proximos = get_upcoming_supplier_payments() if current_user.is_admin() else []
     pagos_vencidos = get_overdue_supplier_payments() if current_user.is_admin() else []
+    recordatorio_impuestos = get_tax_reminder() if current_user.is_admin() else None
 
     return render_template(
         "alerts_page.html",
         bajo_stock=bajo_stock,
         sobre_stock=sobre_stock,
         creditos_vencidos=creditos_vencidos,
+        creditos_por_vencer=creditos_por_vencer,
         pagos_proximos=pagos_proximos,
         pagos_vencidos=pagos_vencidos,
+        recordatorio_impuestos=recordatorio_impuestos,
     )
 
 
@@ -47,5 +53,17 @@ def send_email_now():
     from app.notifications import send_alert_email
 
     ok, mensaje = send_alert_email()
+    flash(mensaje, "success" if ok else "danger")
+    return redirect(url_for("alerts.alerts_page"))
+
+
+@alerts_bp.route("/recordatorios/enviar", methods=["POST"])
+@login_required
+@role_required("administrador")
+def send_reminders_now():
+    """Envia el correo de recordatorios (impuestos, stock, créditos, pagos)."""
+    from app.notifications import send_reminders_email
+
+    ok, mensaje = send_reminders_email()
     flash(mensaje, "success" if ok else "danger")
     return redirect(url_for("alerts.alerts_page"))

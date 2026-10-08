@@ -3,7 +3,7 @@ Logica centralizada para calcular las alertas del sistema.
 Se usa tanto en la pagina de Alertas como en la campanita de la barra superior
 y en el script de correo, para que todos muestren siempre los mismos numeros.
 """
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 from app.models import Product, Sale, PurchaseInvoice
 
 
@@ -64,4 +64,37 @@ def get_alerts_summary():
         "creditos_vencidos": len(get_overdue_credits()),
         "pagos_proveedores_proximos": len(get_upcoming_supplier_payments()),
         "pagos_proveedores_vencidos": len(get_overdue_supplier_payments()),
+    }
+
+
+def get_upcoming_credits(days=7):
+    """Ventas a credito con saldo, que vencen dentro de los proximos `days` dias."""
+    hoy = datetime.now().date()
+    limite = hoy + timedelta(days=days)
+    ventas = Sale.query.filter(
+        Sale.payment_type == "credito", Sale.status != "pagado",
+        Sale.due_date.isnot(None), Sale.due_date >= hoy, Sale.due_date <= limite,
+    ).all()
+    return [s for s in ventas if s.saldo_pendiente() > 0.009]
+
+
+def get_tax_reminder():
+    """Proximo vencimiento de impuestos segun el RUC (SRI). Devuelve dict o None."""
+    from app.models import SriConfig
+    from app.sri_utils import dia_vencimiento
+    cfg = SriConfig.actual()
+    if not cfg or not cfg.ruc:
+        return None
+    dia = dia_vencimiento(cfg.ruc)
+    hoy = datetime.now().date()
+    if hoy.day <= dia:
+        venc = date(hoy.year, hoy.month, dia)
+    else:
+        y, m = (hoy.year + 1, 1) if hoy.month == 12 else (hoy.year, hoy.month + 1)
+        venc = date(y, m, dia)
+    return {
+        "dia": dia,
+        "fecha": venc,
+        "dias": (venc - hoy).days,
+        "ambiente": cfg.ambiente_label() if hasattr(cfg, "ambiente_label") else "",
     }
