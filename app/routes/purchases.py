@@ -20,6 +20,58 @@ def _allowed_file(filename):
     return ext in current_app.config["ALLOWED_EXTENSIONS"]
 
 
+def _buscar_o_crear_producto(item, supplier):
+    """
+    Busca un producto por su código (SKU/código de barras) o por nombre.
+    Si no existe, lo crea automáticamente (con SKU y código de barras).
+    Devuelve (product, es_nuevo).
+    """
+    from app.routes.products import _barcode_unico
+    desc = (item.get("descripcion") or "").strip()
+    codigo = (item.get("codigo") or "").strip()
+    costo = float(item.get("costo") or 0)
+
+    product = None
+    if codigo:
+        product = Product.query.filter((Product.sku == codigo) | (Product.barcode == codigo)).first()
+    if not product and desc:
+        product = Product.query.filter(Product.name.ilike(desc)).first()
+    if product:
+        return product, False
+
+    product = Product(
+        name=(desc[:150] or codigo or "Producto"),
+        supplier_id=supplier.supplier_id if supplier else None,
+        unit_measure="unidad", presentacion="unidad",
+        cost_price=costo, sale_price=round(costo * 1.30, 2) if costo > 0 else 0,
+        current_stock=0, stock_matriz=0, active=True,
+    )
+    if codigo and not Product.query.filter_by(sku=codigo).first():
+        product.sku = codigo
+    db.session.add(product)
+    db.session.flush()
+    if not product.sku:
+        product.sku = f"PROD-{product.product_id}"
+    if not product.barcode:
+        product.barcode = _barcode_unico(product.product_id)
+    return product, True
+
+
+def _previsualizar_items(texto):
+    """Parsea los items del texto y marca si cada producto ya existe (match)."""
+    from app.invoice_parser import parsear_items
+    items = []
+    for it in parsear_items(texto):
+        match = None
+        if it.get("codigo"):
+            match = Product.query.filter((Product.sku == it["codigo"]) | (Product.barcode == it["codigo"])).first()
+        if not match and it.get("descripcion"):
+            match = Product.query.filter(Product.name.ilike(it["descripcion"])).first()
+        it["match_nombre"] = match.name if match else None
+        items.append(it)
+    return items
+
+
 @purchases_bp.route("/")
 @login_required
 @role_required("administrador")
@@ -90,6 +142,10 @@ def purchase_new():
                 except Exception as e:
                     context["ocr_text"] = ""
                     flash(f"No se pudo procesar el archivo: {e}", "danger")
+
+            # Intentar detectar los productos automaticamente desde el texto
+            if context.get("ocr_text") and not context["ocr_text"].startswith("(No se"):
+                context["items_prev"] = _previsualizar_items(context["ocr_text"])
 
             # Si es "manual", simplemente continua al formulario de productos sin OCR
             context["stage"] = "products"
@@ -266,6 +322,117 @@ def purchase_new():
             estado_txt = "Pendiente de pago" if invoice.status == "pendiente" else "Pagada"
             flash(f"Factura de compra #{invoice.invoice_id} registrada ({estado_txt}, {payment_type}, vencimiento {due_date.strftime('%d/%m/%Y') if due_date else '—'}). Stock actualizado (bodega {bodega_destino}).", "success")
             registrar("compra_creada", detalle=f"Compra #{invoice.invoice_id} por ${float(invoice.total_amount or 0):.2f}", entidad="compra", entidad_id=invoice.invoice_id)
+            return redirect(url_for("purchases.purchase_detail", invoice_id=invoice.invoice_id))
+
+        # -----------------------------------------------------------
+        # PASO 2-bis: IMPORTAR AUTOMATICAMENTE (crear productos nuevos / sumar stock)
+        # -----------------------------------------------------------
+        elif action == "importar":
+            from app.invoice_parser import parsear_items
+            from app.routes.products import _barcode_unico
+
+            supplier_id = request.form.get("supplier_id")
+            supplier = Supplier.query.get(supplier_id) if supplier_id else None
+            invoice_date_str = request.form.get("invoice_date")
+            invoice_number = request.form.get("invoice_number", "").strip() or None
+            ocr_text = request.form.get("ocr_text") or ""
+            file_path = request.form.get("file_path") or None
+            payment_type = request.form.get("payment_type", "efectivo")
+            if payment_type not in ("efectivo", "credito"):
+                payment_type = "efectivo"
+            bodega_destino = request.form.get("bodega_destino", "local")
+            if bodega_destino not in ("local", "matriz"):
+                bodega_destino = "local"
+
+            context.update({
+                "supplier_id": supplier_id or "",
+                "invoice_number": invoice_number or "",
+                "invoice_date": invoice_date_str or context["invoice_date"],
+                "source_type": "pdf", "file_path": file_path or "",
+                "ocr_text": ocr_text, "bodega_destino": bodega_destino, "stage": "products",
+            })
+
+            if not supplier:
+                flash("Debes seleccionar un proveedor.", "danger")
+                return render_template("purchase_form.html", **context)
+
+            # Si el usuario revisó/editó las líneas, se usan esas; si no, se parsea el texto.
+            descs = request.form.getlist("it_desc[]")
+            items = []
+            if descs:
+                codigos = request.form.getlist("it_codigo[]")
+                cants = request.form.getlist("it_cant[]")
+                costos = request.form.getlist("it_costo[]")
+                for d, c, q, co in zip(descs, codigos, cants, costos):
+                    d = (d or "").strip()
+                    if not d:
+                        continue
+                    try:
+                        q = int(float(q or 0))
+                    except (TypeError, ValueError):
+                        q = 0
+                    try:
+                        co = float(co or 0)
+                    except (TypeError, ValueError):
+                        co = 0
+                    if q <= 0:
+                        continue
+                    items.append({"descripcion": d[:150], "codigo": (c or "").strip()[:50],
+                                  "cantidad": q, "costo": round(co, 2)})
+            else:
+                items = parsear_items(ocr_text)
+
+            if not items:
+                flash("No se detectaron productos. Revisa el texto de la factura o ingrésalos manualmente.", "danger")
+                return render_template("purchase_form.html", **context)
+
+            try:
+                invoice_date = datetime.strptime(invoice_date_str, "%Y-%m-%d").date()
+            except (ValueError, TypeError):
+                invoice_date = datetime.now().date()
+
+            invoice = PurchaseInvoice(
+                supplier_id=supplier.supplier_id, invoice_number=invoice_number,
+                invoice_date=invoice_date, source_type="pdf", file_path=file_path,
+                registered_by=current_user.user_id, payment_type=payment_type, status="pendiente",
+            )
+            db.session.add(invoice)
+            db.session.flush()
+
+            nuevos = sumados = 0
+            total_amount = 0
+            for it in items:
+                product, es_nuevo = _buscar_o_crear_producto(it, supplier)
+                if es_nuevo:
+                    nuevos += 1
+                else:
+                    sumados += 1
+
+                db.session.add(PurchaseInvoiceDetail(
+                    invoice_id=invoice.invoice_id, product_id=product.product_id,
+                    quantity=it["cantidad"], unit_cost=it["costo"],
+                ))
+                if bodega_destino == "matriz":
+                    product.stock_matriz = (product.stock_matriz or 0) + it["cantidad"]
+                else:
+                    product.current_stock = (product.current_stock or 0) + it["cantidad"]
+                if it["costo"] > 0:
+                    product.cost_price = it["costo"]
+                db.session.add(InventoryMovement(
+                    product_id=product.product_id, movement_type="entrada",
+                    quantity=it["cantidad"], reference_type="compra",
+                    reference_id=invoice.invoice_id, user_id=current_user.user_id,
+                    notes=f"Compra #{invoice.invoice_id} (importada) -> {bodega_destino}",
+                ))
+                total_amount += it["cantidad"] * it["costo"]
+
+            invoice.total_amount = total_amount
+            db.session.commit()
+            flash(f"Compra #{invoice.invoice_id} importada: {nuevos} producto(s) NUEVO(S) creado(s) "
+                  f"y {sumados} sumado(s) al stock. Total ${total_amount:.2f}.", "success")
+            registrar("compra_importada",
+                      detalle=f"Compra #{invoice.invoice_id}: {nuevos} nuevos, {sumados} sumados",
+                      entidad="compra", entidad_id=invoice.invoice_id)
             return redirect(url_for("purchases.purchase_detail", invoice_id=invoice.invoice_id))
 
     return render_template("purchase_form.html", **context)
