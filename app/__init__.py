@@ -99,6 +99,55 @@ def create_app():
                 "system_name": system_name, "ubicaciones": ubicaciones,
                 "ubicacion_label": ubicacion_label, "stock_en": stock_en}
 
+    # =================================================================
+    # SEGURIDAD: cabeceras HTTP, proteccion CSRF y anti-fijacion de sesion
+    # =================================================================
+    import secrets
+    from flask import request, session
+
+    # Endpoints que aceptan POST sin token CSRF (login: evita problemas de cache PWA)
+    CSRF_EXENTOS = {"auth.login"}
+
+    @app.before_request
+    def _proteger_csrf():
+        if request.method in ("POST", "PUT", "PATCH", "DELETE"):
+            if request.endpoint in CSRF_EXENTOS:
+                return
+            token = session.get("csrf_token")
+            enviado = request.form.get("csrf_token") or request.headers.get("X-CSRFToken")
+            if not token or not enviado or not secrets.compare_digest(str(token), str(enviado)):
+                return render_template_error(
+                    "Token de seguridad inválido o expirado. Recarga la página (F5) e inténtalo de nuevo.", 400
+                )
+
+    @app.context_processor
+    def _inyectar_csrf():
+        tok = session.get("csrf_token")
+        if not tok:
+            tok = secrets.token_urlsafe(32)
+            session["csrf_token"] = tok
+        return {"csrf_token": tok}
+
+    @app.after_request
+    def _cabeceras_seguridad(resp):
+        resp.headers.setdefault("X-Content-Type-Options", "nosniff")
+        resp.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
+        resp.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+        resp.headers.setdefault("Permissions-Policy", "geolocation=(), microphone=(), camera=()")
+        resp.headers.setdefault(
+            "Content-Security-Policy",
+            "default-src 'self'; "
+            "img-src 'self' data: blob: https://api.qrserver.com; "
+            "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+            "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+            "font-src 'self' data: https://cdn.jsdelivr.net; "
+            "connect-src 'self'; frame-ancestors 'self'; base-uri 'self'; "
+            "form-action 'self'; object-src 'none'",
+        )
+        if app.config.get("BEHIND_PROXY"):
+            resp.headers.setdefault("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+        return resp
+
     return app
 
 

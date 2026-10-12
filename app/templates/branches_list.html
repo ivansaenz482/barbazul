@@ -1,46 +1,72 @@
 {% extends "base.html" %}
-{% block title %}Locales{% endblock %}
+{% block title %}Bodegas y Locales{% endblock %}
 {% block content %}
 
 <div class="d-flex justify-content-between align-items-center mb-3">
-    <h2>🏬 Locales</h2>
+    <div>
+        <h2 class="mb-0">🏬 Bodegas y Locales</h2>
+        <p class="text-muted mb-0">Cada bodega/local es una ubicación con su propio stock y puede tener un encargado.</p>
+    </div>
     {% if current_user.is_admin() %}
-    <a href="{{ url_for('customers.branch_new') }}" class="btn btn-primary">+ Nuevo Local</a>
+    <a href="{{ url_for('customers.branch_new') }}" class="btn btn-primary">+ Nueva Bodega / Local</a>
     {% endif %}
+</div>
+
+<div class="card mb-4 bg-white shadow-sm">
+    <div class="card-header bg-white"><strong>Bodegas fijas del sistema</strong></div>
+    <div class="card-body py-2">
+        <span class="badge bg-primary me-2">Bodega Local</span>
+        <span class="badge bg-primary">Bodega Matriz</span>
+        <span class="text-muted small ms-2">Estas dos bodegas siempre existen y no se eliminan.</span>
+    </div>
 </div>
 
 <div class="table-responsive">
     <table class="table table-hover bg-white align-middle">
         <thead class="table-dark">
             <tr>
-                <th>Nombre</th>
+                <th>Bodega / Local</th>
                 <th>Dirección</th>
                 <th>Teléfono</th>
-                <th># Clientes</th>
+                <th>Encargado</th>
+                <th class="text-center"># Clientes</th>
+                <th>Estado</th>
                 {% if current_user.is_admin() %}<th>Acciones</th>{% endif %}
             </tr>
         </thead>
         <tbody>
             {% for b in branches %}
-            <tr>
-                <td>{{ b.name }}</td>
+            <tr class="{% if not b.active %}table-secondary text-muted{% endif %}">
+                <td><strong>{{ b.name }}</strong></td>
                 <td>{{ b.address or "—" }}</td>
                 <td>{{ b.phone or "—" }}</td>
-                <td>{{ b.customers|length }}</td>
-                {% if current_user.is_admin() %}
                 <td>
+                    {% set enc = encargados.get(b.branch_id) %}
+                    {% if enc %}{{ enc.full_name }}{% else %}<span class="text-muted">Sin asignar</span>{% endif %}
+                </td>
+                <td class="text-center">{{ b.customers|length }}</td>
+                <td>
+                    {% if b.active %}<span class="badge bg-success">Activa</span>{% else %}<span class="badge bg-secondary">Inactiva</span>{% endif %}
+                </td>
+                {% if current_user.is_admin() %}
+                <td class="text-nowrap">
                     <a href="{{ url_for('customers.branch_edit', branch_id=b.branch_id) }}" class="btn btn-sm btn-outline-primary">Editar</a>
-                    <form method="POST" action="{{ url_for('customers.branch_delete', branch_id=b.branch_id) }}" class="d-inline" onsubmit="return confirm('¿Eliminar este local?');">
+                    <form method="POST" action="{{ url_for('customers.branch_delete', branch_id=b.branch_id) }}" class="d-inline" onsubmit="return confirm('¿Eliminar esta bodega/local?');">
                         <button type="submit" class="btn btn-sm btn-outline-danger">Eliminar</button>
                     </form>
                 </td>
                 {% endif %}
             </tr>
             {% else %}
-            <tr><td colspan="5" class="text-center text-muted py-4">No hay locales registrados.</td></tr>
+            <tr><td colspan="7" class="text-center text-muted py-4">No hay bodegas/locales registrados. Crea el primero con “+ Nueva Bodega / Local”.</td></tr>
             {% endfor %}
         </tbody>
     </table>
 </div>
+
+<p class="text-muted small">
+    Para mover stock hacia una bodega usa <a href="{{ url_for('transfers.transfer_new') }}">Transferencias entre bodegas</a>
+    o al registrar una <a href="{{ url_for('purchases.purchase_new') }}">Compra</a> eligiendo la bodega destino.
+</p>
 
 {% endblock %}

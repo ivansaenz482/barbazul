@@ -1,8 +1,9 @@
 /* Service Worker del Sistema Barbazul (PWA).
-   Permite instalar el sistema como app y mantenerlo disponible.
-   Estrategia: red primero, y si no hay conexion, usa lo cacheado. */
-const CACHE = "barbazul-v1";
-const PRE = ["/", "/login", "/static/img/icon-192.png", "/static/img/icon-512.png"];
+   Estrategia SEGURA: solo se cachean los recursos estaticos propios
+   (imagenes, css, js). Las PAGINAS (que contienen datos de clientes)
+   NUNCA se guardan en cache, para no dejar informacion en el equipo. */
+const CACHE = "barbazul-v2";
+const PRE = ["/static/img/icon-192.png", "/static/img/icon-512.png"];
 
 self.addEventListener("install", (event) => {
   self.skipWaiting();
@@ -10,19 +11,30 @@ self.addEventListener("install", (event) => {
 });
 
 self.addEventListener("activate", (event) => {
-  event.waitUntil(self.clients.claim());
+  event.waitUntil(
+    caches.keys().then((keys) =>
+      Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k)))
+    ).then(() => self.clients.claim())
+  );
 });
 
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
+  let url;
+  try { url = new URL(event.request.url); } catch (e) { return; }
+  // Solo cachear estaticos del propio dominio; el resto va directo a la red.
+  if (url.origin !== self.location.origin || !url.pathname.startsWith("/static/")) {
+    return;
+  }
   event.respondWith(
-    fetch(event.request)
-      .then((resp) => {
+    caches.match(event.request).then((cached) => {
+      const red = fetch(event.request).then((resp) => {
         const copy = resp.clone();
         caches.open(CACHE).then((c) => c.put(event.request, copy)).catch(() => {});
         return resp;
-      })
-      .catch(() => caches.match(event.request))
+      }).catch(() => cached);
+      return cached || red;
+    })
   );
 });
 

@@ -1,4 +1,5 @@
 import os
+from datetime import timedelta
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -34,6 +35,17 @@ class Config:
 
     # Poner en 1 cuando el sistema corre detras de un proxy con HTTPS (Nginx/Railway).
     BEHIND_PROXY = os.getenv("BEHIND_PROXY", "0") == "1"
+
+    # ---- Seguridad de la sesion / cookies ----
+    # La cookie de sesion no es accesible por JavaScript y viaja cifrada en HTTPS.
+    SESSION_COOKIE_HTTPONLY = True
+    SESSION_COOKIE_SAMESITE = "Lax"
+    # Solo marcar Secure cuando hay HTTPS (en local por http://127.0.0.1 no debe ir Secure).
+    SESSION_COOKIE_SECURE = BEHIND_PROXY
+    PERMANENT_SESSION_LIFETIME = timedelta(hours=8)
+    SESSION_REFRESH_EACH_REQUEST = True
+    # Tamano maximo de subida de archivos (16 MB)
+    MAX_CONTENT_LENGTH = 16 * 1024 * 1024
 
     # Zona horaria del negocio (horas respecto a UTC). Ecuador = -5 (sin horario de verano).
     TIMEZONE_OFFSET = int(os.getenv("TIMEZONE_OFFSET", "-5"))

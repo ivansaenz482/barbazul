@@ -9,15 +9,46 @@ customers_bp = Blueprint("customers", __name__, url_prefix="/clientes")
 
 
 # =====================================================================
-# LOCALES / SUCURSALES
+# BODEGAS / LOCALES (sucursales)
 # =====================================================================
+
+def _usuarios_asignables():
+    """Usuarios activos (no administradores) que pueden ser encargados de una bodega."""
+    from app.models import User, Role
+    return (User.query.join(Role)
+            .filter(User.active.is_(True), Role.role_name != "administrador")
+            .order_by(User.full_name).all())
+
+
+def _clave_branch(branch_id):
+    from app.stock import clave_sucursal
+    return clave_sucursal(branch_id)
+
+
+def _encargado_de(branch_id):
+    from app.models import User
+    return User.query.filter_by(bodega=_clave_branch(branch_id)).first()
+
+
+def _asignar_encargado(branch, encargado_id):
+    """Deja a un solo usuario como encargado de la bodega (los demas se desasignan)."""
+    from app.models import User
+    clave = _clave_branch(branch.branch_id)
+    for u in User.query.filter_by(bodega=clave).all():
+        u.bodega = None
+    if encargado_id and str(encargado_id).isdigit():
+        u = User.query.get(int(encargado_id))
+        if u:
+            u.bodega = clave
+
 
 @customers_bp.route("/locales")
 @login_required
 @perm_required("can_view_clientes")
 def branches_list():
     branches = Branch.query.order_by(Branch.name).all()
-    return render_template("branches_list.html", branches=branches)
+    encargados = {b.branch_id: _encargado_de(b.branch_id) for b in branches}
+    return render_template("branches_list.html", branches=branches, encargados=encargados)
 
 
 @customers_bp.route("/locales/nuevo", methods=["GET", "POST"])
@@ -27,19 +58,23 @@ def branch_new():
     if request.method == "POST":
         name = request.form.get("name", "").strip()
         if not name:
-            flash("El nombre del local es obligatorio.", "danger")
-            return render_template("branch_form.html", branch=None)
+            flash("El nombre de la bodega/local es obligatorio.", "danger")
+            return render_template("branch_form.html", branch=None, usuarios=_usuarios_asignables(), encargado=None)
 
-        db.session.add(Branch(
+        branch = Branch(
             name=name,
             address=request.form.get("address", "").strip() or None,
             phone=request.form.get("phone", "").strip() or None,
-        ))
+            active=(request.form.get("active", "on") == "on"),
+        )
+        db.session.add(branch)
+        db.session.flush()
+        _asignar_encargado(branch, request.form.get("encargado_id"))
         db.session.commit()
-        flash("Local creado correctamente.", "success")
+        flash("Bodega/local creada correctamente.", "success")
         return redirect(url_for("customers.branches_list"))
 
-    return render_template("branch_form.html", branch=None)
+    return render_template("branch_form.html", branch=None, usuarios=_usuarios_asignables(), encargado=None)
 
 
 @customers_bp.route("/locales/<int:branch_id>/editar", methods=["GET", "POST"])
@@ -52,11 +87,14 @@ def branch_edit(branch_id):
         branch.name = request.form.get("name", "").strip()
         branch.address = request.form.get("address", "").strip() or None
         branch.phone = request.form.get("phone", "").strip() or None
+        branch.active = (request.form.get("active", "on") == "on")
+        _asignar_encargado(branch, request.form.get("encargado_id"))
         db.session.commit()
-        flash("Local actualizado.", "success")
+        flash("Bodega/local actualizada.", "success")
         return redirect(url_for("customers.branches_list"))
 
-    return render_template("branch_form.html", branch=branch)
+    return render_template("branch_form.html", branch=branch, usuarios=_usuarios_asignables(),
+                           encargado=_encargado_de(branch.branch_id))
 
 
 @customers_bp.route("/locales/<int:branch_id>/eliminar", methods=["POST"])
@@ -64,12 +102,19 @@ def branch_edit(branch_id):
 @perm_required("can_view_clientes")
 def branch_delete(branch_id):
     branch = Branch.query.get_or_404(branch_id)
+    from app.models import BranchStock, User
+    tiene_stock = BranchStock.query.filter(BranchStock.branch_id == branch_id, BranchStock.quantity > 0).count() > 0
     if branch.customers:
-        flash("No puedes eliminar un local que tiene clientes asociados.", "danger")
+        flash("No puedes eliminar una bodega/local que tiene clientes asociados.", "danger")
+    elif tiene_stock:
+        flash("No puedes eliminar una bodega/local que todavía tiene stock. Transfiere el stock primero.", "danger")
     else:
+        for u in User.query.filter_by(bodega=_clave_branch(branch_id)).all():
+            u.bodega = None
+        BranchStock.query.filter_by(branch_id=branch_id).delete()
         db.session.delete(branch)
         db.session.commit()
-        flash("Local eliminado.", "info")
+        flash("Bodega/local eliminada.", "info")
     return redirect(url_for("customers.branches_list"))
 
 

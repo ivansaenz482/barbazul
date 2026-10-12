@@ -11,6 +11,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Barbazul">
+    <meta name="csrf-token" content="{{ csrf_token }}">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
@@ -68,7 +69,7 @@
                 {% if current_user.can_view_clientes() %}
                 {{ sidebar_group("Clientes", [
                     (url_for('customers.customers_list'), "bi-people", "Clientes"),
-                    (url_for('customers.branches_list'), "bi-building", "Locales")
+                    (url_for('customers.branches_list'), "bi-building", "Bodegas / Locales")
                 ]) }}
                 {% endif %}
                 {% if current_user.can_view_reporte_caja() %}
@@ -105,7 +106,7 @@
 
                 {{ sidebar_group("Clientes", [
                     (url_for('customers.customers_list'), "bi-people", "Clientes"),
-                    (url_for('customers.branches_list'), "bi-building", "Locales")
+                    (url_for('customers.branches_list'), "bi-building", "Bodegas / Locales")
                 ]) }}
 
                 {{ sidebar_group("Análisis", [
@@ -345,6 +346,40 @@
             alert('No se pudieron activar las notificaciones: ' + e);
         }
     }
+    </script>
+    <script>
+    // --- Proteccion CSRF: agrega el token a todos los formularios y a fetch() ---
+    (function () {
+        const meta = document.querySelector('meta[name="csrf-token"]');
+        const TOKEN = meta ? meta.getAttribute('content') : '';
+        if (!TOKEN) return;
+
+        function agregarTokens(root) {
+            (root || document).querySelectorAll('form').forEach(function (f) {
+                const m = (f.getAttribute('method') || 'GET').toUpperCase();
+                if (m !== 'POST') return;
+                if (f.querySelector('input[name="csrf_token"]')) return;
+                const i = document.createElement('input');
+                i.type = 'hidden'; i.name = 'csrf_token'; i.value = TOKEN;
+                f.appendChild(i);
+            });
+        }
+        agregarTokens();
+        document.addEventListener('DOMContentLoaded', function () { agregarTokens(); });
+
+        // fetch: agrega la cabecera X-CSRFToken en peticiones que no son GET
+        const _fetch = window.fetch.bind(window);
+        window.fetch = function (input, init) {
+            init = init || {};
+            const method = (init.method || (input && input.method) || 'GET').toUpperCase();
+            if (method !== 'GET' && method !== 'HEAD') {
+                const headers = new Headers(init.headers || (input && input.headers) || {});
+                if (!headers.has('X-CSRFToken')) headers.set('X-CSRFToken', TOKEN);
+                init.headers = headers;
+            }
+            return _fetch(input, init);
+        };
+    })();
     </script>
 </body>
 </html>

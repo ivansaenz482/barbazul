@@ -51,8 +51,8 @@ def user_new():
             flash("Las contraseñas no coinciden.", "danger")
             return render_template("user_form.html", roles=roles, user=None)
 
-        if len(password) < 6:
-            flash("La contraseña debe tener al menos 6 caracteres.", "danger")
+        if len(password) < 8:
+            flash("La contraseña debe tener al menos 8 caracteres.", "danger")
             return render_template("user_form.html", roles=roles, user=None)
 
         password_hash = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
@@ -109,8 +109,8 @@ def user_edit(user_id):
 
         new_password = request.form.get("password", "")
         if new_password:
-            if len(new_password) < 6:
-                flash("La nueva contraseña debe tener al menos 6 caracteres.", "danger")
+            if len(new_password) < 8:
+                flash("La nueva contraseña debe tener al menos 8 caracteres.", "danger")
                 return render_template("user_form.html", roles=roles, user=user)
             user.password_hash = bcrypt.hashpw(new_password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
 
@@ -191,8 +191,8 @@ def mi_perfil():
 
         new_password = request.form.get("password", "")
         if new_password:
-            if len(new_password) < 6:
-                flash("La nueva contraseña debe tener al menos 6 caracteres.", "danger")
+            if len(new_password) < 8:
+                flash("La nueva contraseña debe tener al menos 8 caracteres.", "danger")
                 return render_template("profile.html", user=current_user)
             current_user.password_hash = bcrypt.hashpw(new_password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
 

@@ -1,13 +1,16 @@
 {% extends "base.html" %}
-{% block title %}{{ "Editar" if branch else "Nuevo" }} Local{% endblock %}
+{% block title %}{{ "Editar" if branch else "Nueva" }} Bodega / Local{% endblock %}
 {% block content %}
 
-<h2>{{ "Editar" if branch else "Nuevo" }} Local</h2>
+<h2 class="mb-1">{{ "Editar" if branch else "Nueva" }} Bodega / Local</h2>
+<p class="text-muted">Una bodega/local es una ubicación con su propio stock, que además puede tener un <strong>encargado</strong>.</p>
 
-<form method="POST" class="bg-white p-4 rounded shadow-sm" style="max-width: 500px;">
+<form method="POST" class="bg-white p-4 rounded shadow-sm" style="max-width: 560px;">
     <div class="mb-3">
-        <label class="form-label">Nombre del local *</label>
-        <input type="text" name="name" class="form-control" value="{{ branch.name if branch else '' }}" required>
+        <label class="form-label">Nombre de la bodega/local *</label>
+        <input type="text" name="name" class="form-control" value="{{ branch.name if branch else '' }}" required
+               placeholder="Ej. Bodega 1, Sucursal Centro, Bodega Norte">
+        <div class="form-text">Este nombre es el que verás al elegir la bodega en ventas, compras y transferencias.</div>
     </div>
     <div class="mb-3">
         <label class="form-label">Dirección</label>
@@ -16,6 +19,22 @@
     <div class="mb-3">
         <label class="form-label">Teléfono</label>
         <input type="text" name="phone" class="form-control" value="{{ branch.phone if branch else '' }}">
+    </div>
+    <div class="mb-3">
+        <label class="form-label">Encargado (usuario que la maneja)</label>
+        <select name="encargado_id" class="form-select">
+            <option value="">— Sin asignar (solo el administrador) —</option>
+            {% for u in usuarios %}
+            <option value="{{ u.user_id }}" {% if encargado and encargado.user_id == u.user_id %}selected{% endif %}>
+                {{ u.full_name }} ({{ u.username }})
+            </option>
+            {% endfor %}
+        </select>
+        <div class="form-text">El encargado solo verá y facturará desde esta bodega.</div>
+    </div>
+    <div class="form-check mb-3">
+        <input class="form-check-input" type="checkbox" name="active" id="active" {% if not branch or branch.active %}checked{% endif %}>
+        <label class="form-check-label" for="active">Bodega activa (disponible para operar y transferir)</label>
     </div>
     <div class="d-flex gap-2">
         <button type="submit" class="btn btn-primary">Guardar</button>

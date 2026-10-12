@@ -46,6 +46,7 @@
                         </div>
                     </div>
                     <form method="POST" action="{{ url_for('hr.hr_checkin_marcar') }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                         <input type="hidden" name="employee_id" value="{{ e.employee_id }}">
                         {% if estados[e.employee_id] == "dentro" %}
                         <input type="hidden" name="accion" value="salida">
