@@ -8,6 +8,7 @@
         <p class="text-muted mb-0">Quién hizo qué y cuándo (ventas, precios, usuarios, compras, etc.).</p>
     </div>
     <div class="d-flex gap-2">
+        <a href="{{ url_for('reports.auditoria_resumen') }}" class="btn btn-outline-primary">📊 Resumen por usuario/mes</a>
         <a href="{{ url_for('reports.auditoria_excel', usuario=usuario, accion=accion, desde=desde, hasta=hasta) }}" class="btn btn-success">📊 Exportar Excel</a>
         <button onclick="window.print()" class="btn btn-dark">🖨️ Imprimir</button>
     </div>

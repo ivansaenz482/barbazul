@@ -1567,6 +1567,81 @@ def auditoria_excel():
     )
 
 
+ACCIONES_RESUMEN = [
+    ("login", "Ingresos"),
+    ("venta_creada", "Ventas"),
+    ("venta_editada", "Ventas edit."),
+    ("venta_eliminada", "Ventas elim."),
+    ("pago_venta", "Cobros"),
+    ("compra_creada", "Compras"),
+    ("pago_proveedor", "Pagos prov."),
+    ("producto_editado", "Prod. edit."),
+    ("ajuste_stock", "Ajustes"),
+    ("transferencia_creada", "Transfer."),
+    ("nota_credito_creada", "N. crédito"),
+    ("gasto_creado", "Gastos"),
+]
+
+
+@reports_bp.route("/auditoria/resumen")
+@login_required
+@role_required("administrador")
+def auditoria_resumen():
+    """Resumen de actividad por usuario y por mes (para la revision periodica)."""
+    desde = request.args.get("desde", "").strip()
+    hasta = request.args.get("hasta", "").strip()
+    usuario = request.args.get("usuario", "").strip()
+
+    # Por defecto, ultimos 3 meses
+    if not desde and not hasta:
+        hoy = date.today()
+        desde = (hoy - timedelta(days=90)).isoformat()
+        hasta = hoy.isoformat()
+
+    q = AuditLog.query
+    if usuario:
+        q = q.filter(AuditLog.username.ilike(f"%{usuario}%"))
+    if desde:
+        try:
+            q = q.filter(AuditLog.created_at >= datetime.strptime(desde, "%Y-%m-%d"))
+        except ValueError:
+            pass
+    if hasta:
+        try:
+            q = q.filter(AuditLog.created_at <= datetime.strptime(hasta, "%Y-%m-%d").replace(hour=23, minute=59, second=59))
+        except ValueError:
+            pass
+    logs = q.order_by(AuditLog.id.desc()).limit(20000).all()
+
+    por_usuario = {}
+    por_mes = {}
+    for l in logs:
+        u = l.username or "(desconocido)"
+        d = por_usuario.setdefault(u, {})
+        d[l.accion] = d.get(l.accion, 0) + 1
+        d["_total"] = d.get("_total", 0) + 1
+
+        mes = l.created_at.strftime("%Y-%m") if l.created_at else "—"
+        dm = por_mes.setdefault(mes, {})
+        dm[l.accion] = dm.get(l.accion, 0) + 1
+        dm["_total"] = dm.get("_total", 0) + 1
+
+    usuarios = sorted(por_usuario.items(), key=lambda kv: kv[1].get("_total", 0), reverse=True)
+    meses = sorted(por_mes.items(), key=lambda kv: kv[0], reverse=True)
+
+    return render_template(
+        "audit_resumen.html",
+        ACCIONES=ACCIONES_RESUMEN,
+        usuarios=usuarios,
+        meses=meses,
+        desde=desde,
+        hasta=hasta,
+        usuario=usuario,
+        total_registros=len(logs),
+        generated_at=datetime.now().strftime("%d/%m/%Y %H:%M"),
+    )
+
+
 # =====================================================================
 # PANEL DEL DUENO (indicadores avanzados)
 # =====================================================================
