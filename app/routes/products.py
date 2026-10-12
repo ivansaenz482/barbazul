@@ -488,6 +488,9 @@ def stock_adjust():
         db.session.commit()
         signo = "+" if delta > 0 else ""
         flash(f"Stock de '{product.name}' ajustado ({signo}{delta}) a {nuevo} en {etiqueta_ubicacion(bodega)}.", "success")
+        registrar("ajuste_stock",
+                  detalle=f"Ajuste {signo}{delta} de '{product.name}' a {nuevo} en {etiqueta_ubicacion(bodega)} ({motivo})",
+                  entidad="producto", entidad_id=product.product_id)
         return redirect(url_for("products.stock_adjust"))
 
     return render_template("products_ajuste.html", products=products, historial=_historial_ajustes(),

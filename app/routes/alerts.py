@@ -2,7 +2,8 @@ from flask import Blueprint, render_template, jsonify, flash, redirect, url_for
 from flask_login import login_required, current_user
 from app.alerts_utils import (get_low_stock_products, get_overstock_products, get_overdue_credits,
                               get_alerts_summary, get_upcoming_supplier_payments,
-                              get_overdue_supplier_payments, get_upcoming_credits, get_tax_reminder)
+                              get_overdue_supplier_payments, get_upcoming_credits, get_tax_reminder,
+                              get_deleted_sales_alerts, get_price_change_alerts)
 from app.utils import role_required
 
 alerts_bp = Blueprint("alerts", __name__, url_prefix="/alertas")
@@ -19,6 +20,8 @@ def alerts_page():
     pagos_proximos = get_upcoming_supplier_payments() if current_user.is_admin() else []
     pagos_vencidos = get_overdue_supplier_payments() if current_user.is_admin() else []
     recordatorio_impuestos = get_tax_reminder() if current_user.is_admin() else None
+    ventas_eliminadas = get_deleted_sales_alerts() if current_user.is_admin() else []
+    cambios_precio = get_price_change_alerts() if current_user.is_admin() else []
 
     return render_template(
         "alerts_page.html",
@@ -29,6 +32,8 @@ def alerts_page():
         pagos_proximos=pagos_proximos,
         pagos_vencidos=pagos_vencidos,
         recordatorio_impuestos=recordatorio_impuestos,
+        ventas_eliminadas=ventas_eliminadas,
+        cambios_precio=cambios_precio,
     )
 
 
@@ -41,7 +46,11 @@ def alerts_resumen():
         resumen["creditos_vencidos"] = 0  # el personal no ve alertas de creditos
         resumen["pagos_proveedores_proximos"] = 0
         resumen["pagos_proveedores_vencidos"] = 0
-    resumen["total"] = resumen["bajo_stock"] + resumen["sobre_stock"] + resumen["creditos_vencidos"] + resumen["pagos_proveedores_proximos"] + resumen["pagos_proveedores_vencidos"]
+        resumen["ventas_eliminadas"] = 0
+        resumen["cambios_precio"] = 0
+    resumen["total"] = (resumen["bajo_stock"] + resumen["sobre_stock"] + resumen["creditos_vencidos"]
+                        + resumen["pagos_proveedores_proximos"] + resumen["pagos_proveedores_vencidos"]
+                        + resumen["ventas_eliminadas"] + resumen["cambios_precio"])
     return jsonify(resumen)
 
 

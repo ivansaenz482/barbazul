@@ -4,7 +4,25 @@ Se usa tanto en la pagina de Alertas como en la campanita de la barra superior
 y en el script de correo, para que todos muestren siempre los mismos numeros.
 """
 from datetime import datetime, timedelta, date
-from app.models import Product, Sale, PurchaseInvoice
+from app.models import Product, Sale, PurchaseInvoice, AuditLog
+
+
+def get_deleted_sales_alerts(days=7):
+    """Ventas eliminadas (anuladas) en los ultimos `days` dias (revision de auditoria)."""
+    desde = datetime.now() - timedelta(days=days)
+    return (AuditLog.query
+            .filter(AuditLog.accion == "venta_eliminada", AuditLog.created_at >= desde)
+            .order_by(AuditLog.id.desc()).all())
+
+
+def get_price_change_alerts(days=7):
+    """Cambios de precio de productos en los ultimos `days` dias (revision de auditoria)."""
+    desde = datetime.now() - timedelta(days=days)
+    return (AuditLog.query
+            .filter(AuditLog.accion == "producto_editado",
+                    AuditLog.detalle.ilike("%precio%"),
+                    AuditLog.created_at >= desde)
+            .order_by(AuditLog.id.desc()).all())
 
 
 def get_low_stock_products():
@@ -64,6 +82,8 @@ def get_alerts_summary():
         "creditos_vencidos": len(get_overdue_credits()),
         "pagos_proveedores_proximos": len(get_upcoming_supplier_payments()),
         "pagos_proveedores_vencidos": len(get_overdue_supplier_payments()),
+        "ventas_eliminadas": len(get_deleted_sales_alerts()),
+        "cambios_precio": len(get_price_change_alerts()),
     }
 
 

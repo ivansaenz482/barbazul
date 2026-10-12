@@ -12,6 +12,7 @@ from app.models import (Sale, SriConfig, PurchaseInvoice, Retencion, Supplier, C
                         NotaCredito, NotaCreditoDetail, InventoryMovement)
 from app.utils import role_required
 from app.routes.sales import _sumar_stock_bodega, _restar_stock_bodega
+from app.audit import registrar
 from app.sri_utils import (generar_xml_factura, firmar_xml, generar_clave_acceso,
                            enviar_al_sri, consultar_autorizacion,
                            generar_xml_retencion, generar_xml_ats, dia_vencimiento,
@@ -702,6 +703,7 @@ def nota_credito_nueva(sale_id):
         nc.valor_iva = round(nc.total - nc.subtotal, 2)
         db.session.commit()
         flash(f"Nota de crédito #{nc.nc_id} emitida por ${nc.total:.2f}. Stock devuelto.", "success")
+        registrar("nota_credito_creada", detalle=f"Nota de crédito #{nc.nc_id} por ${nc.total:.2f} (venta #{sale.sale_id}, {motivo})", entidad="nota_credito", entidad_id=nc.nc_id)
         return redirect(url_for("sri.nota_credito_ride", nc_id=nc.nc_id))
 
     return render_template("nota_credito_form.html", sale=sale, cfg=cfg)
@@ -745,4 +747,5 @@ def nota_credito_eliminar(nc_id):
     db.session.delete(nc)
     db.session.commit()
     flash("Nota de crédito eliminada. Stock revertido.", "info")
+    registrar("nota_credito_eliminada", detalle=f"Nota de crédito #{nc_id} eliminada", entidad="nota_credito", entidad_id=nc_id)
     return redirect(url_for("sri.notas_credito_list"))

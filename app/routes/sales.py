@@ -517,6 +517,7 @@ def sale_edit_payment_status(sale_id):
         sale.status = "pagado"
         db.session.commit()
         flash(f"Venta #{sale.sale_id} marcada como Cancelada.", "success")
+        registrar("venta_cancelada", detalle=f"Venta #{sale.sale_id} marcada como Cancelada (saldo ${saldo:.2f})", entidad="venta", entidad_id=sale.sale_id)
 
     elif nueva_accion == "revertir_pendiente":
         if not current_user.is_admin():
@@ -528,6 +529,7 @@ def sale_edit_payment_status(sale_id):
         sale.status = "pendiente"
         db.session.commit()
         flash(f"Venta #{sale.sale_id} revertida a Pendiente.", "info")
+        registrar("venta_revertida", detalle=f"Venta #{sale.sale_id} revertida a Pendiente", entidad="venta", entidad_id=sale.sale_id)
 
     return redirect(url_for("sales.sale_detail", sale_id=sale_id))
 
@@ -576,6 +578,7 @@ def sale_add_payment(sale_id):
 
     db.session.commit()
     flash(f"Pago de ${amount:.2f} registrado correctamente.", "success")
+    registrar("pago_venta", detalle=f"Cobro de ${amount:.2f} a venta #{sale.sale_id} ({sale.customer.full_name if sale.customer else ''})", entidad="venta", entidad_id=sale.sale_id)
     return redirect(url_for("sales.sale_detail", sale_id=sale_id))
 
 

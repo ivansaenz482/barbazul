@@ -7,7 +7,10 @@
         <h2 class="mb-1"><i class="bi bi-shield-check me-2 text-primary"></i>Auditoría — Registro de acciones</h2>
         <p class="text-muted mb-0">Quién hizo qué y cuándo (ventas, precios, usuarios, compras, etc.).</p>
     </div>
-    <button onclick="window.print()" class="btn btn-dark">🖨️ Imprimir</button>
+    <div class="d-flex gap-2">
+        <a href="{{ url_for('reports.auditoria_excel', usuario=usuario, accion=accion, desde=desde, hasta=hasta) }}" class="btn btn-success">📊 Exportar Excel</a>
+        <button onclick="window.print()" class="btn btn-dark">🖨️ Imprimir</button>
+    </div>
 </div>
 
 <form method="GET" class="row g-2 mb-3 no-print bg-white p-3 rounded shadow-sm align-items-end">

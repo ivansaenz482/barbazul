@@ -145,6 +145,54 @@
         </table>
     </div>
 </div>
+
+<div class="card mb-4 border-danger">
+    <div class="card-header bg-white d-flex justify-content-between align-items-center">
+        <span>🕵️ Auditoría — Ventas eliminadas (últimos 7 días) ({{ ventas_eliminadas|length }})</span>
+        <a href="{{ url_for('reports.auditoria', accion='venta_eliminada') }}" class="btn btn-sm btn-outline-danger">Ver en auditoría</a>
+    </div>
+    <div class="table-responsive">
+        <table class="table mb-0">
+            <thead class="table-light"><tr><th>Fecha</th><th>Usuario</th><th>Detalle</th><th>IP</th></tr></thead>
+            <tbody>
+                {% for l in ventas_eliminadas %}
+                <tr>
+                    <td class="text-nowrap">{{ l.fecha_str() }}</td>
+                    <td>{{ l.username or "—" }}</td>
+                    <td class="small">{{ l.detalle or "" }}</td>
+                    <td class="small text-muted">{{ l.ip or "" }}</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="4" class="text-center text-muted py-3">No se han eliminado ventas. 👍</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="card mb-4 border-warning">
+    <div class="card-header bg-white d-flex justify-content-between align-items-center">
+        <span>💲 Auditoría — Cambios de precio (últimos 7 días) ({{ cambios_precio|length }})</span>
+        <a href="{{ url_for('reports.auditoria', accion='producto_editado') }}" class="btn btn-sm btn-outline-warning">Ver en auditoría</a>
+    </div>
+    <div class="table-responsive">
+        <table class="table mb-0">
+            <thead class="table-light"><tr><th>Fecha</th><th>Usuario</th><th>Detalle</th><th>IP</th></tr></thead>
+            <tbody>
+                {% for l in cambios_precio %}
+                <tr>
+                    <td class="text-nowrap">{{ l.fecha_str() }}</td>
+                    <td>{{ l.username or "—" }}</td>
+                    <td class="small">{{ l.detalle or "" }}</td>
+                    <td class="small text-muted">{{ l.ip or "" }}</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="4" class="text-center text-muted py-3">No hay cambios de precio recientes. 👍</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
 {% endif %}
 
 {% endblock %}

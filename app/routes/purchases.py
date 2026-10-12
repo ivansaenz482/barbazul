@@ -632,6 +632,7 @@ def purchase_add_payment(invoice_id):
     db.session.commit()
 
     flash(f"Pago de ${amount:.2f} registrado para la factura #{invoice.invoice_id}.", "success")
+    registrar("pago_proveedor", detalle=f"Pago de ${amount:.2f} a factura de compra #{invoice.invoice_id}", entidad="compra", entidad_id=invoice.invoice_id)
     return redirect(url_for("purchases.purchase_detail", invoice_id=invoice.invoice_id))
 
 
@@ -653,6 +654,7 @@ def purchase_delete_payment(invoice_id, payment_id):
         invoice.status = "pendiente"
     db.session.commit()
     flash(f"Pago de ${monto:.2f} eliminado. Saldo actual: ${invoice.saldo_pendiente():.2f}.", "info")
+    registrar("pago_proveedor_eliminado", detalle=f"Pago de ${monto:.2f} eliminado de compra #{invoice.invoice_id}", entidad="compra", entidad_id=invoice.invoice_id)
     return redirect(url_for("purchases.purchase_detail", invoice_id=invoice.invoice_id))
 
 

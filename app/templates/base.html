@@ -225,6 +225,8 @@
                     if (data.creditos_vencidos > 0) items.push(`🚨 ${data.creditos_vencidos} crédito(s) vencido(s)`);
                     if (data.pagos_proveedores_proximos > 0) items.push(`⏰ ${data.pagos_proveedores_proximos} pago(s) a proveedores próximo(s) a vencer (15 días)`);
                     if (data.pagos_proveedores_vencidos > 0) items.push(`💸 ${data.pagos_proveedores_vencidos} pago(s) a proveedores vencido(s)`);
+                    if (data.ventas_eliminadas > 0) items.push(`🕵️ ${data.ventas_eliminadas} venta(s) eliminada(s) (revisar auditoría)`);
+                    if (data.cambios_precio > 0) items.push(`💲 ${data.cambios_precio} cambio(s) de precio reciente(s)`);
 
                     content.innerHTML = items.length > 0
                         ? items.map(i => `<div class="py-1">${i}</div>`).join("")

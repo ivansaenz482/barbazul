@@ -1463,10 +1463,8 @@ def cuentas():
 # AUDITORIA (log de acciones)
 # =====================================================================
 
-@reports_bp.route("/auditoria")
-@login_required
-@role_required("administrador")
-def auditoria():
+def _filtrar_auditoria():
+    """Filtros compartidos del modulo de auditoria (HTML y Excel)."""
     usuario = request.args.get("usuario", "").strip()
     accion = request.args.get("accion", "").strip()
     desde = request.args.get("desde", "").strip()
@@ -1487,11 +1485,86 @@ def auditoria():
             q = q.filter(AuditLog.created_at <= datetime.strptime(hasta, "%Y-%m-%d").replace(hour=23, minute=59, second=59))
         except ValueError:
             pass
+    return q, usuario, accion, desde, hasta
 
+
+@reports_bp.route("/auditoria")
+@login_required
+@role_required("administrador")
+def auditoria():
+    q, usuario, accion, desde, hasta = _filtrar_auditoria()
     logs = q.order_by(AuditLog.id.desc()).limit(500).all()
     return render_template("audit_list.html", logs=logs, usuario=usuario, accion=accion,
                            desde=desde, hasta=hasta,
                            generated_at=datetime.now().strftime("%d/%m/%Y %H:%M"))
+
+
+@reports_bp.route("/auditoria/excel")
+@login_required
+@role_required("administrador")
+def auditoria_excel():
+    q, usuario, accion, desde, hasta = _filtrar_auditoria()
+    logs = q.order_by(AuditLog.id.desc()).limit(10000).all()
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Auditoria"
+
+    ws.merge_cells("A1:G1")
+    ws["A1"] = "Registro de Auditoría"
+    ws["A1"].font = Font(size=14, bold=True, color="145369")
+
+    ws.merge_cells("A2:G2")
+    ws["A2"] = f"Generado el {datetime.now().strftime('%d/%m/%Y %H:%M')} por {current_user.full_name}"
+    ws["A2"].font = Font(size=9, italic=True, color="6b7c85")
+
+    filtros = []
+    if usuario:
+        filtros.append(f"Usuario: {usuario}")
+    if accion:
+        filtros.append(f"Acción: {accion}")
+    if desde:
+        filtros.append(f"Desde: {desde}")
+    if hasta:
+        filtros.append(f"Hasta: {hasta}")
+    ws.merge_cells("A3:G3")
+    ws["A3"] = " | ".join(filtros) if filtros else "Sin filtros"
+    ws["A3"].font = Font(size=9, italic=True, color="6b7c85")
+
+    encabezado_fill = PatternFill(start_color="145369", end_color="145369", fill_type="solid")
+    encabezado_font = Font(bold=True, color="FFFFFF")
+    fila = 5
+    for col_idx, titulo in enumerate(["Fecha", "Usuario", "Acción", "Entidad", "ID", "Detalle", "IP"], start=1):
+        celda = ws.cell(row=fila, column=col_idx, value=titulo)
+        celda.font = encabezado_font
+        celda.fill = encabezado_fill
+        celda.alignment = Alignment(horizontal="center")
+    fila += 1
+
+    for l in logs:
+        ws.cell(row=fila, column=1, value=l.fecha_str())
+        ws.cell(row=fila, column=2, value=l.username or "")
+        ws.cell(row=fila, column=3, value=l.accion)
+        ws.cell(row=fila, column=4, value=l.entidad or "")
+        ws.cell(row=fila, column=5, value=l.entidad_id or "")
+        ws.cell(row=fila, column=6, value=l.detalle or "")
+        ws.cell(row=fila, column=7, value=l.ip or "")
+        fila += 1
+
+    for i, ancho in enumerate([19, 18, 24, 14, 10, 55, 16], start=1):
+        ws.column_dimensions[get_column_letter(i)].width = ancho
+
+    buffer = io.BytesIO()
+    wb.save(buffer)
+    buffer.seek(0)
+
+    nombre_archivo = f"auditoria_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsx"
+    return send_file(
+        buffer,
+        as_attachment=True,
+        download_name=nombre_archivo,
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
 
 
 # =====================================================================
