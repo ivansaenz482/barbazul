@@ -672,13 +672,14 @@ def inventario_por_categorias_excel():
 # MOVIMIENTOS DE INVENTARIO / MERMAS
 # =====================================================================
 
-REFERENCIAS_MOV = ["compra", "venta", "ajuste_manual", "pedido_proveedor", "nota_credito"]
+REFERENCIAS_MOV = ["compra", "venta", "ajuste_manual", "pedido_proveedor", "nota_credito", "transferencia"]
 ETIQUETA_REFERENCIA = {
     "compra": "Compra",
     "venta": "Venta",
     "ajuste_manual": "Ajuste manual",
     "pedido_proveedor": "Pedido a proveedor",
     "nota_credito": "Nota de crédito",
+    "transferencia": "Transferencia bodega",
 }
 
 

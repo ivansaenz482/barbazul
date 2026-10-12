@@ -1,0 +1,174 @@
+{% extends "base.html" %}
+{% block title %}Nueva Transferencia{% endblock %}
+{% block content %}
+
+<h2 class="mb-1"><i class="bi bi-arrow-left-right me-2 text-primary"></i>Nueva Transferencia entre Bodegas</h2>
+<p class="text-muted">Mueve unidades de una bodega a otra. El stock se descuenta del origen y se suma al destino.</p>
+
+<style>
+    .searchable-select { position: relative; width: 100%; }
+    .searchable-select .ss-caret { position: absolute; right: .5rem; top: 50%; transform: translateY(-50%); pointer-events: none; color: #6c757d; }
+    .searchable-list {
+        position: fixed; z-index: 2000; background: #fff; border: 1px solid #ced4da; border-radius: .375rem;
+        max-height: 260px; overflow-y: auto; box-shadow: 0 .5rem 1rem rgba(0,0,0,.15);
+    }
+    .searchable-item { display: block; padding: .45rem .65rem; cursor: pointer; font-size: .9rem; }
+    .searchable-item .ss-code { display: block; font-size: .72rem; color: #6c757d; }
+    .searchable-item:hover { background: #e9ecef; }
+    .searchable-item.ss-empty { color: #6c757d; cursor: default; }
+</style>
+
+<form method="POST" class="bg-white p-4 rounded shadow-sm" style="max-width: 1000px;">
+    <div class="row g-3 mb-3">
+        <div class="col-md-4">
+            <label class="form-label">Bodega de origen *</label>
+            <select name="bodega_origen" id="bodega_origen" class="form-select" onchange="aplicarOrigenATodas()">
+                <option value="local">Bodega Local</option>
+                <option value="matriz">Bodega Matriz</option>
+            </select>
+        </div>
+        <div class="col-md-4">
+            <label class="form-label">Bodega de destino *</label>
+            <select name="bodega_destino" id="bodega_destino" class="form-select">
+                <option value="matriz">Bodega Matriz</option>
+                <option value="local">Bodega Local</option>
+            </select>
+        </div>
+        <div class="col-md-4">
+            <label class="form-label">Motivo / referencia</label>
+            <input type="text" name="motivo" class="form-control" placeholder="Ej. reposición, pedido de local...">
+        </div>
+    </div>
+
+    <h5>Productos a transferir</h5>
+    <table class="table" id="products-table">
+        <thead>
+            <tr>
+                <th style="width: 52%;">Producto</th>
+                <th style="width: 18%;">Cantidad</th>
+                <th style="width: 22%;">Disponible en origen</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody id="products-body">
+            <tr>
+                <td>
+                    <select name="product_id[]" class="form-select product-select" data-searchable data-placeholder="Busca producto por nombre o código..." onchange="onProductChange(this)">
+                        <option value="">-- Selecciona --</option>
+                        {% for p in products %}
+                        <option value="{{ p.product_id }}" data-stock-local="{{ p.current_stock or 0 }}" data-stock-matriz="{{ p.stock_matriz or 0 }}" data-codigo="{{ p.sku or p.barcode or '' }}">
+                            {{ p.name }}{% if p.sku %} ({{ p.sku }}){% endif %}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </td>
+                <td><input type="number" name="quantity[]" min="1" class="form-control" required></td>
+                <td class="stock-label text-muted">—</td>
+                <td><button type="button" class="btn btn-sm btn-outline-danger" onclick="removeRow(this)">✕</button></td>
+            </tr>
+        </tbody>
+    </table>
+
+    <button type="button" class="btn btn-outline-secondary btn-sm mb-3" onclick="addRow()">+ Agregar producto</button>
+
+    {% if not products %}
+    <div class="alert alert-warning">No hay productos activos para transferir.</div>
+    {% endif %}
+
+    <div class="mt-2 d-flex gap-2">
+        <button type="submit" class="btn btn-primary">Registrar transferencia</button>
+        <a href="{{ url_for('transfers.transfers_list') }}" class="btn btn-secondary">Cancelar</a>
+    </div>
+</form>
+
+<script>
+function origenActual() {
+    const el = document.getElementById('bodega_origen');
+    return el && el.value ? el.value : 'local';
+}
+function stockDeProducto(option) {
+    if (!option) return '0';
+    return option.getAttribute('data-stock-' + origenActual()) || '0';
+}
+function onProductChange(select) {
+    const row = select.closest('tr');
+    const label = row.querySelector('.stock-label');
+    const opt = select.options[select.selectedIndex];
+    label.textContent = (opt && select.value !== '') ? stockDeProducto(opt) + ' disponibles' : '—';
+}
+function aplicarOrigenATodas() {
+    document.querySelectorAll('#products-body select.product-select').forEach(function (sel) {
+        const opt = sel.options[sel.selectedIndex];
+        if (!opt || sel.value === '') return;
+        onProductChange(sel);
+    });
+}
+function addRow() {
+    const tbody = document.getElementById('products-body');
+    const newRow = tbody.rows[0].cloneNode(true);
+    newRow.querySelectorAll('input').forEach(el => el.value = '');
+    newRow.querySelectorAll('.searchable-select').forEach(w => w.remove());
+    const sel = newRow.querySelector('select.product-select');
+    delete sel.dataset.transformed;
+    sel.style.display = '';
+    sel.selectedIndex = 0;
+    newRow.querySelector('.stock-label').textContent = '—';
+    tbody.appendChild(newRow);
+    buildSearchable(sel);
+}
+function removeRow(btn) {
+    const tbody = document.getElementById('products-body');
+    if (tbody.rows.length > 1) { btn.closest('tr').remove(); }
+    else { alert('Debe haber al menos un producto.'); }
+}
+function buildSearchable(select) {
+    if (select.dataset.transformed === '1') return;
+    select.dataset.transformed = '1';
+    const store = Array.from(select.options).map(opt => ({
+        value: opt.value, text: opt.textContent.trim(), codigo: opt.getAttribute('data-codigo') || '',
+    }));
+    select.style.display = 'none';
+    const wrap = document.createElement('div');
+    wrap.className = 'searchable-select';
+    const input = document.createElement('input');
+    input.type = 'text'; input.className = 'form-control searchable-input';
+    input.placeholder = select.dataset.placeholder || 'Escribe para buscar...'; input.autocomplete = 'off';
+    const caret = document.createElement('i'); caret.className = 'bi bi-chevron-down ss-caret';
+    const list = document.createElement('div'); list.className = 'searchable-list'; list.style.display = 'none';
+    wrap.appendChild(input); wrap.appendChild(caret); wrap.appendChild(list);
+    const selected = select.options[select.selectedIndex];
+    if (selected && selected.value !== '') input.value = selected.textContent.trim();
+    function render(term) {
+        const t = term.trim().toLowerCase();
+        list.innerHTML = ''; let any = false;
+        store.forEach(item => {
+            if (item.value === '') return;
+            if (t && item.text.toLowerCase().indexOf(t) === -1 && item.codigo.toLowerCase().indexOf(t) === -1) return;
+            any = true;
+            const el = document.createElement('div'); el.className = 'searchable-item'; el.textContent = item.text;
+            if (item.codigo) { const c = document.createElement('span'); c.className = 'ss-code'; c.textContent = 'Código: ' + item.codigo; el.appendChild(c); }
+            el.addEventListener('click', () => {
+                select.value = item.value; input.value = item.text; list.style.display = 'none';
+                select.dispatchEvent(new Event('change'));
+            });
+            list.appendChild(el);
+        });
+        if (!any) { const no = document.createElement('div'); no.className = 'searchable-item ss-empty'; no.textContent = 'Sin resultados'; list.appendChild(no); }
+        list.style.display = 'block';
+        const rect = input.getBoundingClientRect();
+        list.style.top = (rect.bottom) + 'px';
+        list.style.left = rect.left + 'px';
+        list.style.width = rect.width + 'px';
+    }
+    input.addEventListener('input', () => render(input.value));
+    input.addEventListener('focus', () => render(input.value));
+    input.addEventListener('keydown', (e) => { if (e.key === 'Escape') list.style.display = 'none'; });
+    input.addEventListener('blur', () => setTimeout(() => list.style.display = 'none', 200));
+    select.parentNode.insertBefore(wrap, select);
+}
+document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('select[data-searchable]').forEach(buildSearchable);
+});
+</script>
+
+{% endblock %}

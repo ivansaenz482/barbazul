@@ -97,7 +97,7 @@ class InventoryMovement(db.Model):
     product_id = db.Column(db.Integer, db.ForeignKey("products.product_id"), nullable=False)
     movement_type = db.Column(db.Enum("entrada", "salida", "ajuste"), nullable=False)
     quantity = db.Column(db.Integer, nullable=False)
-    reference_type = db.Column(db.Enum("compra", "venta", "ajuste_manual", "pedido_proveedor", "nota_credito"), nullable=False)
+    reference_type = db.Column(db.Enum("compra", "venta", "ajuste_manual", "pedido_proveedor", "nota_credito", "transferencia"), nullable=False)
     reference_id = db.Column(db.Integer)
     movement_date = db.Column(db.DateTime, default=datetime.now)
     user_id = db.Column(db.Integer, db.ForeignKey("users.user_id"), nullable=False)
