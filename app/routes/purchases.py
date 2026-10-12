@@ -246,10 +246,12 @@ def purchase_new():
             db.session.add(invoice)
             db.session.flush()
 
-            # Bodega destino: "local" (current_stock) o "matriz" (stock_matriz)
+            # Ubicacion destino: "local", "matriz" o "sucursal:<id>"
+            from app.stock import es_ubicacion_valida, sumar_stock, etiqueta_ubicacion
             bodega_destino = request.form.get("bodega_destino", "local")
-            if bodega_destino not in ("local", "matriz"):
+            if not es_ubicacion_valida(bodega_destino):
                 bodega_destino = "local"
+            invoice.bodega_destino = bodega_destino
 
             total_amount = 0
             for product, quantity, unit_cost in line_items:
@@ -260,11 +262,8 @@ def purchase_new():
                     unit_cost=unit_cost,
                 ))
 
-                # Actualizar stock (bodega elegida) y costo del producto (entrada de mercaderia)
-                if bodega_destino == "matriz":
-                    product.stock_matriz = (product.stock_matriz or 0) + quantity
-                else:
-                    product.current_stock += quantity
+                # Actualizar stock (ubicacion elegida) y costo del producto (entrada de mercaderia)
+                sumar_stock(product, bodega_destino, quantity)
                 product.cost_price = unit_cost  # actualiza al costo mas reciente
 
                 db.session.add(InventoryMovement(
@@ -274,7 +273,7 @@ def purchase_new():
                     reference_type="compra",
                     reference_id=invoice.invoice_id,
                     user_id=current_user.user_id,
-                    notes=f"Compra #{invoice.invoice_id} -> bodega {bodega_destino}",
+                    notes=f"Compra #{invoice.invoice_id} -> {etiqueta_ubicacion(bodega_destino)}",
                 ))
 
                 total_amount += quantity * unit_cost
@@ -340,8 +339,9 @@ def purchase_new():
             payment_type = request.form.get("payment_type", "efectivo")
             if payment_type not in ("efectivo", "credito"):
                 payment_type = "efectivo"
+            from app.stock import es_ubicacion_valida, sumar_stock, etiqueta_ubicacion
             bodega_destino = request.form.get("bodega_destino", "local")
-            if bodega_destino not in ("local", "matriz"):
+            if not es_ubicacion_valida(bodega_destino):
                 bodega_destino = "local"
 
             context.update({
@@ -395,6 +395,7 @@ def purchase_new():
                 supplier_id=supplier.supplier_id, invoice_number=invoice_number,
                 invoice_date=invoice_date, source_type="pdf", file_path=file_path,
                 registered_by=current_user.user_id, payment_type=payment_type, status="pendiente",
+                bodega_destino=bodega_destino,
             )
             db.session.add(invoice)
             db.session.flush()
@@ -412,17 +413,14 @@ def purchase_new():
                     invoice_id=invoice.invoice_id, product_id=product.product_id,
                     quantity=it["cantidad"], unit_cost=it["costo"],
                 ))
-                if bodega_destino == "matriz":
-                    product.stock_matriz = (product.stock_matriz or 0) + it["cantidad"]
-                else:
-                    product.current_stock = (product.current_stock or 0) + it["cantidad"]
+                sumar_stock(product, bodega_destino, it["cantidad"])
                 if it["costo"] > 0:
                     product.cost_price = it["costo"]
                 db.session.add(InventoryMovement(
                     product_id=product.product_id, movement_type="entrada",
                     quantity=it["cantidad"], reference_type="compra",
                     reference_id=invoice.invoice_id, user_id=current_user.user_id,
-                    notes=f"Compra #{invoice.invoice_id} (importada) -> {bodega_destino}",
+                    notes=f"Compra #{invoice.invoice_id} (importada) -> {etiqueta_ubicacion(bodega_destino)}",
                 ))
                 total_amount += it["cantidad"] * it["costo"]
 
@@ -446,11 +444,8 @@ def purchase_edit(invoice_id):
     suppliers = Supplier.query.order_by(Supplier.name).all()
     products = Product.query.filter_by(active=True).order_by(Product.name).all()
 
-    # Determinar bodega destino original a partir de los movimientos (si existe)
-    movements = InventoryMovement.query.filter_by(reference_type="compra", reference_id=invoice.invoice_id).all()
-    bodega_actual = "local"
-    if movements and any("matriz" in (m.notes or "").lower() for m in movements):
-        bodega_actual = "matriz"
+    # Ubicacion original donde ingreso el stock
+    bodega_actual = invoice.bodega_destino or "local"
 
     if request.method == "POST":
         supplier_id = request.form.get("supplier_id")
@@ -462,7 +457,8 @@ def purchase_edit(invoice_id):
             payment_type = "efectivo"
         due_date_str = request.form.get("due_date", "").strip()
         bodega_destino = request.form.get("bodega_destino", bodega_actual)
-        if bodega_destino not in ("local", "matriz"):
+        from app.stock import es_ubicacion_valida
+        if not es_ubicacion_valida(bodega_destino):
             bodega_destino = bodega_actual
 
         if not supplier:
@@ -516,16 +512,13 @@ def purchase_edit(invoice_id):
             flash("Debes agregar al menos un producto con cantidad y costo válidos.", "danger")
             return render_template("purchase_edit.html", invoice=invoice, suppliers=suppliers, products=products, bodega_actual=bodega_destino)
 
-        # Revertir stock anterior (usando los movimientos para saber la bodega)
+        # Revertir el stock anterior (de la ubicacion original) y reiniciar la ubicacion
+        from app.stock import restar_stock, sumar_stock
         for detalle in list(invoice.details):
             mv_list = InventoryMovement.query.filter_by(reference_type="compra", reference_id=invoice.invoice_id, product_id=detalle.product_id).all()
-            is_matriz = any("matriz" in (m.notes or "").lower() for m in mv_list) if mv_list else (bodega_actual == "matriz")
             prod = detalle.product
             if prod:
-                if is_matriz:
-                    prod.stock_matriz = max(0, (prod.stock_matriz or 0) - detalle.quantity)
-                else:
-                    prod.current_stock = max(0, (prod.current_stock or 0) - detalle.quantity)
+                restar_stock(prod, bodega_actual, detalle.quantity)
             for m in mv_list:
                 db.session.delete(m)
             db.session.delete(detalle)
@@ -537,6 +530,7 @@ def purchase_edit(invoice_id):
         invoice.invoice_date = invoice_date
         invoice.payment_type = payment_type
         invoice.due_date = due_date
+        invoice.bodega_destino = bodega_destino
 
         total_amount = 0
         for product, quantity, unit_cost in line_items:
@@ -546,10 +540,7 @@ def purchase_edit(invoice_id):
                 quantity=quantity,
                 unit_cost=unit_cost,
             ))
-            if bodega_destino == "matriz":
-                product.stock_matriz = (product.stock_matriz or 0) + quantity
-            else:
-                product.current_stock = (product.current_stock or 0) + quantity
+            sumar_stock(product, bodega_destino, quantity)
             product.cost_price = unit_cost
             db.session.add(InventoryMovement(
                 product_id=product.product_id,
@@ -558,7 +549,7 @@ def purchase_edit(invoice_id):
                 reference_type="compra",
                 reference_id=invoice.invoice_id,
                 user_id=current_user.user_id,
-                notes=f"Compra #{invoice.invoice_id} -> bodega {bodega_destino} (editada)",
+                notes=f"Compra #{invoice.invoice_id} -> {etiqueta_ubicacion(bodega_destino)} (editada)",
             ))
             total_amount += quantity * unit_cost
 
@@ -670,20 +661,13 @@ def purchase_delete_payment(invoice_id, payment_id):
 @role_required("administrador")
 def purchase_delete(invoice_id):
     invoice = PurchaseInvoice.query.get_or_404(invoice_id)
-    # Revertir stock según la bodega real de cada movimiento
+    from app.stock import restar_stock
+    bodega_destino = invoice.bodega_destino or "local"
+    # Revertir stock en la ubicacion original
     for detalle in list(invoice.details):
-        mv_list = InventoryMovement.query.filter_by(reference_type="compra", reference_id=invoice.invoice_id, product_id=detalle.product_id).all()
-        is_matriz = any("matriz" in (m.notes or "").lower() for m in mv_list) if mv_list else False
         prod = detalle.product
         if prod:
-            if is_matriz:
-                prod.stock_matriz = max(0, (prod.stock_matriz or 0) - detalle.quantity)
-            else:
-                prod.current_stock = max(0, (prod.current_stock or 0) - detalle.quantity)
-        for m in mv_list:
-            db.session.delete(m)
-    # Los pagos y detalles se borran por cascade al eliminar la factura,
-    # pero borramos movimientos restantes por si acaso
+            restar_stock(prod, bodega_destino, detalle.quantity)
     for m in InventoryMovement.query.filter_by(reference_type="compra", reference_id=invoice.invoice_id).all():
         db.session.delete(m)
     db.session.delete(invoice)

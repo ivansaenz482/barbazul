@@ -5,7 +5,7 @@
 <h2 class="mb-3"><i class="bi bi-file-earmark-minus me-2 text-primary"></i>Nota de Crédito / Devolución — Venta #{{ sale.sale_id }}</h2>
 
 <div class="alert alert-info py-2">
-    Cliente: <strong>{{ sale.customer.full_name }}</strong> · Bodega: <strong>{{ "Matriz" if sale.bodega == "matriz" else "Local" }}</strong>
+    Cliente: <strong>{{ sale.customer.full_name }}</strong> · Bodega: <strong>{{ ubicacion_label(sale.bodega) }}</strong>
 </div>
 
 <form method="POST" class="bg-white p-4 rounded shadow-sm">

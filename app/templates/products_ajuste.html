@@ -36,8 +36,9 @@
         <div class="col-md-3">
             <label class="form-label">Bodega *</label>
             <select name="bodega" id="bodega" class="form-select" onchange="actualizarActual()">
-                <option value="local">Bodega Local</option>
-                <option value="matriz">Bodega Matriz</option>
+                {% for clave, etq in ubicaciones %}
+                <option value="{{ clave }}">{{ etq }}</option>
+                {% endfor %}
             </select>
         </div>
         <div class="col-md-3">
@@ -87,13 +88,14 @@
 </div>
 
 <script>
+const STOCK = {{ stock_map|tojson }};
 function actualizarActual() {
     const sel = document.getElementById('producto');
-    const opt = sel.options[sel.selectedIndex];
     const bodega = document.getElementById('bodega').value;
     const campo = document.getElementById('stock_actual');
-    if (!opt || sel.value === '') { campo.value = '—'; return; }
-    campo.value = opt.getAttribute(bodega === 'matriz' ? 'data-matriz' : 'data-local') || '0';
+    if (!sel.value) { campo.value = '—'; return; }
+    const m = STOCK[bodega] || {};
+    campo.value = (m[sel.value] !== undefined ? m[sel.value] : 0);
 }
 
 function buildSearchable(select) {

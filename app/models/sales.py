@@ -10,7 +10,7 @@ class Sale(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey("users.user_id"), nullable=False)
     vendedor_id = db.Column(db.Integer, db.ForeignKey("sellers.seller_id"))
     # Bodega/sucursal desde la que se hizo la venta (de donde se descuenta el stock)
-    bodega = db.Column(db.Enum("local", "matriz"), default="local")
+    bodega = db.Column(db.String(30), default="local")
     sale_date = db.Column(db.DateTime, default=datetime.now)
     payment_type = db.Column(db.Enum("efectivo", "credito"), nullable=False)
     document_type = db.Column(

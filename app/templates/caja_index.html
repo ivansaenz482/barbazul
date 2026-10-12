@@ -10,8 +10,9 @@
     <div class="text-end d-flex align-items-center gap-2 justify-content-end">
         {% if current_user.ve_todas_bodegas() %}
         <select onchange="location.search='?bodega='+this.value" class="form-select form-select-sm" style="width:auto;">
-            <option value="local" {% if bodega == 'local' %}selected{% endif %}>Bodega Local</option>
-            <option value="matriz" {% if bodega == 'matriz' %}selected{% endif %}>Bodega Matriz</option>
+                {% for clave, etq in ubicaciones %}
+                <option value="{{ clave }}" {% if bodega == clave %}selected{% endif %}>{{ etq }}</option>
+                {% endfor %}
         </select>
         {% else %}
         <span class="badge bg-secondary">{{ current_user.bodega_label() }}</span>

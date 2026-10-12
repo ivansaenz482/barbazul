@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Inventario por Categorías{% endblock %}
 {% block content %}
+{% set bodega_simple = bodega and bodega not in ('ambas', '') %}
 
 <div class="d-flex justify-content-between align-items-center mb-3 no-print">
     <h2 class="mb-0">Inventario Total por Categorías</h2>
@@ -14,9 +15,10 @@
     <div class="col-md-3">
         <label class="form-label small text-muted mb-1">Bodega</label>
         <select name="bodega" class="form-select">
-            <option value="ambas" {% if bodega == "ambas" %}selected{% endif %}>Ambas bodegas</option>
-            <option value="local" {% if bodega == "local" %}selected{% endif %}>Bodega Local</option>
-            <option value="matriz" {% if bodega == "matriz" %}selected{% endif %}>Bodega Matriz</option>
+            <option value="ambas" {% if bodega == "ambas" %}selected{% endif %}>Todas las ubicaciones</option>
+            {% for clave, etq in ubicaciones %}
+            <option value="{{ clave }}" {% if bodega == clave %}selected{% endif %}>{{ etq }}</option>
+            {% endfor %}
         </select>
     </div>
     <div class="col-md-3">
@@ -62,7 +64,7 @@
         <h3>Inventario Total por Categorías</h3>
         <p class="text-muted small">Generado el {{ generated_at }} por {{ current_user.full_name }}</p>
         <p class="text-muted small">
-            Bodega: <strong>{% if bodega == "local" %}Local{% elif bodega == "matriz" %}Matriz{% else %}Ambas bodegas{% endif %}</strong>
+            Ubicación: <strong>{% if bodega_simple %}{{ ubicacion_label(bodega) }}{% else %}Todas las ubicaciones{% endif %}</strong>
         </p>
     </div>
 
@@ -82,10 +84,8 @@
                             <th>Código</th>
                             <th>Producto</th>
                             <th>Unidad</th>
-                            {% if bodega == "local" %}
-                            <th class="text-center">Stock Local</th>
-                            {% elif bodega == "matriz" %}
-                            <th class="text-center">Stock Matriz</th>
+                            {% if bodega_simple %}
+                            <th class="text-center">Stock ({{ ubicacion_label(bodega) }})</th>
                             {% else %}
                             <th class="text-center">Stock Local</th>
                             <th class="text-center">Stock Matriz</th>
@@ -99,14 +99,13 @@
                     </thead>
                     <tbody>
                         {% for p in g.productos %}
+                        {% set stock_calc = stock_en(p, bodega) if bodega_simple else p.total_stock() %}
                         <tr>
                             <td><code>{{ p.sku or ('PROD-' ~ p.product_id) }}</code></td>
                             <td>{{ p.name }}</td>
                             <td>{{ p.unit_measure or "unidad" }}</td>
-                            {% if bodega == "local" %}
-                            <td class="text-center fw-bold">{{ p.current_stock or 0 }}</td>
-                            {% elif bodega == "matriz" %}
-                            <td class="text-center fw-bold">{{ p.stock_matriz or 0 }}</td>
+                            {% if bodega_simple %}
+                            <td class="text-center fw-bold">{{ stock_en(p, bodega) }}</td>
                             {% else %}
                             <td class="text-center">{{ p.current_stock or 0 }}</td>
                             <td class="text-center">{{ p.stock_matriz or 0 }}</td>
@@ -114,15 +113,15 @@
                             {% endif %}
                             {% if ver_costo %}<td class="text-end">${{ "%.2f"|format(p.cost_price or 0) }}</td>{% endif %}
                             {% if ver_precio %}<td class="text-end">${{ "%.2f"|format(p.sale_price or 0) }}</td>{% endif %}
-                            {% if ver_valor_costo %}<td class="text-end">${{ "%.2f"|format((p.cost_price or 0) * (p.total_stock() if bodega == 'ambas' else (p.current_stock if bodega == 'local' else p.stock_matriz))) }}</td>{% endif %}
-                            {% if ver_valor_venta %}<td class="text-end">${{ "%.2f"|format((p.sale_price or 0) * (p.total_stock() if bodega == 'ambas' else (p.current_stock if bodega == 'local' else p.stock_matriz))) }}</td>{% endif %}
+                            {% if ver_valor_costo %}<td class="text-end">${{ "%.2f"|format((p.cost_price or 0) * stock_calc) }}</td>{% endif %}
+                            {% if ver_valor_venta %}<td class="text-end">${{ "%.2f"|format((p.sale_price or 0) * stock_calc) }}</td>{% endif %}
                         </tr>
                         {% endfor %}
                     </tbody>
                     <tfoot>
                         <tr class="table-light fw-bold">
-                            {% if bodega == "ambas" %}<td colspan="6" class="text-end">Subtotal categoría</td>
-                            {% else %}<td colspan="4" class="text-end">Subtotal categoría</td>{% endif %}
+                            {% if bodega_simple %}<td colspan="4" class="text-end">Subtotal categoría</td>
+                            {% else %}<td colspan="6" class="text-end">Subtotal categoría</td>{% endif %}
                             {% if ver_costo %}<td class="text-end">—</td>{% endif %}
                             {% if ver_precio %}<td class="text-end">—</td>{% endif %}
                             {% if ver_valor_costo %}<td class="text-end">${{ "%.2f"|format(g.total_costo) }}</td>{% endif %}

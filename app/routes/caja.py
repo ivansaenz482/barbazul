@@ -53,16 +53,18 @@ def _cliente_consumidor_final():
 
 
 def _bodega_caja():
-    """Bodega con la que opera el usuario en la caja."""
+    """Ubicacion con la que opera el usuario en la caja."""
     if current_user.ve_todas_bodegas():
+        from app.stock import es_ubicacion_valida
         b = request.values.get("bodega", "local")
-        return b if b in ("local", "matriz") else "local"
+        return b if es_ubicacion_valida(b) else "local"
     return current_user.bodega or "local"
 
 
 def _info_producto(product):
+    from app.stock import stock_en
     bodega = _bodega_caja()
-    stock = (product.stock_matriz or 0) if bodega == "matriz" else (product.current_stock or 0)
+    stock = stock_en(product, bodega)
     return {
         "product_id": product.product_id,
         "sku": product.sku or "",

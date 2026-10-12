@@ -9,6 +9,7 @@ from app.extensions import db
 from app.models import Product, Category, Supplier, InventoryMovement
 from app.utils import role_required, perm_required, generar_ean13, resolver_ruta_upload
 from app.audit import registrar
+from app.stock import listar_ubicaciones, mapa_stock_por_ubicacion
 
 products_bp = Blueprint("products", __name__, url_prefix="/productos")
 
@@ -448,10 +449,12 @@ def stock_adjust():
         product = Product.query.get(request.form.get("product_id")) if request.form.get("product_id") else None
         if not product:
             flash("Selecciona un producto.", "danger")
-            return render_template("products_ajuste.html", products=products, historial=_historial_ajustes())
+            return render_template("products_ajuste.html", products=products, historial=_historial_ajustes(),
+                           ubicaciones=listar_ubicaciones(), stock_map=mapa_stock_por_ubicacion())
 
+        from app.stock import es_ubicacion_valida, stock_en, sumar_stock, restar_stock, etiqueta_ubicacion
         bodega = request.form.get("bodega", "local")
-        if bodega not in ("local", "matriz"):
+        if not es_ubicacion_valida(bodega):
             bodega = "local"
 
         try:
@@ -460,7 +463,7 @@ def stock_adjust():
             nuevo = 0
         nuevo = max(0, nuevo)
 
-        actual = (product.current_stock if bodega == "local" else product.stock_matriz) or 0
+        actual = stock_en(product, bodega)
         delta = nuevo - actual
         if delta == 0:
             flash("El stock no cambió (ya estaba en ese valor).", "info")
@@ -468,10 +471,10 @@ def stock_adjust():
 
         motivo = request.form.get("motivo", "").strip() or "Ajuste manual"
 
-        if bodega == "local":
-            product.current_stock = nuevo
+        if delta > 0:
+            sumar_stock(product, bodega, delta)
         else:
-            product.stock_matriz = nuevo
+            restar_stock(product, bodega, -delta)
 
         db.session.add(InventoryMovement(
             product_id=product.product_id,
@@ -480,11 +483,12 @@ def stock_adjust():
             reference_type="ajuste_manual",
             reference_id=None,
             user_id=current_user.user_id,
-            notes=f"Ajuste {bodega}: {actual} -> {nuevo} ({motivo})",
+            notes=f"Ajuste {etiqueta_ubicacion(bodega)}: {actual} -> {nuevo} ({motivo})",
         ))
         db.session.commit()
         signo = "+" if delta > 0 else ""
-        flash(f"Stock de '{product.name}' ajustado ({signo}{delta}) a {nuevo} en bodega {bodega}.", "success")
+        flash(f"Stock de '{product.name}' ajustado ({signo}{delta}) a {nuevo} en {etiqueta_ubicacion(bodega)}.", "success")
         return redirect(url_for("products.stock_adjust"))
 
-    return render_template("products_ajuste.html", products=products, historial=_historial_ajustes())
+    return render_template("products_ajuste.html", products=products, historial=_historial_ajustes(),
+                           ubicaciones=listar_ubicaciones(), stock_map=mapa_stock_por_ubicacion())

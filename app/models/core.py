@@ -33,9 +33,9 @@ class User(db.Model, UserMixin):
     created_at = db.Column(db.DateTime, default=datetime.now)
     avatar_path = db.Column(db.String(300))
 
-    # Bodega/sucursal asignada. "local" o "matriz". Si es NULL (ej. admin),
-    # el usuario puede operar/ver las dos bodegas.
-    bodega = db.Column(db.Enum("local", "matriz"))
+    # Ubicacion asignada: "local", "matriz" o "sucursal:<branch_id>".
+    # Si es NULL (ej. admin), el usuario puede operar/ver todas las ubicaciones.
+    bodega = db.Column(db.String(30))
 
     # Permisos granulares (solo aplican si no es administrador; el admin siempre tiene todo)
     perm_inventario = db.Column(db.Boolean, default=False)
@@ -97,7 +97,10 @@ class User(db.Model, UserMixin):
         return self.is_admin() or self.bodega is None
 
     def bodega_label(self):
-        return {"local": "Bodega Local", "matriz": "Bodega Matriz"}.get(self.bodega, "Todas las bodegas")
+        if self.bodega is None:
+            return "Todas las ubicaciones"
+        from app.stock import etiqueta_ubicacion
+        return etiqueta_ubicacion(self.bodega)
 
 
 @login_manager.user_loader
@@ -199,6 +202,21 @@ class Branch(db.Model):
     customers = db.relationship("Customer", backref="branch", lazy=True)
 
 
+class BranchStock(db.Model):
+    """Stock de un producto en una sucursal (local) especifica."""
+    __tablename__ = "branch_stock"
+
+    id = db.Column(db.Integer, primary_key=True)
+    branch_id = db.Column(db.Integer, db.ForeignKey("branches.branch_id"), nullable=False)
+    product_id = db.Column(db.Integer, db.ForeignKey("products.product_id"), nullable=False)
+    quantity = db.Column(db.Integer, default=0, nullable=False)
+
+    branch = db.relationship("Branch")
+    product = db.relationship("Product")
+
+    __table_args__ = (db.UniqueConstraint("branch_id", "product_id", name="uq_branch_product"),)
+
+
 class Customer(db.Model):
     __tablename__ = "customers"
 
@@ -274,7 +292,7 @@ class SalesGoal(db.Model):
     mes = db.Column(db.Integer, nullable=False)
     meta = db.Column(db.Numeric(12, 2), nullable=False, default=0)
     seller_id = db.Column(db.Integer, db.ForeignKey("sellers.seller_id"))  # NULL = todos los vendedores
-    bodega = db.Column(db.Enum("local", "matriz"))                        # NULL = ambas bodegas
+    bodega = db.Column(db.String(30))                        # NULL = todas las ubicaciones
     created_by = db.Column(db.Integer, db.ForeignKey("users.user_id"))
     created_at = db.Column(db.DateTime, default=datetime.now)
 
@@ -283,5 +301,9 @@ class SalesGoal(db.Model):
     def alcance_label(self):
         partes = []
         partes.append(self.seller.name if self.seller else "Todos los vendedores")
-        partes.append("Bodega Matriz" if self.bodega == "matriz" else ("Bodega Local" if self.bodega == "local" else "Ambas bodegas"))
+        if self.bodega:
+            from app.stock import etiqueta_ubicacion
+            partes.append(etiqueta_ubicacion(self.bodega))
+        else:
+            partes.append("Todas las ubicaciones")
         return " · ".join(partes)

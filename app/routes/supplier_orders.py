@@ -41,12 +41,10 @@ def _line_items_desde_form():
 
 
 def _aplicar_stock(order, line_items, accion="creado"):
-    """Suma el stock de cada linea a la bodega destino y registra movimientos."""
+    """Suma el stock de cada linea a la ubicacion destino y registra movimientos."""
+    from app.stock import sumar_stock
     for product, quantity, unit_cost in line_items:
-        if order.bodega_destino == "matriz":
-            product.stock_matriz = (product.stock_matriz or 0) + quantity
-        else:
-            product.current_stock = (product.current_stock or 0) + quantity
+        sumar_stock(product, order.bodega_destino, quantity)
         product.cost_price = unit_cost
         db.session.add(InventoryMovement(
             product_id=product.product_id,
@@ -61,13 +59,11 @@ def _aplicar_stock(order, line_items, accion="creado"):
 
 def _revertir_stock(order):
     """Devuelve el stock sumado por este pedido y borra sus movimientos."""
+    from app.stock import restar_stock
     for detalle in list(order.details):
         prod = detalle.product
         if prod:
-            if order.bodega_destino == "matriz":
-                prod.stock_matriz = max(0, (prod.stock_matriz or 0) - detalle.quantity)
-            else:
-                prod.current_stock = max(0, (prod.current_stock or 0) - detalle.quantity)
+            restar_stock(prod, order.bodega_destino, detalle.quantity)
     for m in InventoryMovement.query.filter_by(
             reference_type="pedido_proveedor", reference_id=order.order_id).all():
         db.session.delete(m)
@@ -98,6 +94,59 @@ def orders_list():
     return render_template("supplier_orders_list.html", orders=orders, q=q)
 
 
+@supplier_orders_bp.route("/sugeridos")
+@login_required
+@role_required("administrador")
+def pedidos_sugeridos():
+    """Productos en o por debajo del stock minimo, agrupados por proveedor, con cantidad sugerida."""
+    from app.models import Category
+    categoria = request.args.get("categoria", "").strip()
+    supplier_id = request.args.get("supplier_id", "").strip()
+
+    query = Product.query.filter(Product.active.is_(True), Product.min_stock > 0)
+    if categoria.isdigit():
+        query = query.filter(Product.category_id == int(categoria))
+    if supplier_id.isdigit():
+        query = query.filter(Product.supplier_id == int(supplier_id))
+    productos = query.order_by(Product.name).all()
+
+    grupos = {}
+    total_general = 0.0
+    for p in productos:
+        stock = p.total_stock()
+        minimo = p.min_stock or 0
+        if stock > minimo:
+            continue
+        objetivo = p.max_stock if (p.max_stock and p.max_stock > minimo) else (minimo * 2)
+        sugerido = max(1, objetivo - stock)
+        costo = float(p.cost_price or 0)
+        subtotal = sugerido * costo
+        clave = p.supplier_id
+        if clave not in grupos:
+            grupos[clave] = {"supplier": p.supplier, "items": [], "total": 0.0}
+        grupos[clave]["items"].append({
+            "product": p, "stock": stock, "min_stock": minimo,
+            "sugerido": sugerido, "costo": costo, "subtotal": subtotal,
+        })
+        grupos[clave]["total"] += subtotal
+        total_general += subtotal
+
+    grupos_lista = sorted(
+        grupos.values(),
+        key=lambda g: (g["supplier"] is None, g["supplier"].name if g["supplier"] else ""),
+    )
+    categorias = Category.query.order_by(Category.name).all()
+    suppliers = Supplier.query.order_by(Supplier.name).all()
+    return render_template(
+        "supplier_orders_sugeridos.html",
+        grupos=grupos_lista, categorias=categorias, suppliers=suppliers,
+        selected_categoria=categoria, selected_supplier=supplier_id,
+        total_general=total_general, today=date.today().isoformat(),
+        now=datetime.now().strftime("%d/%m/%Y %H:%M"),
+    )
+
+
+
 @supplier_orders_bp.route("/nuevo", methods=["GET", "POST"])
 @login_required
 @role_required("administrador")
@@ -122,8 +171,9 @@ def order_new():
         except (ValueError, TypeError):
             order_date = date.today()
 
+        from app.stock import es_ubicacion_valida
         bodega_destino = request.form.get("bodega_destino", "local")
-        if bodega_destino not in ("local", "matriz"):
+        if not es_ubicacion_valida(bodega_destino):
             bodega_destino = "local"
 
         order = SupplierOrder(
@@ -215,8 +265,9 @@ def order_edit(order_id):
         except (ValueError, TypeError):
             order_date = order.order_date
 
+        from app.stock import es_ubicacion_valida
         bodega_destino = request.form.get("bodega_destino", order.bodega_destino)
-        if bodega_destino not in ("local", "matriz"):
+        if not es_ubicacion_valida(bodega_destino):
             bodega_destino = order.bodega_destino
 
         # Revertir stock y movimientos anteriores antes de re-aplicar
@@ -325,8 +376,9 @@ def order_convert(order_id):
         if term not in ("0", "30", "60", "90"):
             term = "0"
 
+        from app.stock import es_ubicacion_valida, sumar_stock, etiqueta_ubicacion
         bodega = request.form.get("bodega_destino", order.bodega_destino)
-        if bodega not in ("local", "matriz"):
+        if not es_ubicacion_valida(bodega):
             bodega = order.bodega_destino
 
         due_date = None
@@ -348,6 +400,7 @@ def order_convert(order_id):
             payment_type=payment_type,
             due_date=due_date,
             status="pendiente",
+            bodega_destino=bodega,
         )
         db.session.add(invoice)
         db.session.flush()
@@ -375,10 +428,7 @@ def order_convert(order_id):
             ))
             product = detalle.product
             if product:
-                if bodega == "matriz":
-                    product.stock_matriz = (product.stock_matriz or 0) + detalle.quantity
-                else:
-                    product.current_stock = (product.current_stock or 0) + detalle.quantity
+                sumar_stock(product, bodega, detalle.quantity)
                 product.cost_price = detalle.unit_cost
                 db.session.add(InventoryMovement(
                     product_id=product.product_id,
@@ -387,7 +437,7 @@ def order_convert(order_id):
                     reference_type="compra",
                     reference_id=invoice.invoice_id,
                     user_id=current_user.user_id,
-                    notes=f"Compra #{invoice.invoice_id} desde pedido {order.codigo()} -> bodega {bodega}",
+                    notes=f"Compra #{invoice.invoice_id} desde pedido {order.codigo()} -> {etiqueta_ubicacion(bodega)}",
                 ))
             total += detalle.quantity * float(detalle.unit_cost)
 

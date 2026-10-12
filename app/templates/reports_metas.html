@@ -60,9 +60,10 @@
             <div class="col-md-2">
                 <label class="form-label small">Bodega</label>
                 <select name="bodega" class="form-select">
-                    <option value="">Ambas</option>
-                    <option value="local">Local</option>
-                    <option value="matriz">Matriz</option>
+                    <option value="">Todas</option>
+                    {% for clave, etq in ubicaciones %}
+                    <option value="{{ clave }}">{{ etq }}</option>
+                    {% endfor %}
                 </select>
             </div>
             <div class="col-md-1"><button class="btn btn-primary w-100">+</button></div>

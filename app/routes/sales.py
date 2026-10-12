@@ -25,35 +25,32 @@ def _productos_vendibles():
 
 
 def _bodega_label(bodega):
-    return "Bodega Matriz" if bodega == "matriz" else "Bodega Local"
+    from app.stock import etiqueta_ubicacion
+    return etiqueta_ubicacion(bodega)
 
 
 def _stock_bodega(product, bodega):
-    """Stock del producto en la bodega indicada."""
-    if bodega == "matriz":
-        return product.stock_matriz or 0
-    return product.current_stock or 0
+    """Stock del producto en la ubicacion indicada (bodega o sucursal)."""
+    from app.stock import stock_en
+    return stock_en(product, bodega)
 
 
 def _sumar_stock_bodega(product, bodega, cantidad):
-    if bodega == "matriz":
-        product.stock_matriz = (product.stock_matriz or 0) + cantidad
-    else:
-        product.current_stock = (product.current_stock or 0) + cantidad
+    from app.stock import sumar_stock
+    return sumar_stock(product, bodega, cantidad)
 
 
 def _restar_stock_bodega(product, bodega, cantidad):
-    if bodega == "matriz":
-        product.stock_matriz = max(0, (product.stock_matriz or 0) - cantidad)
-    else:
-        product.current_stock = max(0, (product.current_stock or 0) - cantidad)
+    from app.stock import restar_stock
+    return restar_stock(product, bodega, cantidad)
 
 
 def _bodega_formulario():
-    """Bodega con la que opera el usuario actual. El admin/sin-bodega elige; el resto, la suya."""
+    """Ubicacion con la que opera el usuario actual. El admin/sin-ubicacion elige; el resto, la suya."""
     if current_user.ve_todas_bodegas():
+        from app.stock import es_ubicacion_valida
         b = request.form.get("bodega", "local")
-        return b if b in ("local", "matriz") else "local"
+        return b if es_ubicacion_valida(b) else "local"
     return current_user.bodega or "local"
 
 

@@ -34,10 +34,11 @@
 
         <div class="row g-3 mb-3">
             <div class="col-md-4">
-                <label class="form-label">Bodega destino *</label>
+                <label class="form-label">Bodega/sucursal destino *</label>
                 <select name="bodega_destino" class="form-select" required>
-                    <option value="local" {% if bodega_actual == "local" %}selected{% endif %}>🏬 Bodega Local</option>
-                    <option value="matriz" {% if bodega_actual == "matriz" %}selected{% endif %}>🏭 Bodega Matriz</option>
+                    {% for clave, etq in ubicaciones %}
+                    <option value="{{ clave }}" {% if bodega_actual == clave %}selected{% endif %}>{{ etq }}</option>
+                    {% endfor %}
                 </select>
             </div>
             <div class="col-md-4">

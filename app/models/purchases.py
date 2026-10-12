@@ -17,6 +17,7 @@ class PurchaseInvoice(db.Model):
     due_date = db.Column(db.Date)
     status = db.Column(db.Enum("pendiente", "pagado", "vencido"), default="pendiente")
     registered_by = db.Column(db.Integer, db.ForeignKey("users.user_id"), nullable=False)
+    bodega_destino = db.Column(db.String(30), default="local")  # ubicacion donde ingreso el stock
     created_at = db.Column(db.DateTime, default=datetime.now)
 
     supplier = db.relationship("Supplier", backref="purchase_invoices")
@@ -98,7 +99,7 @@ class SupplierOrder(db.Model):
     order_number = db.Column(db.String(50))
     supplier_id = db.Column(db.Integer, db.ForeignKey("suppliers.supplier_id"), nullable=False)
     order_date = db.Column(db.Date, nullable=False)
-    bodega_destino = db.Column(db.Enum("local", "matriz"), default="local")
+    bodega_destino = db.Column(db.String(30), default="local")
     status = db.Column(db.Enum("borrador", "enviado", "recibido", "anulado"), default="borrador")
     notes = db.Column(db.Text)
     total_amount = db.Column(db.Numeric(12, 2), default=0)

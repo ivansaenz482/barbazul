@@ -46,12 +46,14 @@
         </div>
 
         <div class="col-md-6">
-            <label class="form-label">Bodega destino *</label>
+            <label class="form-label">Bodega/sucursal destino *</label>
             <select name="bodega_destino" class="form-select">
-                <option value="local" {% if not order or order.bodega_destino == 'local' %}selected{% endif %}>Bodega Local (donde se vende)</option>
-                <option value="matriz" {% if order and order.bodega_destino == 'matriz' %}selected{% endif %}>Bodega Matriz (principal)</option>
+                {% set bod_sel = order.bodega_destino if order else 'local' %}
+                {% for clave, etq in ubicaciones %}
+                <option value="{{ clave }}" {% if bod_sel == clave %}selected{% endif %}>{{ etq }}</option>
+                {% endfor %}
             </select>
-            <div class="form-text">El stock del pedido se sumará a esta bodega.</div>
+            <div class="form-text">El stock del pedido se sumará a esta ubicación.</div>
         </div>
         {% if order %}
         <div class="col-md-6">

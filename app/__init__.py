@@ -87,8 +87,17 @@ def create_app():
                 system_name = company.system_name
         except Exception:
             logo_url = None
+        try:
+            from app.stock import etiqueta_ubicacion, listar_ubicaciones, stock_en
+            ubicaciones = listar_ubicaciones()
+            ubicacion_label = etiqueta_ubicacion
+        except Exception:
+            ubicaciones = [("local", "Bodega Local"), ("matriz", "Bodega Matriz")]
+            ubicacion_label = lambda u: {"local": "Bodega Local", "matriz": "Bodega Matriz"}.get(u, u or "—")
+            stock_en = lambda p, u: (p.current_stock or 0)
         return {"current_year": datetime.now().year, "company_logo_url": logo_url,
-                "system_name": system_name}
+                "system_name": system_name, "ubicaciones": ubicaciones,
+                "ubicacion_label": ubicacion_label, "stock_en": stock_en}
 
     return app
 

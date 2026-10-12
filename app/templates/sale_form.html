@@ -45,8 +45,9 @@
             <label class="form-label">Bodega (de dónde sale el stock)</label>
             {% if current_user.ve_todas_bodegas() %}
             <select name="bodega" id="bodega_select" class="form-select" onchange="aplicarBodegaATodas()">
-                <option value="local" {% if bodega == 'local' %}selected{% endif %}>Bodega Local</option>
-                <option value="matriz" {% if bodega == 'matriz' %}selected{% endif %}>Bodega Matriz</option>
+                {% for clave, etq in ubicaciones %}
+                <option value="{{ clave }}" {% if bodega == clave %}selected{% endif %}>{{ etq }}</option>
+                {% endfor %}
             </select>
             {% else %}
             <input type="text" class="form-control" value="{{ current_user.bodega_label() }}" readonly>
@@ -134,7 +135,7 @@
                         <select name="product_id[]" class="form-select product-select" data-searchable data-placeholder="Busca producto por nombre o código..." onchange="onProductChange(this)">
                             <option value="">-- Selecciona --</option>
                             {% for p in products %}
-                            <option value="{{ p.product_id }}" data-stock-local="{{ p.current_stock }}" data-stock-matriz="{{ p.stock_matriz or 0 }}" data-price="{{ p.sale_price }}" data-price-contado="{{ p.sale_price }}" data-price-credito="{{ p.price_credito or p.sale_price }}" data-price-mayorista="{{ p.price_mayorista or p.sale_price }}" data-codigo="{{ p.sku or p.barcode or '' }}" {% if d.product_id == p.product_id %}selected{% endif %}>
+                            <option value="{{ p.product_id }}" {% for clave, etq in ubicaciones %}data-stock-{{ clave }}="{{ stock_en(p, clave) }}" {% endfor %}data-price="{{ p.sale_price }}" data-price-contado="{{ p.sale_price }}" data-price-credito="{{ p.price_credito or p.sale_price }}" data-price-mayorista="{{ p.price_mayorista or p.sale_price }}" data-codigo="{{ p.sku or p.barcode or '' }}" {% if d.product_id == p.product_id %}selected{% endif %}>
                                 {{ p.name }} (${{ "%.2f"|format(p.sale_price) }})
                             </option>
                             {% endfor %}
@@ -152,7 +153,7 @@
                     <select name="product_id[]" class="form-select product-select" data-searchable data-placeholder="Busca producto por nombre o código..." onchange="onProductChange(this)">
                         <option value="">-- Selecciona --</option>
                         {% for p in products %}
-                        <option value="{{ p.product_id }}" data-stock-local="{{ p.current_stock }}" data-stock-matriz="{{ p.stock_matriz or 0 }}" data-price="{{ p.sale_price }}" data-price-contado="{{ p.sale_price }}" data-price-credito="{{ p.price_credito or p.sale_price }}" data-price-mayorista="{{ p.price_mayorista or p.sale_price }}" data-codigo="{{ p.sku or p.barcode or '' }}">
+                        <option value="{{ p.product_id }}" {% for clave, etq in ubicaciones %}data-stock-{{ clave }}="{{ stock_en(p, clave) }}" {% endfor %}data-price="{{ p.sale_price }}" data-price-contado="{{ p.sale_price }}" data-price-credito="{{ p.price_credito or p.sale_price }}" data-price-mayorista="{{ p.price_mayorista or p.sale_price }}" data-codigo="{{ p.sku or p.barcode or '' }}">
                             {{ p.name }} (${{ "%.2f"|format(p.sale_price) }})
                         </option>
                         {% endfor %}

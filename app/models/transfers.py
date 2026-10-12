@@ -22,10 +22,12 @@ class StockTransfer(db.Model):
         return sum(d.quantity for d in self.details)
 
     def origen_label(self):
-        return "Bodega Matriz" if self.bodega_origen == "matriz" else "Bodega Local"
+        from app.stock import etiqueta_ubicacion
+        return etiqueta_ubicacion(self.bodega_origen)
 
     def destino_label(self):
-        return "Bodega Matriz" if self.bodega_destino == "matriz" else "Bodega Local"
+        from app.stock import etiqueta_ubicacion
+        return etiqueta_ubicacion(self.bodega_destino)
 
 
 class StockTransferDetail(db.Model):

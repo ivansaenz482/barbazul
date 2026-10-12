@@ -6,10 +6,9 @@ from app.models import Product, InventoryMovement, StockTransfer, StockTransferD
 from app.utils import perm_required
 from app.audit import registrar
 from app.routes.sales import _stock_bodega, _restar_stock_bodega, _sumar_stock_bodega, _bodega_label
+from app.stock import es_ubicacion_valida, listar_ubicaciones, mapa_stock_por_ubicacion
 
 transfers_bp = Blueprint("transfers", __name__, url_prefix="/transferencias")
-
-BODEGAS = ("local", "matriz")
 
 
 @transfers_bp.route("/")
@@ -31,13 +30,13 @@ def transfer_new():
     if request.method == "POST":
         origen = request.form.get("bodega_origen", "local")
         destino = request.form.get("bodega_destino", "matriz")
-        if origen not in BODEGAS or destino not in BODEGAS:
-            flash("Bodega no válida.", "danger")
-            return render_template("transfer_form.html", products=products)
+        if not es_ubicacion_valida(origen) or not es_ubicacion_valida(destino):
+            flash("Ubicación no válida.", "danger")
+            return render_template("transfer_form.html", products=products, ubicaciones=listar_ubicaciones(), stock_map=mapa_stock_por_ubicacion())
 
         if origen == destino:
-            flash("La bodega de origen y la de destino deben ser diferentes.", "danger")
-            return render_template("transfer_form.html", products=products)
+            flash("La ubicación de origen y la de destino deben ser diferentes.", "danger")
+            return render_template("transfer_form.html", products=products, ubicaciones=listar_ubicaciones(), stock_map=mapa_stock_por_ubicacion())
 
         motivo = request.form.get("motivo", "").strip() or None
         product_ids = request.form.getlist("product_id[]")
@@ -50,7 +49,7 @@ def transfer_new():
             product = Product.query.get(int(pid))
             if not product or not product.active:
                 flash("Uno de los productos ya no está disponible.", "danger")
-                return render_template("transfer_form.html", products=products)
+                return render_template("transfer_form.html", products=products, ubicaciones=listar_ubicaciones(), stock_map=mapa_stock_por_ubicacion())
             try:
                 qty = int(cant)
             except ValueError:
@@ -60,12 +59,12 @@ def transfer_new():
             disponible = _stock_bodega(product, origen)
             if qty > disponible:
                 flash(f"Stock insuficiente en {_bodega_label(origen)} para '{product.name}'. Disponible: {disponible}.", "danger")
-                return render_template("transfer_form.html", products=products)
+                return render_template("transfer_form.html", products=products, ubicaciones=listar_ubicaciones(), stock_map=mapa_stock_por_ubicacion())
             lineas.append((product, qty))
 
         if not lineas:
             flash("Debes agregar al menos un producto con cantidad mayor a 0.", "danger")
-            return render_template("transfer_form.html", products=products)
+            return render_template("transfer_form.html", products=products, ubicaciones=listar_ubicaciones(), stock_map=mapa_stock_por_ubicacion())
 
         transfer = StockTransfer(
             bodega_origen=origen,
@@ -103,7 +102,7 @@ def transfer_new():
                   entidad="transferencia", entidad_id=transfer.transfer_id)
         return redirect(url_for("transfers.transfer_detail", transfer_id=transfer.transfer_id))
 
-    return render_template("transfer_form.html", products=products)
+    return render_template("transfer_form.html", products=products, ubicaciones=listar_ubicaciones(), stock_map=mapa_stock_por_ubicacion())
 
 
 @transfers_bp.route("/<int:transfer_id>")

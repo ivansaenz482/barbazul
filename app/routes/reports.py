@@ -40,7 +40,7 @@ def _obtener_grupos_ventas_por_cliente():
         query = query.filter(Sale.payment_type == payment_type)
     if vendedor_id:
         query = query.filter(Sale.vendedor_id == int(vendedor_id))
-    if bodega in ("local", "matriz"):
+    if bodega:
         query = query.filter(Sale.bodega == bodega)
     if desde:
         query = query.filter(Sale.sale_date >= datetime.strptime(desde, "%Y-%m-%d"))
@@ -466,11 +466,10 @@ def estado_cuenta_clientes():
 # =====================================================================
 
 def _stock_segun_bodega(product, bodega):
-    """Devuelve el stock segun la bodega elegida: local, matriz o ambas (total)."""
-    if bodega == "local":
-        return product.current_stock or 0
-    if bodega == "matriz":
-        return product.stock_matriz or 0
+    """Devuelve el stock segun la ubicacion elegida: local, matriz, sucursal o total."""
+    from app.stock import stock_en
+    if bodega in ("local", "matriz") or (bodega and str(bodega).startswith("sucursal:")):
+        return stock_en(product, bodega)
     return product.total_stock()
 
 
@@ -1288,7 +1287,7 @@ def _ventas_de_meta(anio, mes, seller_id, bodega):
                           Sale.sale_date >= inicio, Sale.sale_date < fin)
     if seller_id:
         q = q.filter(Sale.vendedor_id == seller_id)
-    if bodega in ("local", "matriz"):
+    if bodega:
         q = q.filter(Sale.bodega == bodega)
     return sum(float(s.total_amount or 0) for s in q.all())
 
@@ -1347,8 +1346,9 @@ def meta_nueva():
         return redirect(url_for("reports.metas"))
 
     seller_id = request.form.get("seller_id") or None
+    from app.stock import es_ubicacion_valida
     bodega = request.form.get("bodega") or None
-    if bodega not in ("local", "matriz"):
+    if not (bodega and es_ubicacion_valida(bodega)):
         bodega = None
     if meta <= 0:
         flash("La meta debe ser mayor a cero.", "danger")

@@ -1,0 +1,173 @@
+{% extends "base.html" %}
+{% block title %}Pedidos Sugeridos{% endblock %}
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-3 no-print">
+    <h2 class="mb-0"><i class="bi bi-clipboard-plus me-2 text-primary"></i>Pedidos Sugeridos a Proveedor</h2>
+    <div class="d-flex gap-2">
+        <button onclick="window.print()" class="btn btn-dark">🖨️ Imprimir</button>
+        <a href="{{ url_for('supplier_orders.orders_list') }}" class="btn btn-outline-secondary">Ver pedidos</a>
+    </div>
+</div>
+<p class="text-muted no-print">Productos <strong>en o por debajo del stock mínimo</strong>, con la cantidad sugerida para reponerlos. Ajusta las cantidades y crea el pedido a cada proveedor.</p>
+
+<form method="GET" class="row g-2 mb-4 bg-white p-3 rounded shadow-sm align-items-end no-print">
+    <div class="col-md-4">
+        <label class="form-label small text-muted mb-1">Proveedor</label>
+        <select name="supplier_id" class="form-select">
+            <option value="">Todos</option>
+            {% for s in suppliers %}
+            <option value="{{ s.supplier_id }}" {% if selected_supplier == s.supplier_id|string %}selected{% endif %}>{{ s.name }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="col-md-4">
+        <label class="form-label small text-muted mb-1">Categoría</label>
+        <select name="categoria" class="form-select">
+            <option value="">Todas</option>
+            {% for c in categorias %}
+            <option value="{{ c.category_id }}" {% if selected_categoria == c.category_id|string %}selected{% endif %}>{{ c.name }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="col-md-4 d-flex gap-2">
+        <button class="btn btn-primary">Consultar</button>
+        <a href="{{ url_for('supplier_orders.pedidos_sugeridos') }}" class="btn btn-outline-secondary">Restablecer</a>
+    </div>
+</form>
+
+<div id="printable-area">
+    <div class="d-none d-print-block mb-3">
+        <h3>Pedidos Sugeridos a Proveedor</h3>
+        <p class="text-muted small">Generado el {{ now if now else '' }} por {{ current_user.full_name }}</p>
+    </div>
+
+    {% if grupos %}
+    <div class="alert alert-info d-flex justify-content-between no-print">
+        <span>{{ grupos|length }} proveedor(es) con productos por reponer.</span>
+        <strong>Costo estimado total: ${{ "%.2f"|format(total_general) }}</strong>
+    </div>
+    {% endif %}
+
+    {% for g in grupos %}
+    <div class="card mb-4">
+        <div class="card-header bg-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">
+                <i class="bi bi-truck me-1"></i>
+                {% if g.supplier %}{{ g.supplier.name }}{% else %}<span class="text-danger">Sin proveedor asignado</span>{% endif %}
+            </h5>
+            <span class="badge bg-primary">{{ g.items|length }} producto(s) · Est. ${{ "%.2f"|format(g.total) }}</span>
+        </div>
+        <div class="card-body p-0">
+            {% if g.supplier %}
+            <form method="POST" action="{{ url_for('supplier_orders.order_new') }}">
+                <input type="hidden" name="supplier_id" value="{{ g.supplier.supplier_id }}">
+                <input type="hidden" name="order_date" value="{{ today }}">
+            </form>
+            {% endif %}
+            <div class="table-responsive">
+                <table class="table table-sm align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Código</th>
+                            <th>Producto</th>
+                            <th class="text-center">Stock</th>
+                            <th class="text-center">Mínimo</th>
+                            <th class="text-center" style="width:110px;">Pedir</th>
+                            <th class="text-center" style="width:120px;">Costo unit.</th>
+                            <th class="text-end">Subtotal</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for it in g.items %}
+                        <tr>
+                            <td><code>{{ it.product.sku or ('PROD-' ~ it.product.product_id) }}</code></td>
+                            <td>{{ it.product.name }}</td>
+                            <td class="text-center {% if it.stock <= 0 %}text-danger fw-bold{% endif %}">{{ it.stock }}</td>
+                            <td class="text-center">{{ it.min_stock }}</td>
+                            {% if g.supplier %}
+                            <td><input form="form-{{ g.supplier.supplier_id }}" type="number" min="0" data-pid="{{ it.product.product_id }}" class="form-control form-control-sm cant-input" value="{{ it.sugerido }}"></td>
+                            <td><input form="form-{{ g.supplier.supplier_id }}" type="number" step="0.01" min="0" class="form-control form-control-sm costo-input" data-pid="{{ it.product.product_id }}" value="{{ "%.2f"|format(it.costo) }}"></td>
+                            <td class="text-end fw-bold">${{ "%.2f"|format(it.subtotal) }}</td>
+                            {% else %}
+                            <td class="text-center">{{ it.sugerido }}</td>
+                            <td class="text-end">${{ "%.2f"|format(it.costo) }}</td>
+                            <td class="text-end">${{ "%.2f"|format(it.subtotal) }}</td>
+                            {% endif %}
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    {% if g.supplier %}
+                    <tfoot>
+                        <tr class="table-light fw-bold">
+                            <td colspan="6" class="text-end">Total estimado</td>
+                            <td class="text-end">${{ "%.2f"|format(g.total) }}</td>
+                        </tr>
+                    </tfoot>
+                    {% endif %}
+                </table>
+            </div>
+        </div>
+        {% if g.supplier %}
+        <div class="card-footer bg-white d-flex gap-2 align-items-center no-print">
+            <label class="form-label small mb-0">Bodega/sucursal destino:</label>
+            <select form="form-{{ g.supplier.supplier_id }}" name="bodega_destino" class="form-select form-select-sm" style="max-width: 240px;">
+                {% for clave, etq in ubicaciones %}
+                <option value="{{ clave }}" {% if clave == 'local' %}selected{% endif %}>{{ etq }}</option>
+                {% endfor %}
+            </select>
+            <button form="form-{{ g.supplier.supplier_id }}" type="submit" class="btn btn-success btn-sm ms-auto"
+                    onclick="return prepararPedido(this, {{ g.supplier.supplier_id }})">
+                ✅ Crear pedido a {{ g.supplier.name }}
+            </button>
+        </div>
+        {% else %}
+        <div class="card-footer bg-white small text-danger no-print">
+            Asigna un proveedor a estos productos para poder generar el pedido.
+        </div>
+        {% endif %}
+    </div>
+    {% else %}
+    <div class="alert alert-success text-center py-4">
+        🎉 No hay productos por debajo del stock mínimo. ¡Inventario al día!
+    </div>
+    {% endfor %}
+</div>
+
+<script>
+function prepararPedido(btn, supplierId) {
+    const card = btn.closest('.card');
+    const form = document.getElementById('form-' + supplierId);
+    form.querySelectorAll('input[name="product_id[]"], input[name="quantity[]"], input[name="unit_cost[]"]').forEach(el => el.remove());
+    const filas = card.querySelectorAll('tbody tr');
+    let alguno = false;
+    filas.forEach(function (tr) {
+        const cant = tr.querySelector('.cant-input');
+        const costo = tr.querySelector('.costo-input');
+        if (!cant || !costo) return;
+        const pid = cant.getAttribute('data-pid');
+        const q = parseInt(cant.value || '0', 10);
+        if (q <= 0) return;
+        alguno = true;
+        ['product_id[]', 'quantity[]', 'unit_cost[]'].forEach(function (name, i) {
+            const hidden = document.createElement('input');
+            hidden.type = 'hidden';
+            hidden.name = name;
+            hidden.value = i === 0 ? pid : (i === 1 ? q : (costo.value || '0'));
+            form.appendChild(hidden);
+        });
+    });
+    if (!alguno) { alert('Indica al menos una cantidad mayor a 0.'); return false; }
+    return true;
+}
+</script>
+
+<style>
+@media print {
+    .no-print, nav, .navbar, footer { display: none !important; }
+    body { background: white !important; }
+    .card { border: 1px solid #dee2e6 !important; box-shadow: none !important; break-inside: avoid; }
+}
+</style>
+
+{% endblock %}

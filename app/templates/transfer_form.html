@@ -23,15 +23,17 @@
         <div class="col-md-4">
             <label class="form-label">Bodega de origen *</label>
             <select name="bodega_origen" id="bodega_origen" class="form-select" onchange="aplicarOrigenATodas()">
-                <option value="local">Bodega Local</option>
-                <option value="matriz">Bodega Matriz</option>
+                {% for clave, etq in ubicaciones %}
+                <option value="{{ clave }}" {% if clave == 'local' %}selected{% endif %}>{{ etq }}</option>
+                {% endfor %}
             </select>
         </div>
         <div class="col-md-4">
-            <label class="form-label">Bodega de destino *</label>
+            <label class="form-label">Bodega/sucursal de destino *</label>
             <select name="bodega_destino" id="bodega_destino" class="form-select">
-                <option value="matriz">Bodega Matriz</option>
-                <option value="local">Bodega Local</option>
+                {% for clave, etq in ubicaciones %}
+                <option value="{{ clave }}" {% if clave == 'matriz' %}selected{% endif %}>{{ etq }}</option>
+                {% endfor %}
             </select>
         </div>
         <div class="col-md-4">
@@ -82,24 +84,23 @@
 </form>
 
 <script>
+const STOCK = {{ stock_map|tojson }};
 function origenActual() {
     const el = document.getElementById('bodega_origen');
     return el && el.value ? el.value : 'local';
 }
-function stockDeProducto(option) {
-    if (!option) return '0';
-    return option.getAttribute('data-stock-' + origenActual()) || '0';
+function stockDeProducto(pid) {
+    const m = STOCK[origenActual()] || {};
+    return m[pid] !== undefined ? m[pid] : 0;
 }
 function onProductChange(select) {
     const row = select.closest('tr');
     const label = row.querySelector('.stock-label');
-    const opt = select.options[select.selectedIndex];
-    label.textContent = (opt && select.value !== '') ? stockDeProducto(opt) + ' disponibles' : '—';
+    label.textContent = select.value !== '' ? stockDeProducto(select.value) + ' disponibles' : '—';
 }
 function aplicarOrigenATodas() {
     document.querySelectorAll('#products-body select.product-select').forEach(function (sel) {
-        const opt = sel.options[sel.selectedIndex];
-        if (!opt || sel.value === '') return;
+        if (sel.value === '') return;
         onProductChange(sel);
     });
 }

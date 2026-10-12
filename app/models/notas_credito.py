@@ -15,7 +15,7 @@ class NotaCredito(db.Model):
     sale_id = db.Column(db.Integer, db.ForeignKey("sales.sale_id"), nullable=False)
     customer_id = db.Column(db.Integer, db.ForeignKey("customers.customer_id"))
     motivo = db.Column(db.Enum("devolucion", "descuento", "error", "otro"), default="devolucion")
-    bodega = db.Column(db.Enum("local", "matriz"), default="local")
+    bodega = db.Column(db.String(30), default="local")
     subtotal = db.Column(db.Numeric(12, 2), default=0)
     valor_iva = db.Column(db.Numeric(12, 2), default=0)
     total = db.Column(db.Numeric(12, 2), default=0)

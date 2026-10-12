@@ -36,10 +36,11 @@
             <div class="form-text">Se adjuntará a la Compra (opcional).</div>
         </div>
         <div class="col-md-4">
-            <label class="form-label">Bodega destino *</label>
+            <label class="form-label">Bodega/sucursal destino *</label>
             <select name="bodega_destino" class="form-select">
-                <option value="local" {% if order.bodega_destino == 'local' %}selected{% endif %}>Bodega Local (donde se vende)</option>
-                <option value="matriz" {% if order.bodega_destino == 'matriz' %}selected{% endif %}>Bodega Matriz (principal)</option>
+                {% for clave, etq in ubicaciones %}
+                <option value="{{ clave }}" {% if order.bodega_destino == clave %}selected{% endif %}>{{ etq }}</option>
+                {% endfor %}
             </select>
         </div>
 

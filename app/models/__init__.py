@@ -1,4 +1,4 @@
-from app.models.core import Role, User, Supplier, Category, Product, Customer, Branch, CompanySetting, Seller, CommissionPayment, SalesGoal
+from app.models.core import Role, User, Supplier, Category, Product, Customer, Branch, BranchStock, CompanySetting, Seller, CommissionPayment, SalesGoal
 from app.models.sales import Sale, SaleDetail, Payment, InventoryMovement
 from app.models.purchases import (PurchaseInvoice, PurchaseInvoiceDetail, SupplierPayment,
                                   SupplierOrder, SupplierOrderDetail)
@@ -12,7 +12,7 @@ from app.models.push import PushSubscription
 from app.models.transfers import StockTransfer, StockTransferDetail
 
 __all__ = [
-    "Role", "User", "Supplier", "Category", "Product", "Customer", "Branch", "CompanySetting", "Seller", "CommissionPayment", "SalesGoal",
+    "Role", "User", "Supplier", "Category", "Product", "Customer", "Branch", "BranchStock", "CompanySetting", "Seller", "CommissionPayment", "SalesGoal",
     "Sale", "SaleDetail", "Payment", "InventoryMovement",
     "PurchaseInvoice", "PurchaseInvoiceDetail", "SupplierPayment",
     "SupplierOrder", "SupplierOrderDetail",

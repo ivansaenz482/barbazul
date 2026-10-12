@@ -75,8 +75,8 @@
                 {% if current_user.ve_todas_bodegas() %}
                 <td>{{ p.current_stock }} {{ p.unit_measure }}</td>
                 <td>{{ p.stock_matriz or 0 }} {{ p.unit_measure }}</td>
-                {% elif current_user.bodega == 'matriz' %}
-                <td>{{ p.stock_matriz or 0 }} {{ p.unit_measure }}</td>
+                {% elif not current_user.ve_todas_bodegas() %}
+                <td>{{ stock_en(p, current_user.bodega) }} {{ p.unit_measure }}</td>
                 {% else %}
                 <td>{{ p.current_stock }} {{ p.unit_measure }}</td>
                 {% endif %}

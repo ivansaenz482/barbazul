@@ -144,7 +144,7 @@
                     <p class="mb-1 no-print">Documento: <strong>{{ sale.document_type_label() }}</strong></p>
                     <p class="mb-1 no-print">Fecha: {{ sale.sale_date.strftime("%d/%m/%Y %H:%M") }}</p>
                     <p class="mb-1">Registrado por: {{ sale.seller.full_name }}</p>
-                    <p class="mb-1">Bodega: <strong>{{ "Matriz" if sale.bodega == "matriz" else "Local" }}</strong></p>
+                    <p class="mb-1">Bodega: <strong>{{ ubicacion_label(sale.bodega) }}</strong></p>
                     {% if sale.vendedor %}<p class="mb-1">Vendedor: <strong>{{ sale.vendedor.name }}</strong></p>{% endif %}
                     <p class="mb-1">Total: <strong>${{ "%.2f"|format(sale.total_amount) }}</strong></p>
                     <p class="mb-0">

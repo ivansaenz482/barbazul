@@ -44,11 +44,7 @@
                 <td>{{ o.order_date.strftime("%d/%m/%Y") }}</td>
                 <td>{{ o.supplier.name }}</td>
                 <td>
-                    {% if o.bodega_destino == "matriz" %}
-                        <span class="badge bg-primary">Matriz</span>
-                    {% else %}
-                        <span class="badge bg-secondary">Local</span>
-                    {% endif %}
+                    <span class="badge bg-secondary">{{ ubicacion_label(o.bodega_destino) }}</span>
                 </td>
                 <td class="text-center">{{ o.total_unidades() }}</td>
                 <td>

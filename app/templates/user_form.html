@@ -40,11 +40,12 @@
         <div class="col-md-6">
             <label class="form-label">Bodega / Sucursal</label>
             <select name="bodega" class="form-select">
-                <option value="" {% if not user or not user.bodega %}selected{% endif %}>Todas las bodegas (sin restricción)</option>
-                <option value="local" {% if user and user.bodega == 'local' %}selected{% endif %}>Bodega Local</option>
-                <option value="matriz" {% if user and user.bodega == 'matriz' %}selected{% endif %}>Bodega Matriz</option>
+                <option value="" {% if not user or not user.bodega %}selected{% endif %}>Todas las ubicaciones (sin restricción)</option>
+                {% for clave, etq in ubicaciones %}
+                <option value="{{ clave }}" {% if user and user.bodega == clave %}selected{% endif %}>{{ etq }}</option>
+                {% endfor %}
             </select>
-            <div class="form-text">El usuario solo verá y facturará desde esa bodega. Deja "Todas" para ver ambas (admin).</div>
+            <div class="form-text">El usuario solo verá y facturará desde esa bodega/sucursal. Deja "Todas" para ver todas (admin).</div>
         </div>
 
         {% if user %}

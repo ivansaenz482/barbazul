@@ -34,8 +34,9 @@ def user_new():
         password = request.form.get("password", "")
         password_confirm = request.form.get("password_confirm", "")
         role_id = request.form.get("role_id")
+        from app.stock import es_ubicacion_valida
         bodega = request.form.get("bodega") or None
-        if bodega not in ("local", "matriz"):
+        if bodega and not es_ubicacion_valida(bodega):
             bodega = None
 
         if not username or not full_name or not password or not role_id:
@@ -101,8 +102,9 @@ def user_edit(user_id):
         user.email = request.form.get("email", "").strip() or None
         user.phone = request.form.get("phone", "").strip() or None
         user.role_id = nuevo_role_id
+        from app.stock import es_ubicacion_valida
         bodega = request.form.get("bodega") or None
-        user.bodega = bodega if bodega in ("local", "matriz") else None
+        user.bodega = bodega if (bodega and es_ubicacion_valida(bodega)) else None
         user.active = nuevo_activo
 
         new_password = request.form.get("password", "")
