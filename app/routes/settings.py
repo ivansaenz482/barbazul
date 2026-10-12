@@ -40,6 +40,23 @@ def save_name():
     return redirect(url_for("settings.settings_page"))
 
 
+@settings_bp.route("/venta-sin-stock", methods=["POST"])
+@login_required
+@role_required("administrador")
+def save_venta_sin_stock():
+    company = CompanySetting.actual()
+    if not company:
+        company = CompanySetting()
+        db.session.add(company)
+    company.permitir_venta_sin_stock = request.form.get("permitir_venta_sin_stock") == "on"
+    db.session.commit()
+    if company.permitir_venta_sin_stock:
+        flash("Configuración guardada: ahora SÍ se puede vender sin stock (con advertencia).", "success")
+    else:
+        flash("Configuración guardada: NO se puede vender sin stock suficiente.", "success")
+    return redirect(url_for("settings.settings_page"))
+
+
 @settings_bp.route("/logo", methods=["GET"])
 @login_required
 def company_logo():

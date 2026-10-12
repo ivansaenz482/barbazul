@@ -227,6 +227,9 @@ class CompanySetting(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     logo_path = db.Column(db.String(300))
     system_name = db.Column(db.String(120))  # Nombre del sistema (marca) por instalacion/cliente
+    # Si es False (por defecto) NO se permite vender productos sin stock suficiente.
+    # Si es True, se permite vender sin stock (queda en 0) mostrando una advertencia.
+    permitir_venta_sin_stock = db.Column(db.Boolean, default=False)
 
     @classmethod
     def actual(cls):

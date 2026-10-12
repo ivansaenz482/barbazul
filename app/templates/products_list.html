@@ -60,7 +60,7 @@
                     {% endif %}
                 </td>
                 <td>{{ p.sku or "—" }}</td>
-                <td>{{ p.name }}</td>
+                <td><a href="{{ url_for('products.product_kardex', product_id=p.product_id) }}" class="text-decoration-none">{{ p.name }}</a></td>
                 <td>{{ p.category.name if p.category else "—" }}</td>
                 <td>{{ p.presentacion or "—" }}</td>
                 <td>
@@ -93,6 +93,7 @@
                 </td>
                 {% if current_user.can_edit_stock() %}
                 <td>
+                    <a href="{{ url_for('products.product_kardex', product_id=p.product_id) }}" class="btn btn-sm btn-outline-secondary">Kardex</a>
                     <a href="{{ url_for('products.product_edit', product_id=p.product_id) }}" class="btn btn-sm btn-outline-primary">Editar</a>
                     {% if p.active %}
                     <form method="POST" action="{{ url_for('products.product_delete', product_id=p.product_id) }}" class="d-inline" onsubmit="return confirm('¿Desactivar este producto?');">

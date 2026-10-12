@@ -57,9 +57,40 @@ def _bodega_formulario():
     return current_user.bodega or "local"
 
 
-def _validar_line_items(product_ids, quantities, precios, bodega="local"):
+def _permite_venta_sin_stock():
+    """Lee la configuracion del negocio: ¿se permite vender sin stock suficiente?"""
+    try:
+        from app.models import CompanySetting
+        company = CompanySetting.actual()
+        return bool(company and company.permitir_venta_sin_stock)
+    except Exception:
+        return False
+
+
+def _avisar_stock_bajo(sale):
+    """Tras vender, avisa de los productos que quedaron agotados o con stock bajo."""
+    bodega = sale.bodega or "local"
+    agotados = []
+    bajos = []
+    for detail in sale.details:
+        p = detail.product
+        if not p:
+            continue
+        disp = _stock_bodega(p, bodega)
+        if disp <= 0:
+            agotados.append(p.name)
+        elif p.min_stock and disp <= p.min_stock:
+            bajos.append(f"{p.name} (quedan {disp})")
+    if agotados:
+        flash("⛔ AGOTADO: " + ", ".join(agotados) + ". Reponer stock lo antes posible.", "warning")
+    if bajos:
+        flash("⚠️ Stock bajo: " + ", ".join(bajos) + ".", "warning")
+
+
+def _validar_line_items(product_ids, quantities, precios, bodega="local", validar_stock=True):
     """
     Valida stock (de la bodega indicada), permisos de categoria y precio.
+    validar_stock=False omite la revision de stock (proformas o venta sin stock).
     Devuelve (line_items, error) -- si hay error, line_items es None.
     """
     line_items = []
@@ -73,7 +104,7 @@ def _validar_line_items(product_ids, quantities, precios, bodega="local"):
         if not product or not product.active:
             return None, "Uno de los productos seleccionados ya no está disponible."
         disponible = _stock_bodega(product, bodega)
-        if quantity > disponible:
+        if validar_stock and quantity > disponible:
             return None, f"Stock insuficiente en {_bodega_label(bodega)} para '{product.name}'. Disponible: {disponible}."
         if not current_user.can_sell_category(product.category_id):
             return None, f"No tienes permiso para vender '{product.name}' (categoría restringida)."
@@ -106,11 +137,12 @@ def _ejecutar_entrega(sale, descontar_stock=True, marcar_pagada=True, payment_me
     total_amount = 0
     total_cost = 0
     bodega = sale.bodega or "local"
+    permitir_sin_stock = _permite_venta_sin_stock()
 
     for detail in sale.details:
         product = detail.product
 
-        if descontar_stock:
+        if descontar_stock and not permitir_sin_stock:
             if detail.quantity > _stock_bodega(product, bodega):
                 return False, f"Stock insuficiente en {_bodega_label(bodega)} para '{product.name}'. Disponible: {_stock_bodega(product, bodega)}."
 
@@ -213,7 +245,8 @@ def sale_new():
             flash("Debes agregar al menos un producto a la venta.", "danger")
             return render_template("sale_form.html", customers=customers, products=products, sellers=sellers, bodega=bodega)
 
-        line_items, error = _validar_line_items(product_ids, quantities, precios, bodega)
+        line_items, error = _validar_line_items(product_ids, quantities, precios, bodega,
+                                                validar_stock=(document_type != "proforma" and not _permite_venta_sin_stock()))
         if error:
             flash(error, "danger")
             return render_template("sale_form.html", customers=customers, products=products, sellers=sellers, bodega=bodega)
@@ -258,6 +291,7 @@ def sale_new():
                 return render_template("sale_form.html", customers=customers, products=products, sellers=sellers, bodega=bodega)
             db.session.commit()
             flash(f"{sale.document_type_label()} #{sale.sale_id} registrada correctamente por ${sale.total_amount:.2f}.", "success")
+            _avisar_stock_bajo(sale)
             registrar("venta_creada", detalle=f"{sale.document_type_label()} #{sale.sale_id} por ${float(sale.total_amount):.2f}", entidad="venta", entidad_id=sale.sale_id)
 
         return redirect(url_for("sales.sale_detail", sale_id=sale.sale_id))
@@ -320,7 +354,8 @@ def sale_edit(sale_id):
         quantities = request.form.getlist("quantity[]")
         precios = request.form.getlist("unit_price[]")
 
-        line_items, error = _validar_line_items(product_ids, quantities, precios, bodega)
+        line_items, error = _validar_line_items(product_ids, quantities, precios, bodega,
+                                                validar_stock=(document_type != "proforma" and not _permite_venta_sin_stock()))
         if error:
             db.session.rollback()  # deshace la devolución de stock anterior
             flash(error, "danger")
@@ -436,6 +471,7 @@ def sale_liquidar(sale_id):
 
     db.session.commit()
     flash(f"Venta #{sale.sale_id} liquidada correctamente como {sale.document_type_label()}. Stock actualizado.", "success")
+    _avisar_stock_bajo(sale)
     return redirect(url_for("sales.sale_detail", sale_id=sale_id))
 
 

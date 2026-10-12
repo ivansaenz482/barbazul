@@ -1,0 +1,153 @@
+{% extends "base.html" %}
+{% block title %}Movimientos de Inventario / Mermas{% endblock %}
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-3 no-print">
+    <h2 class="mb-0"><i class="bi bi-arrow-left-right me-2 text-primary"></i>Movimientos de Inventario / Mermas</h2>
+    <div class="d-flex gap-2">
+        <a href="{{ url_for('reports.movimientos_inventario_excel', desde=desde, hasta=hasta, tipo=tipo, referencia=referencia, categoria=categoria, q=q) }}" class="btn btn-success">📊 Exportar Excel</a>
+        <button onclick="window.print()" class="btn btn-dark">🖨️ Imprimir</button>
+    </div>
+</div>
+<p class="text-muted no-print">Entradas (compras), salidas (ventas) y ajustes de inventario. Los <strong>ajustes negativos son las mermas</strong> (pérdidas, daños, faltantes de conteo).</p>
+
+<form method="GET" class="row g-2 mb-4 bg-white p-3 rounded shadow-sm align-items-end no-print">
+    <div class="col-md-2">
+        <label class="form-label small text-muted mb-1">Desde</label>
+        <input type="date" name="desde" class="form-control" value="{{ desde }}">
+    </div>
+    <div class="col-md-2">
+        <label class="form-label small text-muted mb-1">Hasta</label>
+        <input type="date" name="hasta" class="form-control" value="{{ hasta }}">
+    </div>
+    <div class="col-md-2">
+        <label class="form-label small text-muted mb-1">Tipo</label>
+        <select name="tipo" class="form-select">
+            <option value="">Todos</option>
+            <option value="entrada" {% if tipo == "entrada" %}selected{% endif %}>Entrada</option>
+            <option value="salida" {% if tipo == "salida" %}selected{% endif %}>Salida</option>
+            <option value="ajuste" {% if tipo == "ajuste" %}selected{% endif %}>Ajuste</option>
+        </select>
+    </div>
+    <div class="col-md-2">
+        <label class="form-label small text-muted mb-1">Referencia</label>
+        <select name="referencia" class="form-select">
+            <option value="">Todas</option>
+            {% for r in ["compra", "venta", "ajuste_manual", "pedido_proveedor", "nota_credito"] %}
+            <option value="{{ r }}" {% if referencia == r %}selected{% endif %}>{{ etiqueta_referencia[r] }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="col-md-2">
+        <label class="form-label small text-muted mb-1">Categoría</label>
+        <select name="categoria" class="form-select">
+            <option value="">Todas</option>
+            {% for c in categorias %}
+            <option value="{{ c.category_id }}" {% if categoria == c.category_id|string %}selected{% endif %}>{{ c.name }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="col-md-2">
+        <label class="form-label small text-muted mb-1">Producto</label>
+        <input type="text" name="q" class="form-control" value="{{ q }}" placeholder="Nombre o código">
+    </div>
+    <div class="col-12 d-flex gap-2">
+        <button type="submit" class="btn btn-primary">Consultar</button>
+        <a href="{{ url_for('reports.movimientos_inventario') }}" class="btn btn-outline-secondary">Restablecer</a>
+    </div>
+</form>
+
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+        <div class="card bg-white shadow-sm text-center h-100"><div class="card-body">
+            <div class="text-muted small">Entradas (compras)</div>
+            <div class="fs-4 fw-bold text-success">+{{ total_entradas }}</div>
+        </div></div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card bg-white shadow-sm text-center h-100"><div class="card-body">
+            <div class="text-muted small">Salidas (ventas)</div>
+            <div class="fs-4 fw-bold text-danger">−{{ total_salidas }}</div>
+        </div></div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card bg-white shadow-sm text-center h-100"><div class="card-body">
+            <div class="text-muted small">Ajustes positivos</div>
+            <div class="fs-4 fw-bold text-success">+{{ ajustes_pos }}</div>
+        </div></div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card border-danger shadow-sm text-center h-100"><div class="card-body">
+            <div class="text-danger small">Mermas (ajustes −)</div>
+            <div class="fs-4 fw-bold text-danger">{{ ajustes_neg }}</div>
+        </div></div>
+    </div>
+</div>
+
+<div id="printable-area">
+    <div class="d-none d-print-block mb-3">
+        <h3>Movimientos de Inventario / Mermas</h3>
+        <p class="text-muted small">Generado el {{ generated_at }} por {{ current_user.full_name }}</p>
+        <p class="text-muted small">Entradas: {{ total_entradas }} · Salidas: {{ total_salidas }} · Ajustes (+): {{ ajustes_pos }} · Mermas (−): {{ ajustes_neg }}</p>
+    </div>
+
+    <div class="table-responsive">
+        <table class="table table-sm table-hover bg-white align-middle">
+            <thead class="table-dark">
+                <tr>
+                    <th>Fecha</th>
+                    <th>Producto</th>
+                    <th>Tipo</th>
+                    <th>Referencia</th>
+                    <th class="text-center">Cantidad</th>
+                    <th>Detalle</th>
+                    <th>Usuario</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for m in movimientos %}
+                <tr>
+                    <td class="text-nowrap">{{ m.movement_date.strftime("%d/%m/%Y %H:%M") }}</td>
+                    <td>
+                        {% if m.product %}
+                        <a href="{{ url_for('products.product_kardex', product_id=m.product_id) }}" class="text-decoration-none">
+                            {{ m.product.name }}
+                        </a>
+                        <div class="small text-muted">{{ m.product.sku or ('PROD-' ~ m.product_id) }}</div>
+                        {% else %}—{% endif %}
+                    </td>
+                    <td>
+                        {% if m.movement_type == "entrada" %}
+                        <span class="badge bg-success">Entrada</span>
+                        {% elif m.movement_type == "salida" %}
+                        <span class="badge bg-danger">Salida</span>
+                        {% else %}
+                        <span class="badge bg-warning text-dark">Ajuste</span>
+                        {% endif %}
+                    </td>
+                    <td class="small">{{ etiqueta_referencia.get(m.reference_type, m.reference_type) }}</td>
+                    <td class="text-center fw-bold">
+                        {% if m.movement_type == "entrada" %}<span class="text-success">+{{ m.quantity }}</span>
+                        {% elif m.movement_type == "salida" %}<span class="text-danger">−{{ m.quantity }}</span>
+                        {% else %}<span class="text-warning-emphasis">{{ m.quantity }}</span>{% endif %}
+                    </td>
+                    <td class="small text-muted">{{ m.notes }}</td>
+                    <td class="small">{{ m.user.full_name if m.user else "—" }}</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="7" class="text-center text-muted py-4">No hay movimientos que coincidan con los filtros.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<style>
+@media print {
+    .no-print, nav, .navbar, footer { display: none !important; }
+    body { background: white !important; }
+    .card { border: 1px solid #dee2e6 !important; box-shadow: none !important; }
+}
+</style>
+
+{% endblock %}

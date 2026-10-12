@@ -1,4 +1,5 @@
 import io
+import re
 from datetime import datetime, date, timedelta
 from calendar import monthrange
 from flask import Blueprint, render_template, request, send_file, flash, redirect, url_for
@@ -7,7 +8,7 @@ from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment
 from openpyxl.utils import get_column_letter
 
-from app.models import Sale, Customer, User, DeliveryGuide, Payment, Product, Category, Supplier, PurchaseInvoice, SupplierPayment, Seller, Expense, Employee, CommissionPayment, SalesGoal, AuditLog
+from app.models import Sale, Customer, User, DeliveryGuide, Payment, Product, Category, Supplier, PurchaseInvoice, SupplierPayment, Seller, Expense, Employee, CommissionPayment, SalesGoal, AuditLog, InventoryMovement
 from app.extensions import db
 from app.utils import role_required, perm_required
 
@@ -659,6 +660,155 @@ def inventario_por_categorias_excel():
     buffer.seek(0)
 
     nombre_archivo = f"inventario_por_categorias_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsx"
+    return send_file(
+        buffer,
+        as_attachment=True,
+        download_name=nombre_archivo,
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
+
+
+# =====================================================================
+# MOVIMIENTOS DE INVENTARIO / MERMAS
+# =====================================================================
+
+REFERENCIAS_MOV = ["compra", "venta", "ajuste_manual", "pedido_proveedor", "nota_credito"]
+ETIQUETA_REFERENCIA = {
+    "compra": "Compra",
+    "venta": "Venta",
+    "ajuste_manual": "Ajuste manual",
+    "pedido_proveedor": "Pedido a proveedor",
+    "nota_credito": "Nota de crédito",
+}
+
+
+def _efecto_ajuste(m):
+    """Cambio con signo de un ajuste, tomado de sus notas 'Ajuste <bodega>: <a> -> <b>'."""
+    mm = re.search(r":\s*(\d+)\s*->\s*(\d+)", m.notes or "")
+    if mm:
+        return int(mm.group(2)) - int(mm.group(1))
+    return 0
+
+
+def _obtener_movimientos_inventario():
+    desde = request.args.get("desde", "").strip()
+    hasta = request.args.get("hasta", "").strip()
+    tipo = request.args.get("tipo", "").strip()
+    ref = request.args.get("referencia", "").strip()
+    categoria = request.args.get("categoria", "").strip()
+    q = request.args.get("q", "").strip()
+
+    query = InventoryMovement.query.join(Product, InventoryMovement.product_id == Product.product_id)
+    if desde:
+        query = query.filter(InventoryMovement.movement_date >= datetime.strptime(desde, "%Y-%m-%d"))
+    if hasta:
+        query = query.filter(InventoryMovement.movement_date <= datetime.strptime(hasta, "%Y-%m-%d").replace(hour=23, minute=59, second=59))
+    if tipo in ("entrada", "salida", "ajuste"):
+        query = query.filter(InventoryMovement.movement_type == tipo)
+    if ref in REFERENCIAS_MOV:
+        query = query.filter(InventoryMovement.reference_type == ref)
+    if categoria.isdigit():
+        query = query.filter(Product.category_id == int(categoria))
+    if q:
+        like = f"%{q}%"
+        query = query.filter(
+            (Product.name.ilike(like)) | (Product.sku.ilike(like)) | (Product.barcode.ilike(like))
+        )
+
+    movimientos = (query.order_by(InventoryMovement.movement_date.desc(), InventoryMovement.movement_id.desc())
+                   .all())
+
+    total_entradas = sum(m.quantity for m in movimientos if m.movement_type == "entrada")
+    total_salidas = sum(m.quantity for m in movimientos if m.movement_type == "salida")
+    ajustes = [m for m in movimientos if m.movement_type == "ajuste"]
+    ajustes_pos = sum(_efecto_ajuste(m) for m in ajustes if _efecto_ajuste(m) > 0)
+    ajustes_neg = sum(_efecto_ajuste(m) for m in ajustes if _efecto_ajuste(m) < 0)
+
+    categorias = Category.query.order_by(Category.name).all()
+    return (movimientos, total_entradas, total_salidas, ajustes_pos, ajustes_neg,
+            desde, hasta, tipo, ref, categoria, q, categorias)
+
+
+@reports_bp.route("/movimientos-inventario")
+@login_required
+@role_required("administrador")
+def movimientos_inventario():
+    (movimientos, total_entradas, total_salidas, ajustes_pos, ajustes_neg,
+     desde, hasta, tipo, ref, categoria, q, categorias) = _obtener_movimientos_inventario()
+
+    return render_template(
+        "reports_movimientos_inventario.html",
+        movimientos=movimientos,
+        total_entradas=total_entradas,
+        total_salidas=total_salidas,
+        ajustes_pos=ajustes_pos,
+        ajustes_neg=ajustes_neg,
+        desde=desde,
+        hasta=hasta,
+        tipo=tipo,
+        referencia=ref,
+        categoria=categoria,
+        q=q,
+        categorias=categorias,
+        etiqueta_referencia=ETIQUETA_REFERENCIA,
+        generated_at=datetime.now().strftime("%d/%m/%Y %H:%M"),
+    )
+
+
+@reports_bp.route("/movimientos-inventario/excel")
+@login_required
+@role_required("administrador")
+def movimientos_inventario_excel():
+    (movimientos, total_entradas, total_salidas, ajustes_pos, ajustes_neg,
+     desde, hasta, tipo, ref, categoria, q, _cat) = _obtener_movimientos_inventario()
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Movimientos de Inventario"
+
+    ws.merge_cells("A1:G1")
+    ws["A1"] = "Movimientos de Inventario / Mermas"
+    ws["A1"].font = Font(size=14, bold=True, color="145369")
+
+    ws.merge_cells("A2:G2")
+    ws["A2"] = f"Generado el {datetime.now().strftime('%d/%m/%Y %H:%M')} por {current_user.full_name}"
+    ws["A2"].font = Font(size=9, italic=True, color="6b7c85")
+
+    ws.merge_cells("A3:G3")
+    ws["A3"] = f"Entradas: {total_entradas} | Salidas: {total_salidas} | Ajustes (+): {ajustes_pos} | Ajustes/mermas (-): {ajustes_neg}"
+    ws["A3"].font = Font(size=9, italic=True, color="6b7c85")
+
+    fila = 5
+    encabezado_fill = PatternFill(start_color="145369", end_color="145369", fill_type="solid")
+    encabezado_font = Font(bold=True, color="FFFFFF")
+    for col_idx, titulo in enumerate(["Fecha", "Producto", "Tipo", "Referencia", "Cantidad", "Detalle", "Usuario"], start=1):
+        celda = ws.cell(row=fila, column=col_idx, value=titulo)
+        celda.font = encabezado_font
+        celda.fill = encabezado_fill
+        celda.alignment = Alignment(horizontal="center")
+    fila += 1
+
+    for m in movimientos:
+        prod = m.product
+        ws.cell(row=fila, column=1, value=m.movement_date.strftime("%d/%m/%Y %H:%M"))
+        ws.cell(row=fila, column=2, value=(f"{prod.sku or ('PROD-' + str(prod.product_id))} - {prod.name}") if prod else "—")
+        ws.cell(row=fila, column=3, value=m.movement_type.capitalize())
+        ws.cell(row=fila, column=4, value=ETIQUETA_REFERENCIA.get(m.reference_type, m.reference_type))
+        cant = m.quantity if m.movement_type == "entrada" else (-m.quantity if m.movement_type == "salida" else _efecto_ajuste(m))
+        ws.cell(row=fila, column=5, value=cant)
+        ws.cell(row=fila, column=6, value=m.notes or "")
+        ws.cell(row=fila, column=7, value=m.user.full_name if m.user else "—")
+        fila += 1
+
+    anchos = [18, 42, 10, 20, 10, 40, 22]
+    for i, ancho in enumerate(anchos, start=1):
+        ws.column_dimensions[get_column_letter(i)].width = ancho
+
+    buffer = io.BytesIO()
+    wb.save(buffer)
+    buffer.seek(0)
+
+    nombre_archivo = f"movimientos_inventario_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsx"
     return send_file(
         buffer,
         as_attachment=True,

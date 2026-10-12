@@ -1,5 +1,7 @@
 import os
+import re
 import uuid
+from datetime import datetime
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, send_file, abort, current_app
 from flask_login import login_required, current_user
 from werkzeug.utils import secure_filename
@@ -346,6 +348,83 @@ def product_delete(product_id):
     flash(f"Producto '{product.name}' desactivado.", "info")
     registrar("producto_desactivado", detalle=f"Producto '{product.name}'", entidad="producto", entidad_id=product.product_id)
     return redirect(url_for("products.products_list"))
+
+
+# =====================================================================
+# KARDEX POR PRODUCTO (historial de entradas, salidas y saldo)
+# =====================================================================
+
+def _efecto_movimiento(m):
+    """Cambio con signo que un movimiento aplico al inventario total del producto."""
+    if m.movement_type == "entrada":
+        return m.quantity
+    if m.movement_type == "salida":
+        return -m.quantity
+    # Ajuste: el signo esta en las notas "Ajuste <bodega>: <actual> -> <nuevo> (<motivo>)"
+    mm = re.search(r":\s*(\d+)\s*->\s*(\d+)", m.notes or "")
+    if mm:
+        return int(mm.group(2)) - int(mm.group(1))
+    return 0
+
+
+@products_bp.route("/<int:product_id>/kardex")
+@login_required
+@perm_required("can_view_inventario")
+def product_kardex(product_id):
+    product = Product.query.get_or_404(product_id)
+    desde = request.args.get("desde", "").strip()
+    hasta = request.args.get("hasta", "").strip()
+
+    def _filtro(q, fin=False):
+        if desde:
+            q = q.filter(InventoryMovement.movement_date >= datetime.strptime(desde, "%Y-%m-%d"))
+        if hasta:
+            d = datetime.strptime(hasta, "%Y-%m-%d").replace(hour=23, minute=59, second=59)
+            q = q.filter(InventoryMovement.movement_date <= d if fin else InventoryMovement.movement_date < d)
+        return q
+
+    base = InventoryMovement.query.filter(InventoryMovement.product_id == product_id)
+    movimientos = _filtro(base, fin=True).order_by(InventoryMovement.movement_date.asc(), InventoryMovement.movement_id.asc()).all()
+
+    previos_q = InventoryMovement.query.filter(InventoryMovement.product_id == product_id)
+    if desde:
+        previos_q = previos_q.filter(InventoryMovement.movement_date < datetime.strptime(desde, "%Y-%m-%d"))
+    previos = previos_q.all()
+
+    todos = InventoryMovement.query.filter(InventoryMovement.product_id == product_id).all()
+    total_actual = product.total_stock()
+    saldo_inicial_global = total_actual - sum(_efecto_movimiento(m) for m in todos)
+
+    saldo_inicial = saldo_inicial_global + sum(_efecto_movimiento(m) for m in previos)
+    saldo = saldo_inicial
+
+    filas = []
+    total_entradas = total_salidas = total_ajustes = 0
+    for m in movimientos:
+        efecto = _efecto_movimiento(m)
+        saldo += efecto
+        if m.movement_type == "entrada":
+            total_entradas += m.quantity
+        elif m.movement_type == "salida":
+            total_salidas += m.quantity
+        else:
+            total_ajustes += efecto
+        filas.append({"mov": m, "efecto": efecto, "saldo": saldo})
+
+    return render_template(
+        "product_kardex.html",
+        product=product,
+        filas=filas,
+        saldo_inicial=saldo_inicial,
+        saldo_final=saldo,
+        desde=desde,
+        hasta=hasta,
+        total_entradas=total_entradas,
+        total_salidas=total_salidas,
+        total_ajustes=total_ajustes,
+        total_actual=total_actual,
+        generated_at=datetime.now().strftime("%d/%m/%Y %H:%M"),
+    )
 
 
 # =====================================================================

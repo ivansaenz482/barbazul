@@ -66,4 +66,27 @@
     </div>
 </div>
 
+<div class="card bg-white shadow-sm mt-4" style="max-width: 720px;">
+    <div class="card-body">
+        <h5 class="card-title">Venta sin stock</h5>
+        <p class="text-muted small mb-2">
+            Define qué hace el sistema cuando intentas vender <strong>más unidades de las que hay</strong> en la bodega.
+        </p>
+        <form method="POST" action="{{ url_for('settings.save_venta_sin_stock') }}">
+            <div class="form-check form-switch mb-2">
+                <input class="form-check-input" type="checkbox" role="switch" name="permitir_venta_sin_stock"
+                       id="permitir_venta_sin_stock" {% if company and company.permitir_venta_sin_stock %}checked{% endif %}>
+                <label class="form-check-label" for="permitir_venta_sin_stock">
+                    <strong>Permitir vender sin stock</strong> (recomendado: desactivado)
+                </label>
+            </div>
+            <div class="form-text mb-3">
+                <strong>Desactivado:</strong> bloquea la venta si no hay stock suficiente (más seguro).<br>
+                <strong>Activado:</strong> permite la venta, deja el stock en 0 y muestra una advertencia.
+            </div>
+            <button class="btn btn-primary">Guardar</button>
+        </form>
+    </div>
+</div>
+
 {% endblock %}

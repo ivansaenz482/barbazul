@@ -3,7 +3,7 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash,
 from flask_login import login_required, current_user
 from app.extensions import db
 from app.models import Product, Customer, Sale, SaleDetail, Branch
-from app.routes.sales import _validar_line_items, _ejecutar_entrega
+from app.routes.sales import _validar_line_items, _ejecutar_entrega, _permite_venta_sin_stock, _avisar_stock_bajo
 from app.utils import generar_barcode_svg, role_required, perm_required
 
 caja_bp = Blueprint("caja", __name__, url_prefix="/caja")
@@ -158,7 +158,8 @@ def caja_registrar():
         flash("Agrega al menos un producto a la venta.", "danger")
         return redirect(url_for("caja.caja_index"))
 
-    line_items, error = _validar_line_items(product_ids, quantities, precios, _bodega_caja())
+    line_items, error = _validar_line_items(product_ids, quantities, precios, _bodega_caja(),
+                                            validar_stock=not _permite_venta_sin_stock())
     if error:
         flash(error, "danger")
         return redirect(url_for("caja.caja_index"))
@@ -220,6 +221,7 @@ def caja_registrar():
         flash(f"Venta de caja #{sale.sale_id} registrada por ${sale.total_amount:.2f}.", "success")
     else:
         flash(f"Venta de caja #{sale.sale_id} registrada (fiada) por ${sale.total_amount:.2f}.", "success")
+    _avisar_stock_bajo(sale)
     return redirect(url_for("caja.caja_index", imprimir=sale.sale_id))
 
 

@@ -1,0 +1,156 @@
+{% extends "base.html" %}
+{% block title %}Kardex — {{ product.name }}{% endblock %}
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-3 no-print">
+    <div>
+        <h2 class="mb-0"><i class="bi bi-journal-text me-2 text-primary"></i>Kardex: {{ product.name }}</h2>
+        <div class="text-muted small">
+            Código: <code>{{ product.sku or ('PROD-' ~ product.product_id) }}</code>
+            {% if product.barcode %} · Código de barras: <code>{{ product.barcode }}</code>{% endif %}
+            {% if product.category %} · Categoría: {{ product.category.name }}{% endif %}
+        </div>
+    </div>
+    <div class="d-flex gap-2">
+        {% if current_user.can_edit_stock() %}
+        <a href="{{ url_for('products.product_edit', product_id=product.product_id) }}" class="btn btn-outline-primary">✏️ Editar producto</a>
+        {% endif %}
+        <button onclick="window.print()" class="btn btn-dark">🖨️ Imprimir</button>
+        <a href="{{ url_for('products.products_list') }}" class="btn btn-outline-secondary">← Volver</a>
+    </div>
+</div>
+
+<div class="row g-3 mb-3">
+    <div class="col-6 col-md-3">
+        <div class="card bg-white shadow-sm text-center h-100"><div class="card-body py-3">
+            <div class="text-muted small">Stock Local</div>
+            <div class="fs-4 fw-bold">{{ product.current_stock or 0 }}</div>
+        </div></div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card bg-white shadow-sm text-center h-100"><div class="card-body py-3">
+            <div class="text-muted small">Stock Matriz</div>
+            <div class="fs-4 fw-bold">{{ product.stock_matriz or 0 }}</div>
+        </div></div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card bg-white shadow-sm text-center h-100"><div class="card-body py-3">
+            <div class="text-muted small">Stock Total</div>
+            <div class="fs-4 fw-bold text-primary">{{ product.total_stock() }}</div>
+        </div></div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card bg-white shadow-sm text-center h-100"><div class="card-body py-3">
+            <div class="text-muted small">Stock mínimo</div>
+            <div class="fs-4 fw-bold">{{ product.min_stock or 0 }}</div>
+        </div></div>
+    </div>
+</div>
+
+<form method="GET" class="row g-2 mb-3 bg-white p-3 rounded shadow-sm align-items-end no-print">
+    <div class="col-md-3">
+        <label class="form-label small text-muted mb-1">Desde</label>
+        <input type="date" name="desde" class="form-control" value="{{ desde }}">
+    </div>
+    <div class="col-md-3">
+        <label class="form-label small text-muted mb-1">Hasta</label>
+        <input type="date" name="hasta" class="form-control" value="{{ hasta }}">
+    </div>
+    <div class="col-md-6 d-flex gap-2">
+        <button type="submit" class="btn btn-primary">Consultar</button>
+        <a href="{{ url_for('products.product_kardex', product_id=product.product_id) }}" class="btn btn-outline-secondary">Ver todo</a>
+    </div>
+</form>
+
+<div id="printable-area">
+    <div class="d-none d-print-block mb-3">
+        <h3>Kardex: {{ product.name }}</h3>
+        <p class="text-muted small">Generado el {{ generated_at }} por {{ current_user.full_name }}</p>
+        <p class="text-muted small">Stock actual total: {{ total_actual }}</p>
+    </div>
+
+    <div class="row g-3 mb-3">
+        <div class="col-6 col-md-3">
+            <div class="border rounded py-3 text-center">
+                <div class="text-muted small">Entradas (+)</div>
+                <div class="fs-5 fw-bold text-success">{{ total_entradas }}</div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="border rounded py-3 text-center">
+                <div class="text-muted small">Salidas (−)</div>
+                <div class="fs-5 fw-bold text-danger">{{ total_salidas }}</div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="border rounded py-3 text-center">
+                <div class="text-muted small">Ajustes netos</div>
+                <div class="fs-5 fw-bold {% if total_ajustes < 0 %}text-danger{% elif total_ajustes > 0 %}text-success{% endif %}">
+                    {% if total_ajustes > 0 %}+{% endif %}{{ total_ajustes }}
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="border rounded py-3 text-center">
+                <div class="text-muted small">Saldo final</div>
+                <div class="fs-5 fw-bold text-primary">{{ saldo_final }}</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="table-responsive">
+        <table class="table table-sm table-bordered bg-white align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>Fecha</th>
+                    <th>Tipo</th>
+                    <th>Referencia</th>
+                    <th>Detalle</th>
+                    <th class="text-center">Cantidad</th>
+                    <th class="text-center">Saldo</th>
+                    <th>Usuario</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr class="table-secondary">
+                    <td colspan="5" class="text-end fw-bold">Saldo inicial (antes del período)</td>
+                    <td class="text-center fw-bold">{{ saldo_inicial }}</td>
+                    <td></td>
+                </tr>
+                {% for f in filas %}
+                <tr>
+                    <td class="text-nowrap">{{ f.mov.movement_date.strftime("%d/%m/%Y %H:%M") }}</td>
+                    <td>
+                        {% if f.mov.movement_type == "entrada" %}
+                        <span class="badge bg-success">Entrada</span>
+                        {% elif f.mov.movement_type == "salida" %}
+                        <span class="badge bg-danger">Salida</span>
+                        {% else %}
+                        <span class="badge bg-warning text-dark">Ajuste</span>
+                        {% endif %}
+                    </td>
+                    <td class="small text-muted">{{ f.mov.reference_type }}</td>
+                    <td class="small">{{ f.mov.notes }}</td>
+                    <td class="text-center fw-bold {% if f.efecto > 0 %}text-success{% elif f.efecto < 0 %}text-danger{% endif %}">
+                        {% if f.efecto > 0 %}+{% endif %}{{ f.efecto }}
+                    </td>
+                    <td class="text-center fw-bold">{{ f.saldo }}</td>
+                    <td class="small">{{ f.mov.user.full_name if f.mov.user else "—" }}</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="7" class="text-center text-muted py-3">No hay movimientos en el período seleccionado.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<style>
+@media print {
+    .no-print, nav, .navbar, footer { display: none !important; }
+    body { background: white !important; }
+    .card { border: 1px solid #dee2e6 !important; box-shadow: none !important; }
+}
+</style>
+
+{% endblock %}
