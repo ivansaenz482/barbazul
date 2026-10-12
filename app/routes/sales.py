@@ -240,15 +240,15 @@ def sale_new():
             ))
         db.session.flush()
 
-        if document_type in ("proforma", "nota_pedido"):
-            # Es solo un pedido/cotizacion: se calculan totales de referencia,
+        if document_type == "proforma":
+            # Es solo una cotizacion: se calculan totales de referencia,
             # pero NO se descuenta stock ni se registra pago todavia.
             sale.total_amount = sum(unit_price * quantity for _, quantity, unit_price in line_items)
             sale.total_cost = sum(float(product.cost_price) * quantity for product, quantity, _ in line_items)
             sale.liquidada = False
             db.session.commit()
-            flash(f"{sale.document_type_label()} #{sale.sale_id} guardada. Aún no afecta el inventario hasta que se autorice.", "info")
-            registrar("venta_creada", detalle=f"{sale.document_type_label()} #{sale.sale_id} por ${float(sale.total_amount):.2f}", entidad="venta", entidad_id=sale.sale_id)
+            flash(f"Proforma #{sale.sale_id} guardada. No afecta el inventario; al autorizarla se convertirá en venta real.", "info")
+            registrar("venta_creada", detalle=f"Proforma #{sale.sale_id} por ${float(sale.total_amount):.2f}", entidad="venta", entidad_id=sale.sale_id)
         else:
             ok, error = _ejecutar_entrega(sale, marcar_pagada=marcar_pagada,
                                            payment_method=payment_method_inicial, receipt_number=receipt_number_inicial)

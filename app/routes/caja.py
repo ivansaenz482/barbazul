@@ -208,18 +208,6 @@ def caja_registrar():
         ))
     db.session.flush()
 
-    if document_type == "nota_pedido":
-        # Nota de Pedido: solo se registra el pedido, NO descuenta stock ni
-        # cobra todavia. Cuando se autorice se convertira en Nota de Venta
-        # Autorizada o Factura (ver "sale_liquidar").
-        sale.total_amount = sum(unit_price * quantity for _, quantity, unit_price in line_items)
-        sale.total_cost = sum(float(product.cost_price) * quantity for product, quantity, _ in line_items)
-        sale.liquidada = False
-        sale.status = "pendiente"
-        db.session.commit()
-        flash(f"Nota de Pedido #{sale.sale_id} registrada por ${sale.total_amount:.2f}. Pendiente de autorizar.", "info")
-        return redirect(url_for("caja.caja_index", imprimir=sale.sale_id))
-
     ok, error = _ejecutar_entrega(sale, marcar_pagada=marcar_pagada,
                                    payment_method=payment_method, receipt_number=receipt_number)
     if not ok:

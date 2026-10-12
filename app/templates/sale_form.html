@@ -78,10 +78,10 @@
     </div>
 
     <div id="proforma-hint" class="alert alert-info d-none">
-        Una <strong>Nota de Pedido</strong> o <strong>Proforma</strong> es solo un pedido/cotización:
-        no descuenta inventario ni se marca como pagada.
-        Cuando el cliente confirme la compra, la podrás <strong>autorizar</strong> desde el detalle de la venta,
-        convirtiéndola en Nota de Venta Autorizada o Factura real.
+        Una <strong>Proforma</strong> es solo una cotización: <strong>no descuenta inventario</strong>
+        ni se marca como pagada. Cuando el cliente confirme la compra, la podrás
+        <strong>autorizar</strong> desde el detalle de la venta, convirtiéndola en
+        Nota de Venta Autorizada o Factura real (ahí sí baja el stock).
     </div>
 
     {% if not sale or not sale.liquidada %}
@@ -189,7 +189,7 @@ document.addEventListener('DOMContentLoaded', togglePagoInicialDetalle);
 
 function toggleDocumentHint() {
     const val = document.getElementById('document_type').value;
-    const isProforma = val === 'proforma' || val === 'nota_pedido';
+    const isProforma = val === 'proforma';
     const isCredito = document.getElementById('payment_type').value === 'credito';
     const hint = document.getElementById('proforma-hint');
     const campo = document.getElementById('pago_inmediato_field');
