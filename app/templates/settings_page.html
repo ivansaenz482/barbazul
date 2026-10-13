@@ -89,4 +89,29 @@
     </div>
 </div>
 
+<div class="card bg-white shadow-sm mt-4" style="max-width: 720px;">
+    <div class="card-body">
+        <h5 class="card-title">Programa de puntos / fidelidad</h5>
+        <p class="text-muted small mb-2">
+            Los clientes ganan puntos al comprar y pueden <strong>canjearlos como descuento</strong> en una venta.
+        </p>
+        <form method="POST" action="{{ url_for('settings.save_fidelidad') }}" class="row g-2 align-items-end">
+            <div class="col-md-5">
+                <label class="form-label small mb-1">Puntos por cada $1 de compra</label>
+                <input type="number" min="0" name="puntos_por_dolar" class="form-control"
+                       value="{{ company.puntos_por_dolar if company and company.puntos_por_dolar is not none else 1 }}">
+            </div>
+            <div class="col-md-4">
+                <label class="form-label small mb-1">Valor de cada punto al canjear ($)</label>
+                <input type="number" min="0" step="0.001" name="valor_punto" class="form-control"
+                       value="{{ '%.4f'|format(company.valor_punto) if company and company.valor_punto is not none else '0.0100' }}">
+            </div>
+            <div class="col-md-3">
+                <button class="btn btn-primary w-100">Guardar puntos</button>
+            </div>
+        </form>
+        <div class="form-text mt-2">Ejemplo: 1 punto por dólar y $0.01 por punto = cliente con $100 comprados tiene $1 de descuento.</div>
+    </div>
+</div>
+
 {% endblock %}

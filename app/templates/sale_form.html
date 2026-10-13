@@ -26,11 +26,12 @@
             <select name="customer_id" id="customer_select" class="form-select" data-searchable data-placeholder="Busca cliente por nombre o cédula..." required>
                 <option value="">-- Selecciona un cliente --</option>
                 {% for c in customers %}
-                <option value="{{ c.customer_id }}" data-codigo="{{ c.cedula or '' }}" data-price-list="{{ c.price_list or 'contado' }}" {% if sale and sale.customer_id == c.customer_id %}selected{% endif %}>
+                <option value="{{ c.customer_id }}" data-codigo="{{ c.cedula or '' }}" data-price-list="{{ c.price_list or 'contado' }}" data-points="{{ c.points or 0 }}" {% if sale and sale.customer_id == c.customer_id %}selected{% endif %}>
                     {{ c.full_name }} {% if c.cedula %}({{ c.cedula }}){% endif %} — {{ c.customer_type|capitalize }} · Lista {{ (c.price_list or 'contado')|capitalize }}
                 </option>
                 {% endfor %}
             </select>
+            <div class="form-text" id="puntos-info"></div>
         </div>
         <div class="col-md-6">
             <label class="form-label">Vendedor</label>
@@ -169,6 +170,14 @@
     </table>
 
     <button type="button" class="btn btn-outline-secondary btn-sm mb-3" onclick="addRow()">+ Agregar producto</button>
+
+    <div class="row g-3 mb-3">
+        <div class="col-md-4">
+            <label class="form-label small">Canjear puntos de fidelidad (opcional)</label>
+            <input type="number" name="puntos_canje" id="puntos_canje" min="0" value="0" class="form-control">
+            <div class="form-text">Se descuenta del total según el valor del punto. Verás los puntos disponibles al elegir el cliente.</div>
+        </div>
+    </div>
 
     {% if not products %}
     <div class="alert alert-warning">No tienes productos disponibles para vender. Contacta al administrador si crees que esto es un error (puede que tu acceso esté limitado a ciertas categorías).</div>
@@ -367,10 +376,22 @@ function buildSearchable(select) {
     select.parentNode.insertBefore(wrap, select);
 }
 
+function actualizarPuntos() {
+    const sel = document.getElementById('customer_select');
+    const info = document.getElementById('puntos-info');
+    const inp = document.getElementById('puntos_canje');
+    if (!sel || !info) return;
+    const opt = sel.options[sel.selectedIndex];
+    const pts = (opt && sel.value !== '') ? (parseInt(opt.getAttribute('data-points') || '0', 10) || 0) : 0;
+    info.textContent = pts > 0 ? ('⭐ Puntos de fidelidad disponibles: ' + pts) : '';
+    if (inp) { inp.max = pts; if (pts <= 0) inp.value = 0; }
+}
+
 document.addEventListener('DOMContentLoaded', function () {
     document.querySelectorAll('select[data-searchable]').forEach(buildSearchable);
     const customerSel = document.getElementById('customer_select');
-    if (customerSel) customerSel.addEventListener('change', aplicarListaATodas);
+    if (customerSel) customerSel.addEventListener('change', function () { aplicarListaATodas(); actualizarPuntos(); });
+    actualizarPuntos();
     const firstInput = document.querySelector('.searchable-input');
     if (firstInput) firstInput.focus();
 });

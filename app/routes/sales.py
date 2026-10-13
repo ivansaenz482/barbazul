@@ -183,6 +183,17 @@ def _ejecutar_entrega(sale, descontar_stock=True, marcar_pagada=True, payment_me
     sale.liquidada = True
     sale.liquidated_by = current_user.user_id
     sale.liquidated_at = datetime.now()
+
+    # Programa de fidelidad: el cliente gana puntos al completar la venta
+    try:
+        from app.models import CompanySetting
+        comp = CompanySetting.actual()
+        por = int(comp.puntos_por_dolar) if comp and comp.puntos_por_dolar else 1
+        if sale.customer is not None and por > 0 and total_amount > 0:
+            sale.customer.points = (sale.customer.points or 0) + int(total_amount * por)
+    except Exception:
+        pass
+
     return True, None
 
 
@@ -286,6 +297,26 @@ def sale_new():
                 db.session.rollback()
                 flash(error, "danger")
                 return render_template("sale_form.html", customers=customers, products=products, sellers=sellers, bodega=bodega)
+
+            # Canje de puntos de fidelidad (opcional)
+            try:
+                puntos_canje = int(request.form.get("puntos_canje") or 0)
+            except ValueError:
+                puntos_canje = 0
+            if puntos_canje > 0 and customer and (customer.points or 0) >= puntos_canje:
+                from app.models import CompanySetting, Payment
+                comp = CompanySetting.actual()
+                valor = float(comp.valor_punto) if comp and comp.valor_punto else 0.01
+                descuento = min(round(puntos_canje * valor, 2), float(sale.total_amount))
+                if descuento > 0:
+                    sale.total_amount = float(sale.total_amount) - descuento
+                    customer.points = (customer.points or 0) - puntos_canje
+                    if marcar_pagada and sale.payment_type != "credito":
+                        pago = Payment.query.filter_by(sale_id=sale.sale_id).first()
+                        if pago:
+                            pago.amount = sale.total_amount
+                    flash(f"Se canjearon {puntos_canje} punto(s): descuento de ${descuento:.2f}.", "success")
+
             db.session.commit()
             flash(f"{sale.document_type_label()} #{sale.sale_id} registrada correctamente por ${sale.total_amount:.2f}.", "success")
             _avisar_stock_bajo(sale)

@@ -57,6 +57,28 @@ def save_venta_sin_stock():
     return redirect(url_for("settings.settings_page"))
 
 
+@settings_bp.route("/fidelidad", methods=["POST"])
+@login_required
+@role_required("administrador")
+def save_fidelidad():
+    company = CompanySetting.actual()
+    if not company:
+        company = CompanySetting()
+        db.session.add(company)
+    try:
+        company.puntos_por_dolar = max(0, int(request.form.get("puntos_por_dolar") or 0))
+    except (ValueError, TypeError):
+        company.puntos_por_dolar = 1
+    try:
+        vp = float(request.form.get("valor_punto") or 0)
+        company.valor_punto = max(0.0, vp)
+    except (ValueError, TypeError):
+        company.valor_punto = 0.01
+    db.session.commit()
+    flash("Configuración de puntos de fidelidad guardada.", "success")
+    return redirect(url_for("settings.settings_page"))
+
+
 @settings_bp.route("/logo", methods=["GET"])
 @login_required
 def company_logo():

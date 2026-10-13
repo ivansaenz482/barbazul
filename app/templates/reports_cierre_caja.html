@@ -18,11 +18,30 @@
             <option value="anual" {% if periodo == "anual" %}selected{% endif %}>Anual</option>
         </select>
     </div>
-    <div class="col-md-4">
-        <label class="form-label small text-muted mb-1">Fecha de referencia</label>
+    <div class="col-md-3">
+        <label class="form-label small text-muted mb-1">Fecha de referencia (para el período)</label>
         <input type="date" name="fecha" class="form-control" value="{{ fecha }}">
     </div>
-    <div class="col-md-4">
+    <div class="col-md-2">
+        <label class="form-label small text-muted mb-1">Desde (rango libre)</label>
+        <input type="date" name="desde" class="form-control" value="{{ desde }}">
+    </div>
+    <div class="col-md-2">
+        <label class="form-label small text-muted mb-1">Hasta</label>
+        <input type="date" name="hasta" class="form-control" value="{{ hasta }}">
+    </div>
+    {% if vendedores %}
+    <div class="col-md-3">
+        <label class="form-label small text-muted mb-1">Vendedor / Cajero</label>
+        <select name="vendedor_id" class="form-select">
+            <option value="">Todos</option>
+            {% for v in vendedores %}
+            <option value="{{ v.user_id }}" {% if selected_vendedor == v.user_id|string %}selected{% endif %}>{{ v.full_name }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    {% endif %}
+    <div class="col-md-2">
         <button type="submit" class="btn btn-primary w-100">Consultar</button>
     </div>
 </form>

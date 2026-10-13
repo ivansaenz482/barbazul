@@ -195,13 +195,42 @@ def _guardar_imagen_producto(product, file):
 
 
 @products_bp.route("/<int:product_id>/imagen")
-@login_required
 def product_image(product_id):
+    """Imagen real del producto (publica, para que se vea en el catalogo)."""
     product = Product.query.get_or_404(product_id)
     ruta = resolver_ruta_upload(product.image_path, current_app.config["PRODUCT_IMAGE_FOLDER"])
     if not ruta:
         abort(404)
     return send_file(ruta)
+
+
+@products_bp.route("/<int:product_id>/imagen-placeholder.svg")
+def product_placeholder(product_id):
+    """Imagen generada (color + iniciales) para productos sin foto. Simula el catalogo con imagenes."""
+    import colorsys
+    from flask import Response
+    product = Product.query.get(product_id)
+    nombre = product.name if product else "Producto"
+    hue = ((product_id or 1) * 137) % 360
+    r, g, b = colorsys.hls_to_rgb(hue / 360.0, 0.55, 0.55)
+    color = "#%02x%02x%02x" % (int(r * 255), int(g * 255), int(b * 255))
+    partes = [w for w in nombre.split() if w]
+    iniciales = ("".join(w[0] for w in partes[:2]) or "?").upper()
+    nombre_corto = (nombre[:26] + "…") if len(nombre) > 27 else nombre
+    # Escape basico para XML
+    nombre_corto = (nombre_corto.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;"))
+    svg = (
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="600" height="450" viewBox="0 0 600 450">'
+        f'<rect width="600" height="450" fill="{color}"/>'
+        f'<circle cx="300" cy="185" r="120" fill="rgba(255,255,255,0.15)"/>'
+        f'<text x="300" y="240" font-family="Arial, Helvetica, sans-serif" font-size="150" '
+        f'font-weight="bold" fill="#ffffff" text-anchor="middle">{iniciales}</text>'
+        f'<text x="300" y="400" font-family="Arial, Helvetica, sans-serif" font-size="30" '
+        f'fill="#ffffff" text-anchor="middle">{nombre_corto}</text>'
+        f'</svg>'
+    )
+    return Response(svg, mimetype="image/svg+xml",
+                    headers={"Cache-Control": "public, max-age=86400"})
 
 
 @products_bp.route("/<int:product_id>/imagen/eliminar", methods=["POST"])

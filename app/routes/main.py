@@ -56,20 +56,3 @@ def dashboard():
     if current_user.is_admin():
         return render_template("dashboard_admin.html", user=current_user)
     return render_template("dashboard_personal.html", user=current_user)
-
-
-@main_bp.route("/test-db")
-def test_db():
-    """Ruta temporal para confirmar que Flask esta leyendo la base de datos MySQL"""
-    try:
-        total_productos = Product.query.count()
-        total_clientes = Customer.query.count()
-        roles = [r.role_name for r in Role.query.all()]
-        return jsonify({
-            "estado": "conexion exitosa",
-            "productos_en_bd": total_productos,
-            "clientes_en_bd": total_clientes,
-            "roles_configurados": roles
-        })
-    except Exception as e:
-        return jsonify({"estado": "error", "detalle": str(e)}), 500

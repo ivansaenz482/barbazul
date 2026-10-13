@@ -43,6 +43,7 @@
                 <th>Tipo</th>
                 <th>Límite crédito</th>
                 <th>Plazo</th>
+                <th class="text-center">Puntos</th>
                 <th>Acciones</th>
             </tr>
         </thead>
@@ -63,6 +64,7 @@
                 </td>
                 <td>{% if c.customer_type == "credito" %}${{ "%.2f"|format(c.credit_limit) }}{% else %}—{% endif %}</td>
                 <td>{% if c.customer_type == "credito" %}{{ c.credit_term_days }} días{% else %}—{% endif %}</td>
+                <td class="text-center">{% if c.points %}<span class="badge bg-warning text-dark">⭐ {{ c.points }}</span>{% else %}—{% endif %}</td>
                 <td>
                     <a href="{{ url_for('customers.customer_edit', customer_id=c.customer_id) }}" class="btn btn-sm btn-outline-primary">Editar</a>
                     {% if current_user.is_admin() and c.active %}

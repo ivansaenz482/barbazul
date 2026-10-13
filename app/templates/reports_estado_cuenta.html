@@ -17,7 +17,7 @@
 </div>
 
 <form method="GET" class="row g-2 mb-4 no-print bg-white p-3 rounded shadow-sm align-items-end">
-    <div class="col-md-5">
+    <div class="col-md-4">
         <label class="form-label small text-muted mb-1">Cliente</label>
         <select name="customer_id" class="form-select">
             <option value="">Todos los clientes de crédito</option>
@@ -26,8 +26,25 @@
             {% endfor %}
         </select>
     </div>
+    <div class="col-md-2">
+        <label class="form-label small text-muted mb-1">Vendedor</label>
+        <select name="vendedor_id" class="form-select">
+            <option value="">Todos</option>
+            {% for v in vendedores %}
+            <option value="{{ v.user_id }}" {% if selected_vendedor == v.user_id|string %}selected{% endif %}>{{ v.full_name }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="col-md-2">
+        <label class="form-label small text-muted mb-1">Ventas desde</label>
+        <input type="date" name="desde" class="form-control" value="{{ desde }}">
+    </div>
+    <div class="col-md-2">
+        <label class="form-label small text-muted mb-1">Hasta</label>
+        <input type="date" name="hasta" class="form-control" value="{{ hasta }}">
+    </div>
     {% if ver_utilidad %}<input type="hidden" name="ver_utilidad" value="1">{% endif %}
-    <div class="col-md-3">
+    <div class="col-md-2">
         <button type="submit" class="btn btn-primary w-100">Consultar</button>
     </div>
 </form>

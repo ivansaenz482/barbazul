@@ -219,6 +219,25 @@ def _rango_por_periodo(periodo, fecha_ref):
     return fecha_ref, fecha_ref
 
 
+def _rango_solicitado(periodo, fecha_ref):
+    """Si el usuario envió 'desde'/'hasta', usa ese rango; si no, usa el periodo elegido."""
+    desde = request.args.get("desde", "").strip()
+    hasta = request.args.get("hasta", "").strip()
+    if desde or hasta:
+        try:
+            fi = datetime.strptime(desde, "%Y-%m-%d").date() if desde else fecha_ref
+        except ValueError:
+            fi = fecha_ref
+        try:
+            ff = datetime.strptime(hasta, "%Y-%m-%d").date() if hasta else fecha_ref
+        except ValueError:
+            ff = fecha_ref
+        if ff < fi:
+            fi, ff = ff, fi
+        return fi, ff
+    return _rango_por_periodo(periodo, fecha_ref)
+
+
 @reports_bp.route("/liquidacion")
 @login_required
 @role_required("administrador")
@@ -235,7 +254,7 @@ def liquidacion_vendedores():
 
     vendedor_id = request.args.get("vendedor_id", "").strip()
 
-    fecha_inicio, fecha_fin = _rango_por_periodo(periodo, fecha_ref)
+    fecha_inicio, fecha_fin = _rango_solicitado(periodo, fecha_ref)
 
     # Solo cuentan las ventas ya liquidadas (Factura/Nota de Venta reales, no proformas pendientes)
     query = Sale.query.filter(
@@ -315,6 +334,8 @@ def liquidacion_vendedores():
         selected_vendedor=vendedor_id,
         grand_total_ventas=grand_total_ventas,
         grand_total_utilidad=grand_total_utilidad,
+        desde=request.args.get("desde", ""),
+        hasta=request.args.get("hasta", ""),
         generated_at=datetime.now().strftime("%d/%m/%Y %H:%M"),
     )
 
@@ -337,9 +358,11 @@ def cierre_caja():
     except ValueError:
         fecha_ref = date.today()
 
-    fecha_inicio, fecha_fin = _rango_por_periodo(periodo, fecha_ref)
+    fecha_inicio, fecha_fin = _rango_solicitado(periodo, fecha_ref)
     inicio_dt = datetime.combine(fecha_inicio, datetime.min.time())
     fin_dt = datetime.combine(fecha_fin, datetime.max.time())
+
+    vendedor_id = request.args.get("vendedor_id", "").strip()
 
     # Ventas liquidadas (reales, no proformas pendientes) dentro del periodo
     ventas_query = Sale.query.filter(
@@ -349,6 +372,8 @@ def cierre_caja():
     )
     if not current_user.is_admin() and not current_user.can_view_reporte_caja():
         ventas_query = ventas_query.filter(Sale.user_id == current_user.user_id)
+    elif vendedor_id:
+        ventas_query = ventas_query.filter(Sale.user_id == int(vendedor_id))
     ventas = ventas_query.all()
 
     total_vendido = sum(float(s.total_amount) for s in ventas)
@@ -365,6 +390,8 @@ def cierre_caja():
     )
     if not current_user.is_admin() and not current_user.can_view_reporte_caja():
         pagos_query = pagos_query.join(Sale).filter(Sale.user_id == current_user.user_id)
+    elif vendedor_id:
+        pagos_query = pagos_query.join(Sale).filter(Sale.user_id == int(vendedor_id))
     pagos = pagos_query.all()
 
     por_metodo = {}
@@ -394,6 +421,10 @@ def cierre_caja():
         total_cobrado=total_cobrado,
         total_pendiente=total_pendiente,
         pendientes=pendientes,
+        vendedores=User.query.order_by(User.full_name).all(),
+        selected_vendedor=vendedor_id,
+        desde=request.args.get("desde", ""),
+        hasta=request.args.get("hasta", ""),
         generated_at=datetime.now().strftime("%d/%m/%Y %H:%M"),
     )
 
@@ -407,6 +438,19 @@ def cierre_caja():
 @role_required("administrador")
 def estado_cuenta_clientes():
     customer_id = request.args.get("customer_id", "").strip()
+    desde = request.args.get("desde", "").strip()
+    hasta = request.args.get("hasta", "").strip()
+    vendedor_id = request.args.get("vendedor_id", "").strip()
+
+    d_ini = d_fin = None
+    try:
+        d_ini = datetime.strptime(desde, "%Y-%m-%d").date() if desde else None
+    except ValueError:
+        d_ini = None
+    try:
+        d_fin = datetime.strptime(hasta, "%Y-%m-%d").date() if hasta else None
+    except ValueError:
+        d_fin = None
 
     # El toggle de utilidad solo tiene efecto real si el usuario es administrador;
     # el personal nunca ve utilidad, aunque intente forzar el parametro por URL.
@@ -420,6 +464,12 @@ def estado_cuenta_clientes():
     estado_cuentas = []
     for c in clientes:
         ventas_credito = [s for s in c.sales if s.payment_type == "credito" and s.liquidada]
+        if d_ini:
+            ventas_credito = [s for s in ventas_credito if s.sale_date.date() >= d_ini]
+        if d_fin:
+            ventas_credito = [s for s in ventas_credito if s.sale_date.date() <= d_fin]
+        if vendedor_id and vendedor_id.isdigit():
+            ventas_credito = [s for s in ventas_credito if s.user_id == int(vendedor_id)]
         if not ventas_credito:
             continue
 
@@ -457,6 +507,10 @@ def estado_cuenta_clientes():
         clientes=todos_los_clientes_credito,
         selected_customer=customer_id,
         ver_utilidad=ver_utilidad,
+        vendedores=User.query.order_by(User.full_name).all(),
+        selected_vendedor=vendedor_id,
+        desde=desde,
+        hasta=hasta,
         generated_at=datetime.now().strftime("%d/%m/%Y %H:%M"),
     )
 
@@ -1851,6 +1905,7 @@ def _rango_fechas_reportes():
 
 def _calcular_ganancias():
     d, h, desde, hasta = _rango_fechas_reportes()
+    vendedor_id = request.args.get("vendedor_id", "").strip()
 
     # Ventas reales (liquidadas) del periodo
     vq = Sale.query.filter(Sale.liquidada == True)  # noqa: E712
@@ -1858,6 +1913,8 @@ def _calcular_ganancias():
         vq = vq.filter(Sale.sale_date >= d)
     if h:
         vq = vq.filter(Sale.sale_date <= h)
+    if vendedor_id.isdigit():
+        vq = vq.filter(Sale.user_id == int(vendedor_id))
     ventas = vq.all()
 
     total_ventas = sum(float(v.total_amount or 0) for v in ventas)
@@ -1890,6 +1947,7 @@ def _calcular_ganancias():
         "desglose": desglose,
         "desde": desde,
         "hasta": hasta,
+        "vendedor_id": vendedor_id,
     }
 
 
@@ -1902,6 +1960,7 @@ def ganancias_reporte():
         "reports_ganancias.html",
         datos=datos,
         categoria_label=CATEGORIA_GASTO_LABEL,
+        vendedores=User.query.order_by(User.full_name).all(),
         generated_at=datetime.now().strftime("%d/%m/%Y %H:%M"),
     )
 
@@ -1958,3 +2017,111 @@ def ganancias_reporte_excel():
         download_name=f"ganancias_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsx",
         mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     )
+
+
+# =====================================================================
+# RECORDATORIOS DE PAGO (cobranza por WhatsApp y correo)
+# =====================================================================
+
+def _normalizar_telefono(tel):
+    if not tel:
+        return ""
+    d = "".join(ch for ch in str(tel) if ch.isdigit())
+    if d.startswith("0"):
+        d = "593" + d[1:]
+    return d
+
+
+def _cobros_por_cliente(dias=15):
+    """Clientes con cuentas por cobrar (vencidas o por vencer dentro de `dias`)."""
+    hoy = date.today()
+    limite = hoy + timedelta(days=dias)
+    resultado = []
+    for c in Customer.query.filter(Customer.active.is_(True)).all():
+        ventas = [s for s in c.sales
+                  if s.liquidada and s.payment_type == "credito" and s.saldo_pendiente() > 0.009]
+        relevantes = [s for s in ventas if (s.due_date is None or s.due_date <= limite)]
+        if not relevantes:
+            continue
+        saldo = sum(s.saldo_pendiente() for s in relevantes)
+        vencidas = [s for s in relevantes if s.due_date and s.due_date < hoy]
+        resultado.append({
+            "cliente": c,
+            "ventas": sorted(relevantes, key=lambda x: (x.due_date or hoy)),
+            "saldo": saldo,
+            "num": len(relevantes),
+            "vencidas": len(vencidas),
+        })
+    resultado.sort(key=lambda x: -x["saldo"])
+    return resultado
+
+
+def _mensaje_recordatorio(nombre, saldo, num, empresa):
+    return (f"Hola {nombre}, le saludamos de {empresa}. "
+            f"Le recordamos amablemente que mantiene un saldo pendiente de ${saldo:.2f} "
+            f"por {num} comprobante(s). Agradecemos su pago. ¡Gracias!")
+
+
+def _empresa_actual():
+    from app.models import CompanySetting
+    company = CompanySetting.actual()
+    return (company.system_name if company and company.system_name else "nuestro negocio")
+
+
+@reports_bp.route("/recordatorios-pago")
+@login_required
+@role_required("administrador")
+def recordatorios_pago():
+    from urllib.parse import quote
+    from app.notifications import _smtp_configurado
+
+    try:
+        dias = int(request.args.get("dias", "15"))
+    except ValueError:
+        dias = 15
+    grupos = _cobros_por_cliente(dias)
+    empresa = _empresa_actual()
+    for g in grupos:
+        c = g["cliente"]
+        msg = _mensaje_recordatorio(c.full_name, g["saldo"], g["num"], empresa)
+        tel = _normalizar_telefono(c.phone)
+        g["whatsapp"] = f"https://wa.me/{tel}?text={quote(msg)}" if tel else None
+        g["mensaje"] = msg
+        g["tiene_email"] = bool(c.email)
+
+    return render_template(
+        "reports_recordatorios_pago.html",
+        grupos=grupos, dias=dias, smtp_ok=_smtp_configurado(),
+        total_cobrar=sum(g["saldo"] for g in grupos),
+        generated_at=datetime.now().strftime("%d/%m/%Y %H:%M"),
+    )
+
+
+@reports_bp.route("/recordatorios-pago/enviar", methods=["POST"])
+@login_required
+@role_required("administrador")
+def recordatorios_pago_enviar():
+    from app.notifications import _enviar, _smtp_configurado
+    if not _smtp_configurado():
+        flash("El correo no está configurado (faltan variables SMTP_* en el .env). Usa los botones de WhatsApp.", "warning")
+        return redirect(url_for("reports.recordatorios_pago"))
+    try:
+        dias = int(request.form.get("dias", "15"))
+    except ValueError:
+        dias = 15
+    empresa = _empresa_actual()
+    customer_id = request.form.get("customer_id", "").strip()
+    grupos = _cobros_por_cliente(dias)
+    if customer_id.isdigit():
+        grupos = [g for g in grupos if g["cliente"].customer_id == int(customer_id)]
+    enviados = 0
+    for g in grupos:
+        c = g["cliente"]
+        if not c.email:
+            continue
+        msg = _mensaje_recordatorio(c.full_name, g["saldo"], g["num"], empresa)
+        ok, _ = _enviar(c.email, f"Recordatorio de pago — {empresa}", msg)
+        if ok:
+            enviados += 1
+    flash(f"Recordatorios enviados por correo: {enviados}.", "success" if enviados else "info")
+    return redirect(url_for("reports.recordatorios_pago"))

@@ -236,6 +236,8 @@ class Customer(db.Model):
     credit_term_days = db.Column(db.Enum("0", "30", "60", "90"), default="0")
     branch_id = db.Column(db.Integer, db.ForeignKey("branches.branch_id"))
     active = db.Column(db.Boolean, default=True)
+    # Puntos de fidelidad acumulados (se ganan al comprar y se canjean como descuento)
+    points = db.Column(db.Integer, default=0)
 
 
 class CompanySetting(db.Model):
@@ -248,6 +250,9 @@ class CompanySetting(db.Model):
     # Si es False (por defecto) NO se permite vender productos sin stock suficiente.
     # Si es True, se permite vender sin stock (queda en 0) mostrando una advertencia.
     permitir_venta_sin_stock = db.Column(db.Boolean, default=False)
+    # Programa de fidelidad: puntos ganados por cada dolar y valor de cada punto al canjear
+    puntos_por_dolar = db.Column(db.Integer, default=1)
+    valor_punto = db.Column(db.Numeric(6, 4), default=0.01)
 
     @classmethod
     def actual(cls):
