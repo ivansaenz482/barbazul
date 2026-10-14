@@ -8,7 +8,8 @@ from app.utils import role_required
 employees_bp = Blueprint("employees", __name__, url_prefix="/personal")
 
 ROLES = [("vendedor", "Vendedor"), ("chofer", "Chofer"),
-         ("administrador", "Administrador"), ("bodeguero", "Bodeguero"), ("otro", "Otro")]
+         ("administrador", "Administrador"), ("bodeguero", "Bodeguero"),
+         ("mecanico", "Mecánico"), ("otro", "Otro")]
 
 
 @employees_bp.route("/")

@@ -93,6 +93,8 @@ def hr_asistencia_nueva():
         date=fecha,
         check_in=_parse_time(request.form.get("check_in")),
         check_out=_parse_time(request.form.get("check_out")),
+        lunch_out=_parse_time(request.form.get("lunch_out")),
+        lunch_in=_parse_time(request.form.get("lunch_in")),
         notes=request.form.get("notes", "").strip() or None,
         created_by=current_user.user_id,
     ))
@@ -307,6 +309,20 @@ def hr_checkin_marcar():
             db.session.add(Attendance(employee_id=emp.employee_id, date=hoy, check_in=ahora))
             db.session.commit()
             flash(f"✅ Entrada registrada: {emp.name} a las {ahora.strftime('%H:%M')}.", "success")
+    elif accion == "almuerzo_salida":
+        if not reg or not reg.check_in:
+            flash(f"No hay entrada registrada hoy para {emp.name}.", "warning")
+        else:
+            reg.lunch_out = ahora
+            db.session.commit()
+            flash(f"🍽️ Salida a almorzar: {emp.name} a las {ahora.strftime('%H:%M')}.", "success")
+    elif accion == "almuerzo_regreso":
+        if not reg or not reg.lunch_out:
+            flash(f"No hay salida a almorzar registrada para {emp.name}.", "warning")
+        else:
+            reg.lunch_in = ahora
+            db.session.commit()
+            flash(f"✅ Regreso de almuerzo: {emp.name} a las {ahora.strftime('%H:%M')}.", "success")
     else:  # salida
         if not reg or not reg.check_in:
             flash(f"No hay entrada registrada hoy para {emp.name}.", "warning")

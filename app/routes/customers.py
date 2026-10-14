@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request, redirect, url_for, flash
+from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, current_app
 from flask_login import login_required
 from app.extensions import db
 from app.models import Customer, Branch
@@ -121,9 +121,6 @@ def branch_delete(branch_id):
 # =====================================================================
 # CLIENTES
 # =====================================================================
-
-
-
 @customers_bp.route("/")
 @login_required
 @perm_required("can_view_clientes")
@@ -248,3 +245,86 @@ def customer_delete(customer_id):
     db.session.commit()
     flash(f"Cliente '{customer.full_name}' desactivado.", "info")
     return redirect(url_for("customers.customers_list"))
+
+
+# =====================================================================
+# VALIDACION / CONSULTA DE CEDULA Y RUC (Ecuador)
+# =====================================================================
+
+def validar_identificacion(valor):
+    """Valida cedula (10) o RUC (13) de Ecuador con el algoritmo modulo 10/11.
+    Devuelve (valido: bool, mensaje: str)."""
+    s = "".join(ch for ch in str(valor or "") if ch.isdigit())
+    if len(s) not in (10, 13):
+        return False, "Debe tener 10 (cédula) o 13 (RUC) dígitos."
+    if len(set(s)) == 1:
+        return False, "Número no válido (dígitos repetidos)."
+
+    provincia = int(s[:2])
+    if provincia < 1 or (provincia > 24 and provincia != 30):
+        return False, "Código de provincia no válido."
+
+    if len(s) == 10:
+        if s[2] == "9":  # persona juridica no es cedula
+            return False, "Una cédula no puede empezar con 9 en el 3.er dígito."
+        return _modulo10(s), "Cédula válida." if _modulo10(s) else "Cédula incorrecta (dígito verificador)."
+
+    # RUC: 13 digitos
+    if s[2] == "9":  # juridico
+        ok = _modulo11(s[:9], s[9])
+        return ok, "RUC (jurídico) válido." if ok else "RUC jurídico incorrecto."
+    if s[2] == "6":  # publico
+        ok = _modulo11(s[:8], s[8])
+        return ok, "RUC (público) válido." if ok else "RUC público incorrecto."
+    # natural: primeros 10 = cedula, luego 001
+    ok = _modulo10(s[:10]) and s[10:] == "001"
+    return ok, "RUC (natural) válido." if ok else "RUC natural incorrecto."
+
+
+def _modulo10(ced):
+    coef = [2, 1, 2, 1, 2, 1, 2, 1, 2]
+    total = 0
+    for i in range(9):
+        v = int(ced[i]) * coef[i]
+        if v > 9:
+            v -= 9
+        total += v
+    dig = (10 - (total % 10)) % 10
+    return dig == int(ced[9])
+
+
+def _modulo11(base, verificador):
+    coef = [4, 3, 2, 7, 6, 5, 4, 3, 2]
+    total = sum(int(base[i]) * coef[i] for i in range(min(9, len(base))))
+    residuo = total % 11
+    dig = 11 - residuo
+    if dig == 11:
+        dig = 0
+    if dig == 10:
+        dig = 1
+    return dig == int(verificador)
+
+
+@customers_bp.route("/consultar-cedula")
+@login_required
+def consultar_cedula():
+    """Valida cedula/RUC y, si hay una API configurada (CEDULA_API_URL), la consulta."""
+    cedula = request.args.get("cedula", "").strip()
+    valido, mensaje = validar_identificacion(cedula)
+    resultado = {"cedula": cedula, "valido": valido, "mensaje": mensaje, "nombre": None, "direccion": None}
+
+    api = current_app.config.get("CEDULA_API_URL", "").strip()
+    if api and valido:
+        try:
+            import requests
+            url = api.replace("{cedula}", cedula)
+            resp = requests.get(url, timeout=8, headers={"Accept": "application/json"})
+            data = resp.json()
+            if isinstance(data, dict):
+                resultado["nombre"] = (data.get("nombre") or data.get("name") or data.get("razonSocial")
+                                       or data.get("razon_social") or data.get("RazonSocial"))
+                resultado["direccion"] = (data.get("direccion") or data.get("address") or data.get("Direccion"))
+        except Exception:
+            resultado["mensaje"] += " (No se pudo consultar la API, se validó localmente.)"
+
+    return jsonify(resultado)

@@ -56,6 +56,20 @@
                         <button type="submit" class="btn btn-success emp-btn"><i class="bi bi-box-arrow-in-right me-1"></i>Entrada</button>
                         {% endif %}
                     </form>
+                    {% if estados[e.employee_id] == "dentro" %}
+                    <form method="POST" action="{{ url_for('hr.hr_checkin_marcar') }}" class="mt-1 d-flex gap-1">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                        <input type="hidden" name="employee_id" value="{{ e.employee_id }}">
+                        <input type="hidden" name="accion" value="almuerzo_salida">
+                        <button type="submit" class="btn btn-outline-warning btn-sm">🍽️ Almorzar</button>
+                    </form>
+                    <form method="POST" action="{{ url_for('hr.hr_checkin_marcar') }}" class="mt-1">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                        <input type="hidden" name="employee_id" value="{{ e.employee_id }}">
+                        <input type="hidden" name="accion" value="almuerzo_regreso">
+                        <button type="submit" class="btn btn-outline-success btn-sm">↩️ Regreso</button>
+                    </form>
+                    {% endif %}
                 </div>
                 {% endfor %}
             </div>

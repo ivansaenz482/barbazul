@@ -84,8 +84,20 @@ def category_delete(category_id):
 @login_required
 @perm_required("can_view_inventario")
 def suppliers_list():
-    suppliers = Supplier.query.order_by(Supplier.name).all()
-    return render_template("suppliers_list.html", suppliers=suppliers)
+    search = request.args.get("q", "").strip()
+    query = Supplier.query
+    if search:
+        like = f"%{search}%"
+        query = query.filter(
+            db.or_(
+                Supplier.name.ilike(like),
+                Supplier.ruc.ilike(like),
+                Supplier.phone.ilike(like),
+                Supplier.email.ilike(like),
+            )
+        )
+    suppliers = query.order_by(Supplier.name).all()
+    return render_template("suppliers_list.html", suppliers=suppliers, search=search)
 
 
 @products_bp.route("/proveedores/nuevo", methods=["GET", "POST"])

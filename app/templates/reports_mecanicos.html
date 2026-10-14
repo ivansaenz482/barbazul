@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}Reporte por Mecánico{% endblock %}
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-3 no-print">
+    <div>
+        <h2 class="mb-1"><i class="bi bi-wrench-adjustable me-2 text-primary"></i>Facturación por Mecánico</h2>
+        <p class="text-muted mb-0">Cuánto facturó cada mecánico en el período. Ideal para pagos por trabajo.</p>
+    </div>
+    <button onclick="window.print()" class="btn btn-dark">🖨️ Imprimir</button>
+</div>
+
+<form method="GET" class="row g-2 mb-4 no-print bg-white p-3 rounded shadow-sm align-items-end">
+    <div class="col-md-3">
+        <label class="form-label small text-muted mb-1">Desde</label>
+        <input type="date" name="desde" class="form-control" value="{{ desde }}">
+    </div>
+    <div class="col-md-3">
+        <label class="form-label small text-muted mb-1">Hasta</label>
+        <input type="date" name="hasta" class="form-control" value="{{ hasta }}">
+    </div>
+    <div class="col-md-3 d-flex gap-2">
+        <button class="btn btn-primary">Consultar</button>
+        <a href="{{ url_for('reports.mecanicos_reporte') }}" class="btn btn-outline-secondary">Este mes</a>
+    </div>
+</form>
+
+<div id="printable-area">
+    <div class="d-none d-print-block mb-3">
+        <h3>Facturación por Mecánico</h3>
+        <p class="text-muted small">Del {{ desde }} al {{ hasta }} · Generado el {{ generated_at }}</p>
+    </div>
+
+    <div class="alert alert-info d-flex justify-content-between">
+        <span>Mecánicos activos: <strong>{{ grupos|length }}</strong></span>
+        <strong>Total facturado: ${{ "%.2f"|format(total_general) }}</strong>
+    </div>
+
+    {% for g in grupos %}
+    <div class="card mb-3">
+        <div class="card-header bg-white d-flex justify-content-between align-items-center">
+            <strong><i class="bi bi-person-gear me-1"></i>{{ g.mecanico.name }}</strong>
+            <span class="badge bg-primary">{{ g.num }} trabajo(s) · ${{ "%.2f"|format(g.total) }}</span>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-sm mb-0">
+                    <thead class="table-light">
+                        <tr><th>Fecha</th><th>#</th><th>Cliente</th><th class="text-end">Total</th></tr>
+                    </thead>
+                    <tbody>
+                        {% for s in g.ventas %}
+                        <tr>
+                            <td>{{ s.sale_date.strftime("%d/%m/%Y") }}</td>
+                            <td><a href="{{ url_for('sales.sale_detail', sale_id=s.sale_id) }}">#{{ s.sale_id }}</a></td>
+                            <td>{{ s.customer.full_name if s.customer else "—" }}</td>
+                            <td class="text-end">${{ "%.2f"|format(s.total_amount or 0) }}</td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="4" class="text-muted text-center py-2">Sin trabajos en el período.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="alert alert-warning text-center py-4">No hay mecánicos activos. Créalos en <a href="{{ url_for('employees.employees_list') }}">Personal</a> con el rol "Mecánico".</div>
+    {% endfor %}
+</div>
+
+<style>
+@media print { .no-print, nav, .navbar, footer, .sidebar, .topbar, .btn { display: none !important; } body { background:#fff !important; } }
+</style>
+
+{% endblock %}

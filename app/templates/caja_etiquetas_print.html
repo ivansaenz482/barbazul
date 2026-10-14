@@ -13,6 +13,7 @@
             padding: 2mm; box-sizing: border-box; overflow: hidden;
             vertical-align: top;
         }
+        .label .marca { max-height: 6mm; max-width: 90%; object-fit: contain; margin-bottom: 0.5mm; }
         .label .nombre { font-size: 9px; font-weight: bold; text-align: center; line-height: 1.1; margin-bottom: 1mm; }
         .label .presentacion { font-size: 8px; color: #555; margin-bottom: 1mm; }
         .label svg { max-width: 100%; height: auto; }
@@ -35,6 +36,7 @@
             {% for _ in range(item.qty) %}
             {% set ns.i = ns.i + 1 %}
             <div class="label">
+                {% if company_logo_url %}<img src="{{ company_logo_url }}" class="marca" alt="Logo">{% endif %}
                 <div class="nombre">{{ item.product.name }}</div>
                 <div class="presentacion">{{ item.product.presentacion or item.product.unit_measure or "" }}</div>
                 {% if item.svg %}

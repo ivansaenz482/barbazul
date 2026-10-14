@@ -2125,3 +2125,52 @@ def recordatorios_pago_enviar():
             enviados += 1
     flash(f"Recordatorios enviados por correo: {enviados}.", "success" if enviados else "info")
     return redirect(url_for("reports.recordatorios_pago"))
+
+
+# =====================================================================
+# REPORTE POR MECANICO (facturacion acumulada)
+# =====================================================================
+
+@reports_bp.route("/mecanicos")
+@login_required
+@role_required("administrador")
+def mecanicos_reporte():
+    from app.models import Employee
+    desde = request.args.get("desde", "").strip()
+    hasta = request.args.get("hasta", "").strip()
+    d = h = None
+    try:
+        d = datetime.strptime(desde, "%Y-%m-%d") if desde else None
+    except ValueError:
+        d = None
+    try:
+        h = datetime.strptime(hasta, "%Y-%m-%d").replace(hour=23, minute=59, second=59) if hasta else None
+    except ValueError:
+        h = None
+
+    if not d and not h:
+        hoy = date.today()
+        d = datetime(hoy.year, hoy.month, 1)
+        h = datetime(hoy.year, hoy.month, monthrange(hoy.year, hoy.month)[1], 23, 59, 59)
+        desde = d.strftime("%Y-%m-%d")
+        hasta = h.strftime("%Y-%m-%d")
+
+    mecanicos = Employee.query.filter_by(active=True, role="mecanico").order_by(Employee.name).all()
+    grupos = []
+    total_general = 0.0
+    for m in mecanicos:
+        q = Sale.query.filter(Sale.mecanico_id == m.employee_id, Sale.liquidada.is_(True))
+        if d:
+            q = q.filter(Sale.sale_date >= d)
+        if h:
+            q = q.filter(Sale.sale_date <= h)
+        ventas = q.all()
+        total = sum(float(s.total_amount or 0) for s in ventas)
+        total_general += total
+        grupos.append({"mecanico": m, "num": len(ventas), "total": total,
+                       "ventas": sorted(ventas, key=lambda s: s.sale_date, reverse=True)})
+    grupos.sort(key=lambda g: -g["total"])
+
+    return render_template("reports_mecanicos.html", grupos=grupos, desde=desde, hasta=hasta,
+                           total_general=total_general,
+                           generated_at=datetime.now().strftime("%d/%m/%Y %H:%M"))

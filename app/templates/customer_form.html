@@ -25,8 +25,12 @@
             </select>
         </div>
         <div class="col-md-6">
-            <label class="form-label">Cédula</label>
-            <input type="text" name="cedula" class="form-control" value="{{ customer.cedula if customer else '' }}">
+            <label class="form-label">Cédula / RUC</label>
+            <div class="input-group">
+                <input type="text" name="cedula" id="cedula" class="form-control" value="{{ customer.cedula if customer else '' }}">
+                <button type="button" class="btn btn-outline-secondary" onclick="consultarCedula()">Validar / Consultar</button>
+            </div>
+            <div class="form-text" id="cedula-msg"></div>
         </div>
 
         <div class="col-md-6">
@@ -107,6 +111,32 @@ function toggleCreditFields() {
     document.getElementById('credit_term_field').style.display = isCredito ? 'block' : 'none';
 }
 document.addEventListener('DOMContentLoaded', toggleCreditFields);
+
+async function consultarCedula() {
+    const campo = document.getElementById('cedula');
+    const msg = document.getElementById('cedula-msg');
+    const cedula = (campo.value || '').trim();
+    if (!cedula) { msg.textContent = 'Escribe la cédula o RUC primero.'; msg.className = 'form-text text-muted'; return; }
+    msg.textContent = 'Consultando...'; msg.className = 'form-text text-muted';
+    try {
+        const res = await fetch('{{ url_for("customers.consultar_cedula") }}?cedula=' + encodeURIComponent(cedula));
+        const d = await res.json();
+        msg.textContent = d.mensaje || (d.valido ? 'Válido.' : 'No válido.');
+        msg.className = 'form-text ' + (d.valido ? 'text-success' : 'text-danger');
+        if (d.nombre) {
+            const nombre = document.querySelector('input[name="full_name"]');
+            if (nombre && !nombre.value) nombre.value = d.nombre;
+            msg.textContent += ' · ' + d.nombre;
+        }
+        if (d.direccion) {
+            const dir = document.querySelector('input[name="address"]');
+            if (dir && !dir.value) dir.value = d.direccion;
+        }
+    } catch (e) {
+        msg.textContent = 'No se pudo validar.';
+        msg.className = 'form-text text-danger';
+    }
+}
 </script>
 
 {% endblock %}

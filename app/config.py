@@ -65,6 +65,11 @@ class Config:
     # Ruta al ejecutable de Tesseract OCR (opcional, solo si no esta en el PATH del sistema)
     TESSERACT_CMD = os.getenv("TESSERACT_CMD", "").strip()
 
+    # API opcional para consultar cedula/RUC (Ecuador). Si se deja vacio, solo se
+    # valida localmente (algoritmo modulo 10). Ejemplo de plantilla:
+    #   CEDULA_API_URL=https://mi-api.com/consulta/{cedula}
+    CEDULA_API_URL = os.getenv("CEDULA_API_URL", "").strip()
+
     # Correo de alertas (opcional). Si se deja vacio, el sistema simplemente no envia correos.
     SMTP_HOST = os.getenv("SMTP_HOST", "")
     SMTP_PORT = os.getenv("SMTP_PORT", "587")

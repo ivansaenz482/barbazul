@@ -42,6 +42,18 @@
                 {% endfor %}
             </select>
         </div>
+        {% if mecanicos %}
+        <div class="col-md-6">
+            <label class="form-label">Mecánico (opcional)</label>
+            <select name="mecanico_id" class="form-select">
+                <option value="">-- Sin mecánico --</option>
+                {% for m in mecanicos %}
+                <option value="{{ m.employee_id }}" {% if sale and sale.mecanico_id == m.employee_id %}selected{% endif %}>{{ m.name }}</option>
+                {% endfor %}
+            </select>
+            <div class="form-text">Se acumula el valor facturado a cada mecánico (reporte por mecánico).</div>
+        </div>
+        {% endif %}
         <div class="col-md-6">
             <label class="form-label">Bodega (de dónde sale el stock)</label>
             {% if current_user.ve_todas_bodegas() %}

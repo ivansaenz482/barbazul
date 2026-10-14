@@ -9,6 +9,13 @@
     {% endif %}
 </div>
 
+<form method="GET" class="mb-3">
+    <div class="input-group" style="max-width: 440px;">
+        <input type="text" name="q" class="form-control" placeholder="Buscar proveedor por nombre, RUC, teléfono o correo..." value="{{ search }}">
+        <button class="btn btn-outline-secondary" type="submit">Buscar</button>
+    </div>
+</form>
+
 <div class="table-responsive">
     <table class="table table-hover bg-white align-middle">
         <thead class="table-dark">

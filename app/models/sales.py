@@ -9,6 +9,8 @@ class Sale(db.Model):
     customer_id = db.Column(db.Integer, db.ForeignKey("customers.customer_id"), nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey("users.user_id"), nullable=False)
     vendedor_id = db.Column(db.Integer, db.ForeignKey("sellers.seller_id"))
+    # Mecanico (personal) que realizo el trabajo facturado
+    mecanico_id = db.Column(db.Integer, db.ForeignKey("employees.employee_id"))
     # Bodega/sucursal desde la que se hizo la venta (de donde se descuenta el stock)
     bodega = db.Column(db.String(30), default="local")
     sale_date = db.Column(db.DateTime, default=datetime.now)

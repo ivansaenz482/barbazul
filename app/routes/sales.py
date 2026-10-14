@@ -225,6 +225,8 @@ def sale_new():
     customers = Customer.query.filter_by(active=True).order_by(Customer.full_name).all()
     products = _productos_vendibles()
     sellers = Seller.query.filter_by(active=True).order_by(Seller.name).all()
+    from app.models import Employee
+    mecanicos = Employee.query.filter_by(active=True, role="mecanico").order_by(Employee.name).all()
     bodega = current_user.bodega or "local"
 
     if request.method == "POST":
@@ -233,7 +235,7 @@ def sale_new():
 
         if not customer:
             flash("Debes seleccionar un cliente.", "danger")
-            return render_template("sale_form.html", customers=customers, products=products, sellers=sellers, bodega=bodega)
+            return render_template("sale_form.html", customers=customers, products=products, sellers=sellers, mecanicos=mecanicos, bodega=bodega)
 
         payment_type = request.form.get("payment_type", "efectivo")
         document_type = request.form.get("document_type", "nota_venta_autorizada")
@@ -251,18 +253,19 @@ def sale_new():
 
         if not product_ids or all(not pid for pid in product_ids):
             flash("Debes agregar al menos un producto a la venta.", "danger")
-            return render_template("sale_form.html", customers=customers, products=products, sellers=sellers, bodega=bodega)
+            return render_template("sale_form.html", customers=customers, products=products, sellers=sellers, mecanicos=mecanicos, bodega=bodega)
 
         line_items, error = _validar_line_items(product_ids, quantities, precios, bodega,
                                                 validar_stock=(document_type != "proforma" and not _permite_venta_sin_stock()))
         if error:
             flash(error, "danger")
-            return render_template("sale_form.html", customers=customers, products=products, sellers=sellers, bodega=bodega)
+            return render_template("sale_form.html", customers=customers, products=products, sellers=sellers, mecanicos=mecanicos, bodega=bodega)
 
         sale = Sale(
             customer_id=customer.customer_id,
             user_id=current_user.user_id,
             vendedor_id=int(vendedor_id) if vendedor_id else None,
+            mecanico_id=int(request.form.get("mecanico_id")) if request.form.get("mecanico_id") else None,
             bodega=bodega,
             payment_type=payment_type,
             document_type=document_type,
@@ -296,7 +299,7 @@ def sale_new():
             if not ok:
                 db.session.rollback()
                 flash(error, "danger")
-                return render_template("sale_form.html", customers=customers, products=products, sellers=sellers, bodega=bodega)
+                return render_template("sale_form.html", customers=customers, products=products, sellers=sellers, mecanicos=mecanicos, bodega=bodega)
 
             # Canje de puntos de fidelidad (opcional)
             try:
@@ -324,7 +327,7 @@ def sale_new():
 
         return redirect(url_for("sales.sale_detail", sale_id=sale.sale_id))
 
-    return render_template("sale_form.html", customers=customers, products=products, sellers=sellers)
+    return render_template("sale_form.html", customers=customers, products=products, sellers=sellers, mecanicos=mecanicos)
 
 
 @sales_bp.route("/<int:sale_id>")
@@ -358,6 +361,8 @@ def sale_edit(sale_id):
     customers = Customer.query.filter_by(active=True).order_by(Customer.full_name).all()
     products = _productos_vendibles()
     sellers = Seller.query.filter_by(active=True).order_by(Seller.name).all()
+    from app.models import Employee
+    mecanicos = Employee.query.filter_by(active=True, role="mecanico").order_by(Employee.name).all()
     bodega = sale.bodega or "local"
 
     if request.method == "POST":
@@ -366,7 +371,7 @@ def sale_edit(sale_id):
 
         if not customer:
             flash("Debes seleccionar un cliente.", "danger")
-            return render_template("sale_form.html", sale=sale, customers=customers, products=products, sellers=sellers, bodega=bodega)
+            return render_template("sale_form.html", sale=sale, customers=customers, products=products, sellers=sellers, mecanicos=mecanicos, bodega=bodega)
 
         payment_type = request.form.get("payment_type", "efectivo")
         document_type = request.form.get("document_type", "nota_venta_autorizada")
@@ -387,7 +392,7 @@ def sale_edit(sale_id):
         if error:
             db.session.rollback()  # deshace la devolución de stock anterior
             flash(error, "danger")
-            return render_template("sale_form.html", sale=sale, customers=customers, products=products, sellers=sellers, bodega=bodega)
+            return render_template("sale_form.html", sale=sale, customers=customers, products=products, sellers=sellers, mecanicos=mecanicos, bodega=bodega)
 
         # Reemplazar los detalles de la venta
         for detalle in list(sale.details):
@@ -399,6 +404,8 @@ def sale_edit(sale_id):
         sale.bodega = bodega
         vendedor_id = request.form.get("vendedor_id") or None
         sale.vendedor_id = int(vendedor_id) if vendedor_id else None
+        _mec = request.form.get("mecanico_id")
+        sale.mecanico_id = int(_mec) if _mec else None
 
         total_amount = 0
         total_cost = 0
@@ -445,7 +452,7 @@ def sale_edit(sale_id):
         registrar("venta_editada", detalle=f"Venta #{sale.sale_id} por ${float(sale.total_amount):.2f}", entidad="venta", entidad_id=sale.sale_id)
         return redirect(url_for("sales.sale_detail", sale_id=sale.sale_id))
 
-    return render_template("sale_form.html", sale=sale, customers=customers, products=products, sellers=sellers, bodega=bodega)
+    return render_template("sale_form.html", sale=sale, customers=customers, products=products, sellers=sellers, mecanicos=mecanicos, bodega=bodega)
 
 
 @sales_bp.route("/<int:sale_id>/eliminar", methods=["POST"])

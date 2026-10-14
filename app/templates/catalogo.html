@@ -14,7 +14,7 @@
         body { background: #f4f6f9; padding-bottom: 90px; }
         .cat-header { background: linear-gradient(95deg, #0d2540, #1a3c63, #2c5a8f); color: #fff; padding: 1.2rem 0; }
         .cat-header img { height: 54px; background: #fff; border-radius: 10px; padding: 3px; }
-        .product-card img { height: 150px; object-fit: cover; }
+        .product-card img { height: 170px; width: 100%; object-fit: cover; cursor: zoom-in; }
         .price { font-size: 1.2rem; font-weight: 700; color: #198754; }
         .cart-float {
             position: fixed; right: 18px; bottom: 18px; z-index: 1080;
@@ -61,10 +61,11 @@
         <div class="col-6 col-md-4 col-lg-3">
             <div class="card product-card h-100 shadow-sm">
                 {% if p.image_path %}
-                <img src="{{ url_for('products.product_image', product_id=p.product_id) }}" class="card-img-top" alt="{{ p.name }}"
+                <img src="{{ url_for('products.product_image', product_id=p.product_id) }}" class="card-img-top zoomable" alt="{{ p.name }}"
+                     data-nombre="{{ p.name }}"
                      onerror="this.onerror=null;this.src='{{ url_for('products.product_placeholder', product_id=p.product_id) }}';">
                 {% else %}
-                <img src="{{ url_for('products.product_placeholder', product_id=p.product_id) }}" class="card-img-top" alt="{{ p.name }}">
+                <img src="{{ url_for('products.product_placeholder', product_id=p.product_id) }}" class="card-img-top zoomable" alt="{{ p.name }}" data-nombre="{{ p.name }}">
                 {% endif %}
                 <div class="card-body d-flex flex-column">
                     <h6 class="mb-1">{{ p.name }}</h6>
@@ -197,6 +198,25 @@ function enviarPedido() {
 }
 
 renderCarrito();
+
+// --- Zoom de imagen ---
+document.querySelectorAll('.zoomable').forEach(function (img) {
+    img.addEventListener('click', function () {
+        const modal = document.getElementById('zoom-modal');
+        document.getElementById('zoom-img').src = img.src;
+        document.getElementById('zoom-title').textContent = img.getAttribute('data-nombre') || '';
+        modal.style.display = 'flex';
+    });
+});
 </script>
+
+<div id="zoom-modal" onclick="this.style.display='none'"
+     style="display:none; position:fixed; inset:0; z-index:3000; background:rgba(0,0,0,.85); align-items:center; justify-content:center; padding:20px;">
+    <div style="max-width:90vw; max-height:90vh; text-align:center;">
+        <img id="zoom-img" src="" alt="" style="max-width:90vw; max-height:80vh; object-fit:contain; border-radius:12px; background:#fff;">
+        <div id="zoom-title" style="color:#fff; margin-top:10px; font-size:1.1rem;"></div>
+        <div style="color:#ccc; font-size:.85rem;">Toca la imagen para cerrar</div>
+    </div>
+</div>
 </body>
 </html>

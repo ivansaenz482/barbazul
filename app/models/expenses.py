@@ -9,7 +9,7 @@ class Employee(db.Model):
     employee_id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(150), nullable=False)
     role = db.Column(
-        db.Enum("vendedor", "chofer", "administrador", "bodeguero", "otro"),
+        db.Enum("vendedor", "chofer", "administrador", "bodeguero", "mecanico", "otro"),
         nullable=False, default="vendedor")
     phone = db.Column(db.String(20))
     base_salary = db.Column(db.Numeric(12, 2), default=0)
@@ -24,6 +24,7 @@ class Employee(db.Model):
             "chofer": "Chofer",
             "administrador": "Administrador",
             "bodeguero": "Bodeguero",
+            "mecanico": "Mecánico",
             "otro": "Otro",
         }.get(self.role, self.role)
 
@@ -75,6 +76,8 @@ class Attendance(db.Model):
     date = db.Column(db.Date, nullable=False)
     check_in = db.Column(db.Time)
     check_out = db.Column(db.Time)
+    lunch_out = db.Column(db.Time)   # salida a almorzar
+    lunch_in = db.Column(db.Time)    # regreso del almuerzo
     notes = db.Column(db.String(255))
     created_by = db.Column(db.Integer, db.ForeignKey("users.user_id"))
     created_at = db.Column(db.DateTime, default=datetime.now)
@@ -88,7 +91,20 @@ class Attendance(db.Model):
             if b < a:
                 b = b.replace(day=b.day)  # mismo dia; si es menor, se asume error
                 return None
-            return round((b - a).total_seconds() / 3600, 2)
+            segundos = (b - a).total_seconds()
+            # Descontar el tiempo de almuerzo si se registro
+            if self.lunch_out and self.lunch_in:
+                lo = datetime.combine(self.date, self.lunch_out)
+                li = datetime.combine(self.date, self.lunch_in)
+                if li >= lo:
+                    segundos -= (li - lo).total_seconds()
+            return round(max(0, segundos) / 3600, 2)
+        return None
+
+    def horas_almuerzo(self):
+        if self.lunch_out and self.lunch_in and self.lunch_in >= self.lunch_out:
+            return round((datetime.combine(self.date, self.lunch_in)
+                          - datetime.combine(self.date, self.lunch_out)).total_seconds() / 60, 0)
         return None
 
 
