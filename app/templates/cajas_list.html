@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% block title %}Cajas por Punto{% endblock %}
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-3 no-print">
+    <div>
+        <h2 class="mb-1"><i class="bi bi-safe2 me-2 text-primary"></i>Caja por Punto (Usuario)</h2>
+        <p class="text-muted mb-0">Fondo de caja por punto. El <strong>cierre</strong> de hoy es la <strong>apertura</strong> de mañana.</p>
+    </div>
+    <button onclick="window.print()" class="btn btn-dark">🖨️ Imprimir</button>
+</div>
+
+<form method="GET" class="row g-2 mb-3 bg-white p-3 rounded shadow-sm align-items-end no-print">
+    <div class="col-md-3">
+        <label class="form-label small text-muted mb-1">Fecha</label>
+        <input type="date" name="fecha" class="form-control" value="{{ fecha }}">
+    </div>
+    <div class="col-md-3 d-flex gap-2">
+        <button class="btn btn-primary">Ver</button>
+        <a href="{{ url_for('cajas.cajas_list') }}" class="btn btn-outline-secondary">Hoy</a>
+    </div>
+</form>
+
+<div class="alert alert-info d-flex justify-content-between">
+    <span>Fecha: <strong>{{ fecha }}</strong></span>
+    <span>Esperado total: <strong>${{ "%.2f"|format(tot_esperado) }}</strong> · Cerrado: <strong>${{ "%.2f"|format(tot_cierre) }}</strong></span>
+</div>
+
+{% for f in filas %}
+<div class="card mb-3">
+    <div class="card-header bg-white d-flex justify-content-between align-items-center">
+        <strong><i class="bi bi-person me-1"></i>{{ f.user.full_name }}</strong>
+        {% if f.diferencia is not none %}
+            {% if f.diferencia < -0.009 %}<span class="badge bg-danger">Falta ${{ "%.2f"|format(-f.diferencia) }}</span>
+            {% elif f.diferencia > 0.009 %}<span class="badge bg-warning text-dark">Sobra ${{ "%.2f"|format(f.diferencia) }}</span>
+            {% else %}<span class="badge bg-success">Cuadra ✔</span>{% endif %}
+        {% else %}<span class="badge bg-secondary">Sin cerrar</span>{% endif %}
+    </div>
+    <div class="card-body">
+        <form method="POST" action="{{ url_for('cajas.caja_guardar') }}" class="row g-2 align-items-end">
+            <input type="hidden" name="user_id" value="{{ f.user.user_id }}">
+            <input type="hidden" name="fecha" value="{{ fecha }}">
+            <div class="col-md-2">
+                <label class="form-label small mb-1">Punto</label>
+                <input type="text" name="punto" class="form-control form-control-sm" value="{{ f.punto }}" placeholder="Ej. Caja 1">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small mb-1">Apertura (fondo) $</label>
+                <input type="number" step="0.01" name="monto_apertura" class="form-control form-control-sm" value="{{ '%.2f'|format(f.apertura) }}">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small mb-1">Cobros efectivo $</label>
+                <input type="text" class="form-control form-control-sm" value="{{ '%.2f'|format(f.cobros) }}" readonly>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small mb-1">Gastos de caja $</label>
+                <input type="text" class="form-control form-control-sm" value="{{ '%.2f'|format(f.gastos) }}" readonly>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small mb-1">Esperado $</label>
+                <input type="text" class="form-control form-control-sm fw-bold" value="{{ '%.2f'|format(f.esperado) }}" readonly>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small mb-1">Cierre real (contado) $</label>
+                <input type="number" step="0.01" name="monto_cierre" class="form-control form-control-sm"
+                       value="{{ '%.2f'|format(f.cierre) if f.cierre is not none else '' }}" placeholder="—">
+            </div>
+            <div class="col-md-9">
+                <label class="form-label small mb-1">Notas</label>
+                <input type="text" name="notas" class="form-control form-control-sm" value="{{ f.notas }}" placeholder="Observaciones del cierre...">
+            </div>
+            <div class="col-md-3">
+                <button class="btn btn-primary btn-sm w-100">Guardar caja</button>
+            </div>
+        </form>
+        {% if f.gastos_lista %}
+        <div class="small text-muted mt-2">
+            Gastos de esta caja: {% for g in f.gastos_lista %}[{{ g.category_label() }} ${{ "%.2f"|format(g.amount) }}] {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% else %}
+<div class="alert alert-warning">No hay usuarios activos.</div>
+{% endfor %}
+
+<div class="small text-muted">Generado el {{ generated_at }}. La apertura sugerida toma el <strong>cierre</strong> del último día registrado.</div>
+
+<style>@media print { .no-print, nav, .navbar, footer, .sidebar, .topbar, .btn { display: none !important; } body { background:#fff !important; } }</style>
+{% endblock %}

@@ -63,7 +63,8 @@
                 {{ sidebar_group("Ventas", [
                     (url_for('caja.caja_index'), "bi-cash-coin", "Caja"),
                     (url_for('sales.sales_list'), "bi-receipt", "Ventas / Pedidos"),
-                    (url_for('sales.liquidacion_diaria'), "bi-cash-stack", "Liquidación del día")
+                    (url_for('sales.liquidacion_diaria'), "bi-cash-stack", "Liquidación del día"),
+                    (url_for('cajas.mi_caja'), "bi-safe2", "Mi Caja")
                 ]) }}
                 {% endif %}
                 {% if current_user.can_view_clientes() %}
@@ -115,6 +116,7 @@
                     (url_for('reports.metas'), "bi-bullseye", "Metas de Ventas"),
                     (url_for('reports.cuentas'), "bi-cash-stack", "Cuentas por Cobrar/Pagar"),
                     (url_for('reports.recordatorios_pago'), "bi-bell", "Recordatorios de Pago"),
+                    (url_for('cajas.cajas_list'), "bi-safe2", "Cajas (apertura/cierre)"),
                     (url_for('main.catalogo'), "bi-shop-window", "Catálogo (público)"),
                     (url_for('reports.recomendaciones'), "bi-lightbulb", "Recomendaciones"),
                     (url_for('reports.ventas_por_cliente'), "bi-bar-chart", "Reportes"),

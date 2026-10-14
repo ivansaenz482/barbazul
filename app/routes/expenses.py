@@ -4,7 +4,7 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash
 from flask_login import login_required, current_user
 
 from app.extensions import db
-from app.models import Expense, Employee
+from app.models import Expense, Employee, User
 from app.utils import role_required
 from app.audit import registrar
 
@@ -49,12 +49,17 @@ def _datos_form():
     if category != "sueldos":
         employee_id = None
 
+    caja_user_id = request.form.get("caja_user_id") or None
+    if payment_method != "efectivo":
+        caja_user_id = None  # solo los gastos en efectivo salen de una caja
+
     return {
         "expense_date": expense_date,
         "category": category,
         "description": request.form.get("description", "").strip() or None,
         "amount": amount,
         "employee_id": int(employee_id) if employee_id else None,
+        "caja_user_id": int(caja_user_id) if caja_user_id else None,
         "payment_method": payment_method,
     }, None
 
@@ -94,6 +99,7 @@ def expenses_list():
 @role_required("administrador")
 def expense_new():
     employees = Employee.query.filter_by(active=True).order_by(Employee.name).all()
+    usuarios = User.query.filter_by(active=True).order_by(User.full_name).all()
     # Prellenado (ej. al registrar el pago de un empleado desde Personal)
     pre_emp = request.args.get("employee_id", "")
     pre_cat = request.args.get("category", "")
@@ -103,7 +109,7 @@ def expense_new():
         if error:
             flash(error, "danger")
             return render_template("expense_form.html", expense=None, employees=employees,
-                                   categorias=CATEGORIAS, metodos=METODOS)
+                                   categorias=CATEGORIAS, metodos=METODOS, usuarios=usuarios)
 
         gasto = Expense(created_by=current_user.user_id, **datos)
         db.session.add(gasto)
@@ -113,7 +119,7 @@ def expense_new():
         return redirect(url_for("expenses.expenses_list"))
 
     return render_template("expense_form.html", expense=None, employees=employees,
-                           categorias=CATEGORIAS, metodos=METODOS, today=date.today().isoformat(),
+                           categorias=CATEGORIAS, metodos=METODOS, usuarios=usuarios, today=date.today().isoformat(),
                            pre_emp=pre_emp, pre_cat=pre_cat)
 
 
@@ -123,13 +129,14 @@ def expense_new():
 def expense_edit(expense_id):
     gasto = Expense.query.get_or_404(expense_id)
     employees = Employee.query.filter_by(active=True).order_by(Employee.name).all()
+    usuarios = User.query.filter_by(active=True).order_by(User.full_name).all()
 
     if request.method == "POST":
         datos, error = _datos_form()
         if error:
             flash(error, "danger")
             return render_template("expense_form.html", expense=gasto, employees=employees,
-                                   categorias=CATEGORIAS, metodos=METODOS)
+                                   categorias=CATEGORIAS, metodos=METODOS, usuarios=usuarios)
 
         for campo, valor in datos.items():
             setattr(gasto, campo, valor)
@@ -138,7 +145,7 @@ def expense_edit(expense_id):
         return redirect(url_for("expenses.expenses_list"))
 
     return render_template("expense_form.html", expense=gasto, employees=employees,
-                           categorias=CATEGORIAS, metodos=METODOS)
+                           categorias=CATEGORIAS, metodos=METODOS, usuarios=usuarios)
 
 
 @expenses_bp.route("/<int:expense_id>/eliminar", methods=["POST"])

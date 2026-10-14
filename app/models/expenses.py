@@ -41,11 +41,14 @@ class Expense(db.Model):
     description = db.Column(db.String(255))
     amount = db.Column(db.Numeric(12, 2), nullable=False, default=0)
     employee_id = db.Column(db.Integer, db.ForeignKey("employees.employee_id"))
+    # Caja (usuario/punto) de la que salio el efectivo del gasto
+    caja_user_id = db.Column(db.Integer, db.ForeignKey("users.user_id"))
     payment_method = db.Column(db.Enum("efectivo", "transferencia", "cheque", "otro"), default="efectivo")
     created_by = db.Column(db.Integer, db.ForeignKey("users.user_id"), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.now)
 
     creator = db.relationship("User", foreign_keys=[created_by])
+    caja_user = db.relationship("User", foreign_keys=[caja_user_id])
 
     def category_label(self):
         return {

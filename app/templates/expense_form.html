@@ -35,6 +35,17 @@
                 {% endfor %}
             </select>
         </div>
+        <div class="col-md-4">
+            <label class="form-label">Caja (de dónde sale el efectivo)</label>
+            {% set caja_actual = expense.caja_user_id if expense else 0 %}
+            <select name="caja_user_id" class="form-select">
+                <option value="">-- Sin especificar --</option>
+                {% for u in usuarios %}
+                <option value="{{ u.user_id }}" {% if caja_actual == u.user_id %}selected{% endif %}>{{ u.full_name }}</option>
+                {% endfor %}
+            </select>
+            <div class="form-text">Solo para gastos en <strong>efectivo</strong>. Se descuenta de esa caja al liquidar el día.</div>
+        </div>
         <div class="col-md-8" id="empleado_field">
             <label class="form-label">Personal (a quién se le paga)</label>
             {% set emp_actual = expense.employee_id if expense else (pre_emp|int if pre_emp else 0) %}

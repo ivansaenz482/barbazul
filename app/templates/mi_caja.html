@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}Mi Caja{% endblock %}
+{% block content %}
+
+<h2 class="mb-1"><i class="bi bi-safe2 me-2 text-primary"></i>Mi Caja</h2>
+<p class="text-muted">Tu caja de hoy ({{ fecha.strftime("%d/%m/%Y") }}).</p>
+
+<div class="row g-3" style="max-width: 900px;">
+    <div class="col-md-3">
+        <div class="card bg-white shadow-sm text-center h-100"><div class="card-body">
+            <div class="text-muted small">Apertura (fondo)</div>
+            <div class="fs-4 fw-bold">${{ "%.2f"|format(apertura) }}</div>
+        </div></div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-white shadow-sm text-center h-100"><div class="card-body">
+            <div class="text-muted small">Cobros en efectivo</div>
+            <div class="fs-4 fw-bold text-success">+${{ "%.2f"|format(cobros) }}</div>
+        </div></div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-white shadow-sm text-center h-100"><div class="card-body">
+            <div class="text-muted small">Gastos de mi caja</div>
+            <div class="fs-4 fw-bold text-danger">-${{ "%.2f"|format(gastos) }}</div>
+        </div></div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-primary text-white shadow-sm text-center h-100"><div class="card-body">
+            <div class="small opacity-75">Efectivo que debe haber</div>
+            <div class="fs-4 fw-bold">${{ "%.2f"|format(esperado) }}</div>
+        </div></div>
+    </div>
+</div>
+
+{% if caja and caja.monto_cierre is not none %}
+<div class="alert alert-info mt-3" style="max-width: 900px;">
+    Cierre registrado por el administrador: <strong>${{ "%.2f"|format(caja.monto_cierre) }}</strong>. Este valor arranca tu caja de mañana.
+</div>
+{% endif %}
+
+{% if gastos_lista %}
+<h5 class="mt-4">Gastos cargados a mi caja</h5>
+<div class="table-responsive" style="max-width: 900px;">
+    <table class="table table-sm bg-white">
+        <thead class="table-light"><tr><th>Fecha</th><th>Categoría</th><th>Descripción</th><th class="text-end">Monto</th></tr></thead>
+        <tbody>
+            {% for g in gastos_lista %}
+            <tr><td>{{ g.expense_date.strftime("%d/%m/%Y") }}</td><td>{{ g.category_label() }}</td><td>{{ g.description or "" }}</td><td class="text-end">${{ "%.2f"|format(g.amount) }}</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+
+{% endblock %}
