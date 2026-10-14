@@ -305,26 +305,74 @@ def _modulo11(base, verificador):
     return dig == int(verificador)
 
 
+def _extraer_datos_api(data):
+    """Saca (nombre, razon_social, direccion) de una respuesta JSON de varias formas posibles."""
+    nombre = razon = direccion = None
+    if not isinstance(data, dict):
+        return nombre, razon, direccion
+
+    def _buscar(d):
+        nonlocal nombre, razon, direccion
+        if not isinstance(d, dict):
+            return
+        # nombre (persona)
+        if not nombre:
+            n = (d.get("nombre") or d.get("nombres") or d.get("name")
+                 or d.get("nombreCompleto") or d.get("nombre_completo"))
+            if n:
+                nombre = str(n).strip()
+        # apellidos -> completar nombre
+        if nombre and (d.get("apellidos") or d.get("apellido")):
+            nombre = f"{nombre} {d.get('apellidos') or d.get('apellido')}".strip()
+        # razon social (empresa)
+        if not razon:
+            r = (d.get("razonSocial") or d.get("razon_social") or d.get("RazonSocial")
+                 or d.get("contribuyente") or d.get("empresa"))
+            if r:
+                razon = str(r).strip()
+        if not direccion:
+            dr = (d.get("direccion") or d.get("address") or d.get("Direccion")
+                  or d.get("direccionCompleta"))
+            if dr:
+                direccion = str(dr).strip()
+
+    _buscar(data)
+    # respuestas anidadas comunes
+    for key in ("data", "result", "resultado", "contribuyente", "datos"):
+        _buscar(data.get(key))
+    return (nombre or None), (razon or None), (direccion or None)
+
+
 @customers_bp.route("/consultar-cedula")
 @login_required
 def consultar_cedula():
     """Valida cedula/RUC y, si hay una API configurada (CEDULA_API_URL), la consulta."""
     cedula = request.args.get("cedula", "").strip()
     valido, mensaje = validar_identificacion(cedula)
-    resultado = {"cedula": cedula, "valido": valido, "mensaje": mensaje, "nombre": None, "direccion": None}
+    resultado = {"cedula": cedula, "valido": valido, "mensaje": mensaje,
+                 "nombre": None, "razon_social": None, "direccion": None, "api": False}
 
     api = current_app.config.get("CEDULA_API_URL", "").strip()
     if api and valido:
         try:
             import requests
-            url = api.replace("{cedula}", cedula)
-            resp = requests.get(url, timeout=8, headers={"Accept": "application/json"})
+            url = api.replace("{cedula}", cedula).replace("{ruc}", cedula)
+            headers = {"Accept": "application/json"}
+            token = current_app.config.get("CEDULA_API_TOKEN", "").strip()
+            if token:
+                headers[current_app.config.get("CEDULA_API_HEADER", "Authorization")] = token
+            resp = requests.get(url, timeout=8, headers=headers)
             data = resp.json()
-            if isinstance(data, dict):
-                resultado["nombre"] = (data.get("nombre") or data.get("name") or data.get("razonSocial")
-                                       or data.get("razon_social") or data.get("RazonSocial"))
-                resultado["direccion"] = (data.get("direccion") or data.get("address") or data.get("Direccion"))
+            nombre, razon, direccion = _extraer_datos_api(data)
+            resultado["nombre"] = nombre
+            resultado["razon_social"] = razon
+            resultado["direccion"] = direccion
+            resultado["api"] = True
+            if not (nombre or razon):
+                resultado["mensaje"] += " (La API respondió pero sin nombre.)"
         except Exception:
-            resultado["mensaje"] += " (No se pudo consultar la API, se validó localmente.)"
+            resultado["mensaje"] += " (No se pudo consultar la API; solo se validó localmente.)"
+    elif valido and not api:
+        resultado["mensaje"] += " — Para traer el nombre automáticamente configura una API (CEDULA_API_URL)."
 
     return jsonify(resultado)

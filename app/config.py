@@ -66,9 +66,13 @@ class Config:
     TESSERACT_CMD = os.getenv("TESSERACT_CMD", "").strip()
 
     # API opcional para consultar cedula/RUC (Ecuador). Si se deja vacio, solo se
-    # valida localmente (algoritmo modulo 10). Ejemplo de plantilla:
-    #   CEDULA_API_URL=https://mi-api.com/consulta/{cedula}
+    # valida localmente (algoritmo modulo 10).
+    #   CEDULA_API_URL=https://mi-api.com/consulta/{cedula}   (usa {cedula} o {ruc})
+    #   CEDULA_API_TOKEN=mi_token           (opcional; se envia como cabecera)
+    #   CEDULA_API_HEADER=Authorization     (nombre de la cabecera del token)
     CEDULA_API_URL = os.getenv("CEDULA_API_URL", "").strip()
+    CEDULA_API_TOKEN = os.getenv("CEDULA_API_TOKEN", "").strip()
+    CEDULA_API_HEADER = os.getenv("CEDULA_API_HEADER", "Authorization").strip()
 
     # Correo de alertas (opcional). Si se deja vacio, el sistema simplemente no envia correos.
     SMTP_HOST = os.getenv("SMTP_HOST", "")

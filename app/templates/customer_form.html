@@ -123,15 +123,12 @@ async function consultarCedula() {
         const d = await res.json();
         msg.textContent = d.mensaje || (d.valido ? 'Válido.' : 'No válido.');
         msg.className = 'form-text ' + (d.valido ? 'text-success' : 'text-danger');
-        if (d.nombre) {
-            const nombre = document.querySelector('input[name="full_name"]');
-            if (nombre && !nombre.value) nombre.value = d.nombre;
-            msg.textContent += ' · ' + d.nombre;
-        }
-        if (d.direccion) {
-            const dir = document.querySelector('input[name="address"]');
-            if (dir && !dir.value) dir.value = d.direccion;
-        }
+        const nombre = document.querySelector('input[name="full_name"]');
+        const negocio = document.querySelector('input[name="business_name"]');
+        const dir = document.querySelector('input[name="address"]');
+        if (d.nombre && nombre && !nombre.value) { nombre.value = d.nombre; msg.textContent += ' · ' + d.nombre; }
+        if (d.razon_social && negocio && !negocio.value) { negocio.value = d.razon_social; msg.textContent += ' · ' + d.razon_social; }
+        if (d.direccion && dir && !dir.value) { dir.value = d.direccion; }
     } catch (e) {
         msg.textContent = 'No se pudo validar.';
         msg.className = 'form-text text-danger';
