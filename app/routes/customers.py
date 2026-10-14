@@ -384,7 +384,5 @@ def consultar_cedula():
                 resultado["mensaje"] += " (La API respondió pero sin nombre.)"
         except Exception:
             resultado["mensaje"] += " (No se pudo consultar la API; solo se validó localmente.)"
-    elif valido and not api:
-        resultado["mensaje"] += " — Para traer el nombre automáticamente configura una API en Ajustes."
 
     return jsonify(resultado)
