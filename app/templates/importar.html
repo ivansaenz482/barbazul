@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% block title %}Importar datos{% endblock %}
+{% block content %}
+
+<h2 class="mb-1"><i class="bi bi-upload me-2 text-primary"></i>Importar datos (migración)</h2>
+<p class="text-muted">Sube un archivo <strong>CSV o Excel (.xlsx)</strong> con tus datos de clientes o productos para cargarlos al sistema. Detecta duplicados automáticamente.</p>
+
+{% if stage == "upload" %}
+<div class="card bg-white shadow-sm" style="max-width: 640px;">
+    <div class="card-body">
+        <form method="POST" action="{{ url_for('importar.importar_analizar') }}" enctype="multipart/form-data">
+            <div class="mb-3">
+                <label class="form-label">¿Qué vas a importar? *</label>
+                <select name="tipo" class="form-select" required>
+                    <option value="clientes">Clientes</option>
+                    <option value="productos">Productos</option>
+                </select>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Archivo (.csv, .xlsx) *</label>
+                <input type="file" name="archivo" class="form-control" accept=".csv,.xlsx,.xlsm" required>
+                <div class="form-text">La primera fila debe tener los encabezados (ej. Nombre, Cédula, Teléfono…).</div>
+            </div>
+            <button class="btn btn-primary">Analizar archivo</button>
+        </form>
+    </div>
+</div>
+
+<div class="alert alert-info mt-3 small" style="max-width: 640px;">
+    <strong>Consejo:</strong> para migrar desde otro sistema, exporta primero a Excel/CSV las tablas de
+    <em>Clientes</em> y <em>Productos</em>. Luego súbelas aquí una por una.
+</div>
+
+{% elif stage == "map" %}
+<div class="alert alert-info d-flex justify-content-between">
+    <span>Tipo: <strong>{{ tipo|capitalize }}</strong></span>
+    <span>Filas detectadas: <strong>{{ total }}</strong></span>
+</div>
+
+<form method="POST" action="{{ url_for('importar.importar_ejecutar') }}">
+    <input type="hidden" name="token" value="{{ token }}">
+
+    <div class="card bg-white shadow-sm mb-4">
+        <div class="card-header bg-white"><strong>Paso 1 — Revisa qué columna corresponde a cada campo</strong></div>
+        <div class="card-body">
+            <div class="row g-3">
+                {% for campo, etq, oblig, claves in campos %}
+                <div class="col-md-4">
+                    <label class="form-label small">{{ etq }}{% if oblig %} *{% endif %}</label>
+                    <select name="map_{{ campo }}" class="form-select">
+                        <option value="">— No importar —</option>
+                        {% for h in headers %}
+                        <option value="{{ loop.index0 }}" {% if mapeo.get(campo) == loop.index0|string %}selected{% endif %}>{{ h }} (col {{ loop.index }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <div class="card bg-white shadow-sm mb-4">
+        <div class="card-header bg-white"><strong>Paso 2 — Vista previa (primeras filas)</strong></div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-sm table-bordered mb-0">
+                    <thead class="table-light">
+                        <tr>{% for h in headers %}<th>{{ h }}</th>{% endfor %}</tr>
+                    </thead>
+                    <tbody>
+                        {% for fila in preview %}
+                        <tr>{% for v in fila %}<td class="small">{{ v }}</td>{% endfor %}</tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="d-flex gap-2">
+        <button type="submit" class="btn btn-success"
+                onclick="return confirm('¿Importar {{ total }} fila(s)? Los duplicados se actualizan, no se duplican.');">
+            ✅ Importar {{ total }} fila(s)
+        </button>
+        <a href="{{ url_for('importar.importar_home') }}" class="btn btn-secondary">Cancelar</a>
+    </div>
+</form>
+{% endif %}
+
+{% endblock %}
