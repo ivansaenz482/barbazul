@@ -114,4 +114,59 @@
     </div>
 </div>
 
+<div class="card bg-white shadow-sm mt-4" style="max-width: 720px;">
+    <div class="card-body">
+        <h5 class="card-title">Consulta de Cédula / RUC (API automática)</h5>
+        <p class="text-muted small mb-2">
+            Pega aquí la <strong>URL</strong> y el <strong>token</strong> de tu API (de preferencia la <strong>gratuita</strong>).
+            Al pulsar “Validar / Consultar” en el cliente, el <strong>nombre</strong> se llenará solo.
+            Usa <code>{cedula}</code> o <code>{ruc}</code> en la URL donde va el número.
+        </p>
+        <form method="POST" action="{{ url_for('settings.save_cedula_api') }}">
+            <div class="mb-2">
+                <label class="form-label small mb-1">URL de la API</label>
+                <input type="text" name="cedula_api_url" class="form-control"
+                       value="{{ company.cedula_api_url if company else '' }}"
+                       placeholder="Ej. https://api.proveedor.com/api/cedula/{cedula}">
+            </div>
+            <div class="row g-2">
+                <div class="col-md-8">
+                    <label class="form-label small mb-1">Token / API key</label>
+                    <input type="text" name="cedula_api_token" class="form-control"
+                           value="{{ company.cedula_api_token if company else '' }}" placeholder="Bearer xxxxx  (o solo el token)">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label small mb-1">Cabecera del token</label>
+                    <input type="text" name="cedula_api_header" class="form-control"
+                           value="{{ company.cedula_api_header if company and company.cedula_api_header else 'Authorization' }}">
+                </div>
+            </div>
+            <div class="d-flex gap-2 mt-3 align-items-center">
+                <button class="btn btn-primary">Guardar API</button>
+                <button type="button" class="btn btn-outline-secondary" onclick="probarApi()">Probar</button>
+                <span id="api-test" class="small"></span>
+            </div>
+        </form>
+        <div class="form-text mt-2">Si no pones token y tu API es pública, igual funciona.</div>
+    </div>
+</div>
+
+<script>
+async function probarApi() {
+    const num = prompt('Escribe una cédula o RUC de prueba (10 o 13 dígitos):');
+    if (!num) return;
+    const out = document.getElementById('api-test');
+    out.textContent = 'Consultando...'; out.className = 'small text-muted';
+    try {
+        const r = await fetch('/clientes/consultar-cedula?cedula=' + encodeURIComponent(num));
+        const d = await r.json();
+        out.textContent = (d.valido ? '✔ ' : '✖ ') + (d.mensaje || '') +
+            (d.nombre ? ' · ' + d.nombre : '') + (d.razon_social ? ' · ' + d.razon_social : '');
+        out.className = 'small ' + (d.nombre || d.razon_social ? 'text-success' : 'text-warning');
+    } catch (e) {
+        out.textContent = 'No se pudo probar.'; out.className = 'small text-danger';
+    }
+}
+</script>
+
 {% endblock %}

@@ -79,6 +79,22 @@ def save_fidelidad():
     return redirect(url_for("settings.settings_page"))
 
 
+@settings_bp.route("/cedula-api", methods=["POST"])
+@login_required
+@role_required("administrador")
+def save_cedula_api():
+    company = CompanySetting.actual()
+    if not company:
+        company = CompanySetting()
+        db.session.add(company)
+    company.cedula_api_url = request.form.get("cedula_api_url", "").strip() or None
+    company.cedula_api_token = request.form.get("cedula_api_token", "").strip() or None
+    company.cedula_api_header = request.form.get("cedula_api_header", "").strip() or "Authorization"
+    db.session.commit()
+    flash("Configuración de la API de cédula/RUC guardada.", "success")
+    return redirect(url_for("settings.settings_page"))
+
+
 @settings_bp.route("/logo", methods=["GET"])
 @login_required
 def company_logo():

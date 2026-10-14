@@ -253,6 +253,10 @@ class CompanySetting(db.Model):
     # Programa de fidelidad: puntos ganados por cada dolar y valor de cada punto al canjear
     puntos_por_dolar = db.Column(db.Integer, default=1)
     valor_punto = db.Column(db.Numeric(6, 4), default=0.01)
+    # API de consulta de cedula/RUC (Ecuador) configurable desde Ajustes
+    cedula_api_url = db.Column(db.String(300))
+    cedula_api_token = db.Column(db.String(300))
+    cedula_api_header = db.Column(db.String(60), default="Authorization")
 
     @classmethod
     def actual(cls):

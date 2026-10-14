@@ -353,14 +353,26 @@ def consultar_cedula():
                  "nombre": None, "razon_social": None, "direccion": None, "api": False}
 
     api = current_app.config.get("CEDULA_API_URL", "").strip()
+    token = current_app.config.get("CEDULA_API_TOKEN", "").strip()
+    header = current_app.config.get("CEDULA_API_HEADER", "Authorization").strip()
+    # Prioridad: configuracion guardada en Ajustes (base de datos)
+    try:
+        from app.models import CompanySetting
+        comp = CompanySetting.actual()
+        if comp:
+            api = (comp.cedula_api_url or "").strip() or api
+            token = (comp.cedula_api_token or "").strip() or token
+            header = (comp.cedula_api_header or "").strip() or header
+    except Exception:
+        pass
+
     if api and valido:
         try:
             import requests
             url = api.replace("{cedula}", cedula).replace("{ruc}", cedula)
             headers = {"Accept": "application/json"}
-            token = current_app.config.get("CEDULA_API_TOKEN", "").strip()
             if token:
-                headers[current_app.config.get("CEDULA_API_HEADER", "Authorization")] = token
+                headers[header or "Authorization"] = token
             resp = requests.get(url, timeout=8, headers=headers)
             data = resp.json()
             nombre, razon, direccion = _extraer_datos_api(data)
@@ -373,6 +385,6 @@ def consultar_cedula():
         except Exception:
             resultado["mensaje"] += " (No se pudo consultar la API; solo se validó localmente.)"
     elif valido and not api:
-        resultado["mensaje"] += " — Para traer el nombre automáticamente configura una API (CEDULA_API_URL)."
+        resultado["mensaje"] += " — Para traer el nombre automáticamente configura una API en Ajustes."
 
     return jsonify(resultado)
