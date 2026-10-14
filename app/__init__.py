@@ -42,6 +42,7 @@ def create_app():
     from app.routes.transfers import transfers_bp
     from app.routes.importar import importar_bp
     from app.routes.cajas import cajas_bp
+    from app.routes.conteos import conteos_bp
 
     app.register_blueprint(main_bp)
     app.register_blueprint(auth_bp)
@@ -68,6 +69,7 @@ def create_app():
     app.register_blueprint(transfers_bp)
     app.register_blueprint(importar_bp)
     app.register_blueprint(cajas_bp)
+    app.register_blueprint(conteos_bp)
 
     # Manejo simple de errores de permisos
     @app.errorhandler(403)

@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Hoja de Conteo #{{ conteo.id }}</title>
+    <style>
+        @page { margin: 10mm; }
+        body { font-family: Arial, sans-serif; font-size: 11px; margin: 0; padding: 10mm; }
+        h2 { margin: 0 0 2px 0; }
+        .muted { color: #666; }
+        table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+        th, td { border: 1px solid #999; padding: 4px 6px; }
+        th { background: #eee; text-align: left; }
+        td.center, th.center { text-align: center; }
+        .col-contado { width: 90px; }
+        .col-dif { width: 80px; }
+        .print-btn { position: fixed; top: 10px; right: 10px; padding: 8px 16px; }
+        @media print { .print-btn { display: none; } }
+    </style>
+</head>
+<body>
+    <button class="print-btn" onclick="window.print()">🖨️ Imprimir</button>
+
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+        <div>
+            <h2>Hoja de Conteo de Inventario #{{ conteo.id }}</h2>
+            <div class="muted">{{ conteo.nombre }}</div>
+            <div class="muted">Ubicación: {{ ubicacion_label(conteo.ubicacion) }} · Fecha: {{ conteo.fecha.strftime("%d/%m/%Y") }}</div>
+        </div>
+        <div style="text-align:right;">
+            {% if company_logo_url %}<img src="{{ company_logo_url }}" style="max-height: 60px;"><br>{% endif %}
+            <strong>{{ system_name }}</strong>
+        </div>
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Código</th>
+                <th>Producto</th>
+                <th class="center">Stock sistema</th>
+                <th class="center col-contado">Contado</th>
+                <th class="center col-dif">Diferencia</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for d in detalles %}
+            <tr>
+                <td>{{ d.product.sku or ('PROD-' ~ d.product_id) }}</td>
+                <td>{{ d.product.name }}</td>
+                <td class="center">{{ d.stock_sistema }}</td>
+                <td class="center">{{ d.cantidad_contada if d.cantidad_contada is not none else "" }}</td>
+                <td class="center">{{ d.diferencia() if d.diferencia() is not none else "" }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <p class="muted" style="margin-top:10px;">Firma: ______________________   Fecha: ____________</p>
+</body>
+</html>

@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}Conteos de Inventario{% endblock %}
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <h2 class="mb-0"><i class="bi bi-clipboard-check me-2 text-primary"></i>Inventario Físico (Conteos)</h2>
+        <p class="text-muted mb-0">Cuenta el stock real y el sistema genera los ajustes automáticamente.</p>
+    </div>
+    {% if current_user.can_edit_stock() %}
+    <a href="{{ url_for('conteos.conteo_nuevo') }}" class="btn btn-primary">+ Nuevo Conteo</a>
+    {% endif %}
+</div>
+
+<div class="table-responsive">
+    <table class="table table-hover bg-white align-middle">
+        <thead class="table-dark">
+            <tr>
+                <th>#</th><th>Nombre</th><th>Ubicación</th><th>Fecha</th>
+                <th class="text-center">Productos</th><th class="text-center">Contados</th>
+                <th class="text-center">Diferencias</th><th>Estado</th><th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for c in conteos %}
+            <tr>
+                <td>{{ c.id }}</td>
+                <td><a href="{{ url_for('conteos.conteo_detalle', conteo_id=c.id) }}" class="text-decoration-none">{{ c.nombre }}</a></td>
+                <td>{{ ubicacion_label(c.ubicacion) }}</td>
+                <td>{{ c.fecha.strftime("%d/%m/%Y") }}</td>
+                <td class="text-center">{{ c.total_items() }}</td>
+                <td class="text-center">{{ c.total_contados() }}</td>
+                <td class="text-center">{% set dif = c.total_diferencias() %}{% if dif %}<span class="badge bg-warning text-dark">{{ dif }}</span>{% else %}0{% endif %}</td>
+                <td>
+                    {% if c.estado == "cerrado" %}<span class="badge bg-success">Cerrado</span>
+                    {% else %}<span class="badge bg-secondary">En proceso</span>{% endif %}
+                </td>
+                <td class="text-nowrap">
+                    <a href="{{ url_for('conteos.conteo_detalle', conteo_id=c.id) }}" class="btn btn-sm btn-outline-primary">Abrir</a>
+                    <a href="{{ url_for('conteos.conteo_imprimir', conteo_id=c.id) }}" target="_blank" class="btn btn-sm btn-outline-secondary">Imprimir</a>
+                    {% if current_user.can_edit_stock() %}
+                    <form method="POST" action="{{ url_for('conteos.conteo_eliminar', conteo_id=c.id) }}" class="d-inline" onsubmit="return confirm('¿Eliminar este conteo?');">
+                        <button class="btn btn-sm btn-outline-danger">Eliminar</button>
+                    </form>
+                    {% endif %}
+                </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="9" class="text-center text-muted py-4">No hay conteos. Crea el primero con “+ Nuevo Conteo”.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% endblock %}

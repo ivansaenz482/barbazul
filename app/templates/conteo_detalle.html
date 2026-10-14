@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block title %}Conteo #{{ conteo.id }}{% endblock %}
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-2">
+    <div>
+        <h2 class="mb-0">Conteo #{{ conteo.id }} — {{ conteo.nombre }}</h2>
+        <p class="text-muted mb-0">
+            Ubicación: <strong>{{ ubicacion_label(conteo.ubicacion) }}</strong> · Fecha: {{ conteo.fecha.strftime("%d/%m/%Y") }} ·
+            {% if conteo.estado == "cerrado" %}<span class="badge bg-success">Cerrado</span>{% else %}<span class="badge bg-secondary">En proceso</span>{% endif %}
+        </p>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="{{ url_for('conteos.conteo_imprimir', conteo_id=conteo.id) }}" target="_blank" class="btn btn-outline-secondary">🖨️ Hoja de conteo</a>
+        <a href="{{ url_for('conteos.conteos_list') }}" class="btn btn-outline-secondary">← Volver</a>
+    </div>
+</div>
+
+{% if conteo.estado == "cerrado" %}
+<div class="alert alert-success">Este conteo ya fue cerrado. Los ajustes de inventario ya se aplicaron.</div>
+{% endif %}
+
+<form method="GET" class="mb-3" style="max-width: 460px;">
+    <input type="hidden" name="x" value="1">
+    <div class="input-group">
+        <input type="text" name="q" class="form-control" placeholder="Buscar producto para contar..." value="{{ q }}">
+        <button class="btn btn-outline-secondary">Buscar</button>
+        {% if q %}<a href="{{ url_for('conteos.conteo_detalle', conteo_id=conteo.id) }}" class="btn btn-outline-secondary">✕</a>{% endif %}
+    </div>
+</form>
+
+<form method="POST" action="{{ url_for('conteos.conteo_guardar', conteo_id=conteo.id) }}" id="form-conteo">
+    <div class="table-responsive">
+        <table class="table table-sm table-hover bg-white align-middle">
+            <thead class="table-dark">
+                <tr>
+                    <th>Código</th><th>Producto</th>
+                    <th class="text-center">Stock sistema</th>
+                    <th class="text-center" style="width:140px;">Contado</th>
+                    <th class="text-center">Diferencia</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for d in detalles %}
+                <tr>
+                    <td><code>{{ d.product.sku or ('PROD-' ~ d.product_id) }}</code></td>
+                    <td>{{ d.product.name }}</td>
+                    <td class="text-center">{{ d.stock_sistema }}</td>
+                    <td class="text-center">
+                        <input type="number" min="0" name="cnt_{{ d.id }}" class="form-control form-control-sm text-center cnt-input"
+                               data-sistema="{{ d.stock_sistema }}"
+                               value="{{ d.cantidad_contada if d.cantidad_contada is not none else '' }}"
+                               {% if conteo.estado == "cerrado" %}readonly{% endif %}>
+                    </td>
+                    <td class="text-center fw-bold dif-cell"></td>
+                </tr>
+                {% else %}
+                <tr><td colspan="5" class="text-center text-muted py-4">Sin productos.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% if conteo.estado != "cerrado" %}
+    <div class="d-flex gap-2 mb-4">
+        <button type="submit" class="btn btn-primary">💾 Guardar avance</button>
+        <button type="submit" class="btn btn-success" formaction="{{ url_for('conteos.conteo_finalizar', conteo_id=conteo.id) }}"
+                onclick="return confirm('¿Finalizar el conteo? El sistema ajustará el stock según lo contado.');">
+            ✅ Guardar y finalizar (aplicar ajustes)
+        </button>
+    </div>
+    {% endif %}
+</form>
+
+<script>
+function calcularFila(inp) {
+    const sistema = parseInt(inp.getAttribute('data-sistema') || '0', 10);
+    const cell = inp.closest('tr').querySelector('.dif-cell');
+    const v = inp.value.trim();
+    if (v === '') { cell.textContent = '—'; cell.className = 'text-center dif-cell'; return; }
+    const dif = (parseInt(v, 10) || 0) - sistema;
+    if (dif === 0) { cell.textContent = '0'; cell.className = 'text-center fw-bold dif-cell text-success'; }
+    else if (dif > 0) { cell.textContent = '+' + dif; cell.className = 'text-center fw-bold dif-cell text-primary'; }
+    else { cell.textContent = dif; cell.className = 'text-center fw-bold dif-cell text-danger'; }
+}
+document.querySelectorAll('.cnt-input').forEach(function (inp) {
+    inp.addEventListener('input', function () { calcularFila(inp); });
+    calcularFila(inp);
+});
+</script>
+
+{% endblock %}

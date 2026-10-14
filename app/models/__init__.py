@@ -11,6 +11,7 @@ from app.models.audit import AuditLog
 from app.models.push import PushSubscription
 from app.models.transfers import StockTransfer, StockTransferDetail
 from app.models.cajas import CajaDia
+from app.models.conteo import ConteoInventario, ConteoDetalle
 
 __all__ = [
     "Role", "User", "Supplier", "Category", "Product", "Customer", "Branch", "BranchStock", "CompanySetting", "Seller", "CommissionPayment", "SalesGoal",
@@ -25,4 +26,5 @@ __all__ = [
     "AuditLog", "PushSubscription",
     "StockTransfer", "StockTransferDetail",
     "CajaDia",
+    "ConteoInventario", "ConteoDetalle",
 ]
