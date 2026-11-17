@@ -1,0 +1,16 @@
+# Archivos que NO se suben al desplegar con `railway up`
+.env
+.env.*
+!.env.example
+!.env.produccion
+backups/
+uploads/
+Documentos/
+*.log
+__pycache__/
+*.pyc
+venv/
+.venv/
+.git/
+instance/
+datos_iniciales.sql
