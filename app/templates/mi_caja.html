@@ -2,54 +2,250 @@
 {% block title %}Mi Caja{% endblock %}
 {% block content %}
 
-<h2 class="mb-1"><i class="bi bi-safe2 me-2 text-primary"></i>Mi Caja</h2>
-<p class="text-muted">Tu caja de hoy ({{ fecha.strftime("%d/%m/%Y") }}).</p>
+<style>
+    .mi-stat { border: 0; border-radius: .9rem; }
+    .mi-stat .card-body { padding: 1rem; }
+    .mi-stat .label { font-size: .72rem; letter-spacing: .04em; text-transform: uppercase; color: #6c757d; }
+    .mi-stat .value { font-size: 1.45rem; font-weight: 700; line-height: 1.2; }
+    .denom-item { background: #f8f9fb; border: 1px solid #edf0f4; border-radius: .6rem; padding: .5rem .55rem; height: 100%; }
+    .denom-item label { font-size: .72rem; color: #495057; font-weight: 600; line-height: 1.15; min-height: 1.7em; display: block; }
+    .denom-item input { text-align: center; font-weight: 600; }
+    .denom-sub { font-size: .7rem; color: #6c757d; text-align: center; margin-top: .15rem; }
+    .arqueo-total-box { background: #eef4ff; border: 1px solid #cfe0ff; border-radius: .7rem; padding: .65rem .9rem; }
+    @media print {
+        .no-print, nav, .navbar, footer, .sidebar, .topbar, .btn { display: none !important; }
+        body { background: #fff !important; }
+    }
+</style>
 
-<div class="row g-3" style="max-width: 900px;">
-    <div class="col-md-3">
-        <div class="card bg-white shadow-sm text-center h-100"><div class="card-body">
-            <div class="text-muted small">Apertura (fondo)</div>
-            <div class="fs-4 fw-bold">${{ "%.2f"|format(apertura) }}</div>
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+    <div>
+        <h2 class="mb-1"><i class="bi bi-safe2 me-2 text-primary"></i>Mi Caja</h2>
+        <p class="text-muted mb-0">Tu caja de hoy, {{ fecha.strftime("%d/%m/%Y") }}.
+            {% if cierre is not none %}
+                <span class="badge bg-success ms-1">Cerrada</span>
+            {% else %}
+                <span class="badge bg-secondary ms-1">Abierta</span>
+            {% endif %}
+        </p>
+    </div>
+    <div class="d-flex gap-2">
+        {% if cierre is not none %}
+        <a href="{{ url_for('cajas.caja_cierre_acta', user_id=current_user.user_id, fecha=fecha.strftime('%Y-%m-%d')) }}"
+           class="btn btn-outline-dark" target="_blank"><i class="bi bi-file-earmark-text me-1"></i>Ver acta de cierre</a>
+        {% endif %}
+        <button onclick="window.print()" class="btn btn-dark no-print"><i class="bi bi-printer me-1"></i>Imprimir</button>
+    </div>
+</div>
+
+<div class="row g-3" style="max-width: 1100px;">
+    <div class="col-6 col-lg-3">
+        <div class="card mi-stat shadow-sm h-100"><div class="card-body">
+            <div class="label">Apertura (fondo)</div>
+            <div class="value">${{ "%.2f"|format(apertura) }}</div>
+            <div class="small text-muted">Con lo que empezó el día</div>
         </div></div>
     </div>
-    <div class="col-md-3">
-        <div class="card bg-white shadow-sm text-center h-100"><div class="card-body">
-            <div class="text-muted small">Cobros en efectivo</div>
-            <div class="fs-4 fw-bold text-success">+${{ "%.2f"|format(cobros) }}</div>
+    <div class="col-6 col-lg-3">
+        <div class="card mi-stat shadow-sm h-100"><div class="card-body">
+            <div class="label">Cobros en efectivo</div>
+            <div class="value text-success">+${{ "%.2f"|format(cobros) }}</div>
+            <div class="small text-muted">{{ pagos|length }} cobro(s)</div>
         </div></div>
     </div>
-    <div class="col-md-3">
-        <div class="card bg-white shadow-sm text-center h-100"><div class="card-body">
-            <div class="text-muted small">Gastos de mi caja</div>
-            <div class="fs-4 fw-bold text-danger">-${{ "%.2f"|format(gastos) }}</div>
+    <div class="col-6 col-lg-3">
+        <div class="card mi-stat shadow-sm h-100"><div class="card-body">
+            <div class="label">Gastos de mi caja</div>
+            <div class="value text-danger">-${{ "%.2f"|format(gastos) }}</div>
+            <div class="small text-muted">{{ gastos_lista|length }} gasto(s)</div>
         </div></div>
     </div>
-    <div class="col-md-3">
-        <div class="card bg-primary text-white shadow-sm text-center h-100"><div class="card-body">
-            <div class="small opacity-75">Efectivo que debe haber</div>
-            <div class="fs-4 fw-bold">${{ "%.2f"|format(esperado) }}</div>
+    <div class="col-6 col-lg-3">
+        <div class="card mi-stat text-white shadow-sm h-100" style="background: linear-gradient(135deg,#0d6efd,#0a58ca);"><div class="card-body">
+            <div class="label text-white-50">Efectivo que debe haber</div>
+            <div class="value">${{ "%.2f"|format(esperado) }}</div>
+            <div class="small text-white-50">Apertura + cobros − gastos</div>
         </div></div>
     </div>
 </div>
 
-{% if caja and caja.monto_cierre is not none %}
-<div class="alert alert-info mt-3" style="max-width: 900px;">
-    Cierre registrado por el administrador: <strong>${{ "%.2f"|format(caja.monto_cierre) }}</strong>. Este valor arranca tu caja de mañana.
+{% if cierre is not none %}
+<div class="card shadow-sm mt-3" style="max-width: 1100px;">
+    <div class="card-body d-flex flex-wrap justify-content-between align-items-center gap-3">
+        <div>
+            <div class="text-muted small">Cierre registrado por el administrador</div>
+            <div class="fs-4 fw-bold">${{ "%.2f"|format(cierre) }}</div>
+        </div>
+        <div>
+            <div class="text-muted small">Diferencia</div>
+            {% if diferencia < -0.009 %}
+                <div class="fs-4 fw-bold text-danger">Falta ${{ "%.2f"|format(-diferencia) }}</div>
+            {% elif diferencia > 0.009 %}
+                <div class="fs-4 fw-bold text-warning">Sobra ${{ "%.2f"|format(diferencia) }}</div>
+            {% else %}
+                <div class="fs-4 fw-bold text-success">Cuadra ✔</div>
+            {% endif %}
+        </div>
+        <div class="text-muted small text-end">
+            Este valor arranca tu caja de mañana.<br>
+            {% if caja and caja.notas %}Nota: {{ caja.notas }}{% endif %}
+        </div>
+    </div>
+</div>
+
+{% if lineas_arqueo %}
+<div class="card shadow-sm mt-3" style="max-width: 1100px;">
+    <div class="card-header bg-white"><strong><i class="bi bi-calculator me-1"></i>Detalle del arqueo contado</strong></div>
+    <div class="table-responsive">
+        <table class="table table-sm mb-0">
+            <thead class="table-light"><tr><th>Denominación</th><th class="text-center">Cantidad</th><th class="text-end">Subtotal</th></tr></thead>
+            <tbody>
+                {% for l in lineas_arqueo %}
+                <tr><td>{{ l.etiqueta }}</td><td class="text-center">{{ l.cantidad }}</td><td class="text-end">${{ "%.2f"|format(l.subtotal) }}</td></tr>
+                {% endfor %}
+                <tr class="table-light fw-bold"><td colspan="2">Total contado</td><td class="text-end">${{ "%.2f"|format(total_arqueo) }}</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+{% endif %}
+
+<div class="card shadow-sm mt-3" style="max-width: 1100px;">
+    <div class="card-header bg-white d-flex flex-wrap justify-content-between align-items-center gap-2">
+        <strong><i class="bi bi-cash-stack me-1"></i>Calculadora de arqueo</strong>
+        <span class="small text-muted">Cuenta tu efectivo para comparar con lo esperado. No se guarda.</span>
+    </div>
+    <div class="card-body">
+        <div class="row row-cols-2 row-cols-sm-3 row-cols-lg-6 g-2">
+            {% for clave, valor, etiqueta, tipo in denominaciones %}
+            <div class="col">
+                <div class="denom-item">
+                    <label for="md-{{ clave }}">{{ etiqueta }}</label>
+                    <input type="number" min="0" step="1" inputmode="numeric" class="form-control form-control-sm mi-denom"
+                           id="md-{{ clave }}" data-valor="{{ valor }}" value="">
+                    <div class="denom-sub">$0.00</div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        <div class="d-flex flex-wrap gap-3 align-items-center mt-3">
+            <div class="arqueo-total-box">
+                <span class="small text-muted d-block">Total contado</span>
+                <span class="fs-4 fw-bold text-primary" id="mi-total">$0.00</span>
+            </div>
+            <div id="mi-diferencia" class="small fw-semibold"></div>
+            <button type="button" class="btn btn-link btn-sm p-0" id="mi-limpiar">Limpiar</button>
+        </div>
+    </div>
+</div>
+
+<div class="card shadow-sm mt-3" style="max-width: 1100px;">
+    <div class="card-header bg-white"><strong><i class="bi bi-receipt me-1"></i>Cobros en efectivo de hoy</strong></div>
+    <div class="table-responsive">
+        <table class="table table-sm mb-0">
+            <thead class="table-light">
+                <tr><th>Hora</th><th>Venta</th><th>Cliente</th><th>Comprobante</th><th class="text-end">Monto</th></tr>
+            </thead>
+            <tbody>
+                {% for p in pagos %}
+                <tr>
+                    <td>{{ p.payment_date.strftime("%H:%M") }}</td>
+                    <td>#{{ p.sale_id }}</td>
+                    <td>{{ p.sale.customer.full_name if p.sale and p.sale.customer else "—" }}</td>
+                    <td>{{ p.receipt_number or "—" }}</td>
+                    <td class="text-end">${{ "%.2f"|format(p.amount) }}</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="5" class="text-muted text-center py-3">No hay cobros en efectivo registrados hoy.</td></tr>
+                {% endfor %}
+            </tbody>
+            {% if pagos %}
+            <tfoot class="table-light fw-bold"><tr><td colspan="4">Total efectivo</td><td class="text-end">${{ "%.2f"|format(cobros) }}</td></tr></tfoot>
+            {% endif %}
+        </table>
+    </div>
+</div>
+
+{% if por_metodo %}
+<div class="card shadow-sm mt-3" style="max-width: 1100px;">
+    <div class="card-header bg-white"><strong><i class="bi bi-credit-card me-1"></i>Otros cobros del día (no efectivo)</strong></div>
+    <div class="table-responsive">
+        <table class="table table-sm mb-0">
+            <thead class="table-light"><tr><th>Método</th><th class="text-end">Total</th></tr></thead>
+            <tbody>
+                {% for metodo, monto in por_metodo.items() %}
+                <tr>
+                    <td>{{ {'efectivo':'Efectivo','tarjeta':'Tarjeta','transferencia':'Transferencia','cheque':'Cheque','otro':'Otro'}.get(metodo, metodo|capitalize) }}</td>
+                    <td class="text-end">${{ "%.2f"|format(monto) }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
 </div>
 {% endif %}
 
 {% if gastos_lista %}
-<h5 class="mt-4">Gastos cargados a mi caja</h5>
-<div class="table-responsive" style="max-width: 900px;">
-    <table class="table table-sm bg-white">
-        <thead class="table-light"><tr><th>Fecha</th><th>Categoría</th><th>Descripción</th><th class="text-end">Monto</th></tr></thead>
-        <tbody>
-            {% for g in gastos_lista %}
-            <tr><td>{{ g.expense_date.strftime("%d/%m/%Y") }}</td><td>{{ g.category_label() }}</td><td>{{ g.description or "" }}</td><td class="text-end">${{ "%.2f"|format(g.amount) }}</td></tr>
-            {% endfor %}
-        </tbody>
-    </table>
+<div class="card shadow-sm mt-3" style="max-width: 1100px;">
+    <div class="card-header bg-white"><strong><i class="bi bi-bag-dash me-1"></i>Gastos cargados a mi caja</strong></div>
+    <div class="table-responsive">
+        <table class="table table-sm mb-0">
+            <thead class="table-light"><tr><th>Fecha</th><th>Categoría</th><th>Descripción</th><th class="text-end">Monto</th></tr></thead>
+            <tbody>
+                {% for g in gastos_lista %}
+                <tr><td>{{ g.expense_date.strftime("%d/%m/%Y") }}</td><td>{{ g.category_label() }}</td><td>{{ g.description or "" }}</td><td class="text-end">${{ "%.2f"|format(g.amount) }}</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
 </div>
 {% endif %}
+
+<script>
+(function () {
+    function fmt(n) {
+        return n.toLocaleString('es-EC', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+    var inputs = document.querySelectorAll('.mi-denom');
+    var totalEl = document.getElementById('mi-total');
+    var difEl = document.getElementById('mi-diferencia');
+    var esperado = {{ '%.2f'|format(esperado) }};
+
+    function recalc() {
+        var total = 0;
+        inputs.forEach(function (inp) {
+            var q = parseInt(inp.value || '0', 10);
+            if (isNaN(q) || q < 0) { q = 0; }
+            var v = parseFloat(inp.dataset.valor) || 0;
+            total += q * v;
+            var sub = inp.closest('.denom-item').querySelector('.denom-sub');
+            if (sub) { sub.textContent = '$' + fmt(q * v); }
+        });
+        total = Math.round(total * 100) / 100;
+        totalEl.textContent = '$' + fmt(total);
+        var dif = Math.round((total - esperado) * 100) / 100;
+        if (total <= 0) {
+            difEl.textContent = '';
+        } else if (Math.abs(dif) < 0.01) {
+            difEl.className = 'small fw-semibold text-success';
+            difEl.textContent = '✔ Tu conteo cuadra con lo esperado';
+        } else if (dif < 0) {
+            difEl.className = 'small fw-semibold text-danger';
+            difEl.textContent = 'Te falta $' + fmt(-dif) + ' para llegar a lo esperado';
+        } else {
+            difEl.className = 'small fw-semibold text-warning';
+            difEl.textContent = 'Tienes $' + fmt(dif) + ' de más sobre lo esperado';
+        }
+    }
+
+    inputs.forEach(function (inp) { inp.addEventListener('input', recalc); });
+    document.getElementById('mi-limpiar').addEventListener('click', function () {
+        inputs.forEach(function (inp) { inp.value = ''; });
+        recalc();
+    });
+    recalc();
+})();
+</script>
 
 {% endblock %}

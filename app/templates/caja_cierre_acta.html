@@ -1,0 +1,154 @@
+{% extends "base.html" %}
+{% block title %}Acta de Cierre de Caja{% endblock %}
+{% block content %}
+
+<style>
+    .acta { max-width: 900px; margin: 0 auto; }
+    .acta h1 { font-size: 1.35rem; letter-spacing: .05em; }
+    .acta table th, .acta table td { padding: .4rem .55rem; }
+    .acta .firma { border-top: 1px solid #333; margin-top: 3.5rem; padding-top: .35rem; text-align: center; font-size: .85rem; }
+    @media print {
+        .no-print, nav, .navbar, footer, .sidebar, .topbar, .btn { display: none !important; }
+        body { background: #fff !important; }
+        .card { border: 0 !important; box-shadow: none !important; }
+        .acta { max-width: 100%; }
+        @page { margin: 14mm; }
+    }
+</style>
+
+<div class="d-flex justify-content-between align-items-center mb-3 no-print">
+    <a href="{{ url_for('cajas.cajas_list', fecha=fecha.strftime('%Y-%m-%d')) }}" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left me-1"></i>Volver
+    </a>
+    <button onclick="window.print()" class="btn btn-dark"><i class="bi bi-printer me-1"></i>Imprimir acta</button>
+</div>
+
+<div class="acta bg-white p-4 rounded-3 shadow-sm">
+    <div class="d-flex justify-content-between align-items-start border-bottom pb-3 mb-3">
+        <div class="d-flex align-items-center gap-3">
+            {% if company_logo_url %}
+            <img src="{{ company_logo_url }}" alt="Logo" style="max-height: 64px; max-width: 120px;">
+            {% endif %}
+            <div>
+                <div class="fw-bold fs-5">{{ system_name }}</div>
+                <div class="text-muted small">Control de caja y arqueo</div>
+            </div>
+        </div>
+        <div class="text-end small text-muted">
+            Generado: {{ generated_at }}<br>
+            Por: {{ current_user.full_name }}
+        </div>
+    </div>
+
+    <h1 class="text-center mb-1">ACTA DE CIERRE DE CAJA</h1>
+    <p class="text-center text-muted mb-4">Documento de control interno</p>
+
+    <div class="row g-2 small mb-3">
+        <div class="col-6"><strong>Cajero / responsable:</strong> {{ user.full_name }}</div>
+        <div class="col-6"><strong>Punto / caja:</strong> {{ caja.punto or "—" }}</div>
+        <div class="col-6"><strong>Fecha:</strong> {{ fecha.strftime("%d/%m/%Y") }}</div>
+        <div class="col-6"><strong>Hora de cierre:</strong> {{ caja.cerrado_at.strftime("%H:%M") if caja.cerrado_at else "—" }}</div>
+    </div>
+
+    <table class="table table-bordered align-middle mb-4">
+        <tbody>
+            <tr><td>Apertura / fondo inicial</td><td class="text-end">${{ "%.2f"|format(apertura) }}</td></tr>
+            <tr><td>(+) Cobros en efectivo del día</td><td class="text-end">${{ "%.2f"|format(cobros) }}</td></tr>
+            <tr><td>(−) Gastos pagados de esta caja</td><td class="text-end">${{ "%.2f"|format(gastos) }}</td></tr>
+            <tr class="table-light fw-bold"><td>Efectivo esperado</td><td class="text-end">${{ "%.2f"|format(esperado) }}</td></tr>
+            <tr class="fw-bold"><td>Efectivo contado (arqueo)</td><td class="text-end">${{ "%.2f"|format(cierre) }}</td></tr>
+            <tr class="{{ 'table-danger' if diferencia < -0.009 else ('table-warning' if diferencia > 0.009 else 'table-success') }} fw-bold">
+                <td>Diferencia (contado − esperado)</td>
+                <td class="text-end">
+                    {% if diferencia < -0.009 %}Falta ${{ "%.2f"|format(-diferencia) }}
+                    {% elif diferencia > 0.009 %}Sobra ${{ "%.2f"|format(diferencia) }}
+                    {% else %}Cuadra ✔{% endif %}
+                </td>
+            </tr>
+        </tbody>
+    </table>
+
+    {% if lineas_arqueo %}
+    <h6 class="fw-bold">Detalle del arqueo</h6>
+    <table class="table table-sm table-bordered mb-4">
+        <thead class="table-light">
+            <tr><th>Denominación</th><th class="text-center">Cantidad</th><th class="text-end">Subtotal</th></tr>
+        </thead>
+        <tbody>
+            {% for l in lineas_arqueo %}
+            <tr><td>{{ l.etiqueta }}</td><td class="text-center">{{ l.cantidad }}</td><td class="text-end">${{ "%.2f"|format(l.subtotal) }}</td></tr>
+            {% endfor %}
+        </tbody>
+        <tfoot class="table-light fw-bold">
+            <tr><td colspan="2">Total contado</td><td class="text-end">${{ "%.2f"|format(total_arqueo) }}</td></tr>
+        </tfoot>
+    </table>
+    {% endif %}
+
+    <h6 class="fw-bold">Cobros en efectivo</h6>
+    <table class="table table-sm table-bordered mb-4">
+        <thead class="table-light">
+            <tr><th>Hora</th><th>Venta</th><th>Cliente</th><th>Comprobante</th><th class="text-end">Monto</th></tr>
+        </thead>
+        <tbody>
+            {% for p in pagos %}
+            <tr>
+                <td>{{ p.payment_date.strftime("%H:%M") }}</td>
+                <td>#{{ p.sale_id }}</td>
+                <td>{{ p.sale.customer.full_name if p.sale and p.sale.customer else "—" }}</td>
+                <td>{{ p.receipt_number or "—" }}</td>
+                <td class="text-end">${{ "%.2f"|format(p.amount) }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="5" class="text-muted text-center">Sin cobros en efectivo.</td></tr>
+            {% endfor %}
+        </tbody>
+        {% if pagos %}
+        <tfoot class="table-light fw-bold"><tr><td colspan="4">Total</td><td class="text-end">${{ "%.2f"|format(cobros) }}</td></tr></tfoot>
+        {% endif %}
+    </table>
+
+    {% if por_metodo %}
+    <h6 class="fw-bold">Resumen por método de pago</h6>
+    <table class="table table-sm table-bordered mb-4">
+        <thead class="table-light"><tr><th>Método</th><th class="text-end">Total</th></tr></thead>
+        <tbody>
+            {% for metodo, monto in por_metodo.items() %}
+            <tr>
+                <td>{{ {'efectivo':'Efectivo','tarjeta':'Tarjeta','transferencia':'Transferencia','cheque':'Cheque','otro':'Otro'}.get(metodo, metodo|capitalize) }}</td>
+                <td class="text-end">${{ "%.2f"|format(monto) }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+
+    {% if gastos_lista %}
+    <h6 class="fw-bold">Gastos pagados de esta caja</h6>
+    <table class="table table-sm table-bordered mb-4">
+        <thead class="table-light"><tr><th>Categoría</th><th>Descripción</th><th class="text-end">Monto</th></tr></thead>
+        <tbody>
+            {% for g in gastos_lista %}
+            <tr><td>{{ g.category_label() }}</td><td>{{ g.description or "—" }}</td><td class="text-end">${{ "%.2f"|format(g.amount) }}</td></tr>
+            {% endfor %}
+        </tbody>
+        <tfoot class="table-light fw-bold"><tr><td colspan="2">Total gastos</td><td class="text-end">${{ "%.2f"|format(gastos) }}</td></tr></tfoot>
+    </table>
+    {% endif %}
+
+    <div class="mt-3">
+        <strong>Observaciones / justificación:</strong>
+        <div class="border rounded p-2 mt-1" style="min-height: 3rem;">{{ caja.notas or "Sin observaciones." }}</div>
+    </div>
+
+    <div class="row mt-5">
+        <div class="col-6">
+            <div class="firma">Firma del cajero<br>{{ user.full_name }}</div>
+        </div>
+        <div class="col-6">
+            <div class="firma">Firma del administrador / revisor</div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

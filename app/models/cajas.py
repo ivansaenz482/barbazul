@@ -13,10 +13,16 @@ class CajaDia(db.Model):
     punto = db.Column(db.String(60))  # nombre del punto de caja (opcional)
     monto_apertura = db.Column(db.Numeric(12, 2), default=0)
     monto_cierre = db.Column(db.Numeric(12, 2))
+    # Detalle del arqueo por denominaciones, guardado como JSON:
+    # {"100": 2, "50": 1, "050": 4, ...}
+    detalle_arqueo = db.Column(db.Text)
     notas = db.Column(db.String(255))
     registrado_por = db.Column(db.Integer, db.ForeignKey("users.user_id"))
+    cerrado_por = db.Column(db.Integer, db.ForeignKey("users.user_id"))
+    cerrado_at = db.Column(db.DateTime)
     created_at = db.Column(db.DateTime, default=datetime.now)
 
     user = db.relationship("User", foreign_keys=[user_id])
+    cierra = db.relationship("User", foreign_keys=[cerrado_por])
 
     __table_args__ = (db.UniqueConstraint("user_id", "fecha", name="uq_caja_user_fecha"),)

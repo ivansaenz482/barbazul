@@ -4,7 +4,7 @@
     "builder": "NIXPACKS"
   },
   "deploy": {
-    "startCommand": "gunicorn wsgi:app --bind 0.0.0.0:$PORT --workers 3 --threads 4 --timeout 120",
+    "startCommand": "python migrar_arqueo_caja.py && gunicorn wsgi:app --bind 0.0.0.0:$PORT --workers 3 --threads 4 --timeout 120",
     "healthcheckPath": "/login",
     "healthcheckTimeout": 120,
     "restartPolicyType": "ON_FAILURE",
